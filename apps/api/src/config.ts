@@ -18,4 +18,5 @@ export const config = {
   jwtSecret: isProd ? required('JWT_SECRET') : (process.env.JWT_SECRET ?? 'dev-secret-change-me'),
   port: Number(process.env.PORT ?? 4000),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  webDist: process.env.WEB_DIST ?? '',
 };

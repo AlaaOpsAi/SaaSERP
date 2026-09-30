@@ -6,3 +6,4 @@ coverage/
 .DS_Store
 # Customer workbooks can contain personal data: never commit them.
 *.xlsx
+*.tsbuildinfo

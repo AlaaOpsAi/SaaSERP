@@ -251,7 +251,9 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
   const locName = text(row[C.loc]);
   const hall = text(row[C.hall]);
   const venueId = locName ? await r.venue(locName) : null;
-  const spaceId = venueId && hall ? await r.space(venueId, locName!, hall) : null;
+  // Only real holds get a room on the diary; lost enquiries keep the free-text hall.
+  const holdsSpace = status === 'TEN' || status === 'DEF' || status === 'ACT';
+  const spaceId = venueId && hall && holdsSpace ? await r.space(venueId, locName!, hall) : null;
   const phone = text(row[C.phone]);
   const contactId = await r.contact({
     name: text(row[C.clientName]),

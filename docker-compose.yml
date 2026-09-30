@@ -1,0 +1,28 @@
+# Local stack: Postgres + the app on http://localhost:4000
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: saaserp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgres://saaserp_app:saaserp_app@db:5432/saaserp
+      MIGRATION_DATABASE_URL: postgres://saaserp_owner:saaserp_owner@db:5432/saaserp
+      JWT_SECRET: change-me-in-production
+      CORS_ORIGIN: http://localhost:4000
+    ports: ["4000:4000"]
+volumes:
+  pgdata:

@@ -2,13 +2,16 @@
  * Applies migrations/*.sql in order as the table-owner role, then grants the
  * runtime role DML rights (it stays subject to row-level security).
  */
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { config } from '../src/config.js';
 
-const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+// scripts/ when run with tsx, dist/scripts/ when compiled.
+const here = dirname(fileURLToPath(import.meta.url));
+const dir = [join(here, '..', 'migrations'), join(here, '..', '..', 'migrations')].find((d) => existsSync(d))!;
 
 export async function migrate(url = config.migrationDatabaseUrl, appRole = config.appDbRole) {
   const client = new pg.Client({ connectionString: url });
