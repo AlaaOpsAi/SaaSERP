@@ -14,6 +14,7 @@ import { bookingRoutes } from './routes/bookings.js';
 import { crmRoutes } from './routes/crm.js';
 import { diaryRoutes } from './routes/diary.js';
 import { importRoutes } from './routes/import.js';
+import { platformRoutes } from './routes/platform.js';
 import { reportRoutes } from './routes/reports.js';
 import { settingsRoutes } from './routes/settings.js';
 
@@ -61,6 +62,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
       await api.register(diaryRoutes);
       await api.register(reportRoutes);
       await api.register(importRoutes);
+      await api.register(platformRoutes);
     },
     { prefix: '/api' },
   );

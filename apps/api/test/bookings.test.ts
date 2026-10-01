@@ -159,8 +159,22 @@ describe('activities and reports', () => {
     expect(dash.kpis.revenue).toBe(1000);
     expect(dash.kpis.conversion_rate).toBeCloseTo(1 / 3);
     expect(dash.kpis.win_rate).toBe(0.5);
-    expect(dash.lost_reasons).toEqual([{ reason: 'Price too high', total: 1 }]);
+    expect(dash.lost_reasons).toEqual([{ code: 'PRICE', reason: 'Price too high', total: 1 }]);
+    expect(dash.by_status.map((s: any) => [s.status, s.total])).toEqual(
+      [['INQ', 1], ['TEN', 0], ['DEF', 1], ['ACT', 0], ['LOS', 1], ['CXL', 0]]);
+    expect(dash.top_deals[0]).toMatchObject({ name: 'Won', revenue: 1000 });
+    expect((await c.get('/bookings?status=LOS&lost_reason=PRICE')).body.rows).toHaveLength(1);
     expect(dash.by_month[8].total).toBe(3);
+
+    // Last year's figures come back alongside for comparison, and the AM filter scopes everything.
+    await c.post('/bookings', { name: 'Last year', status: 'DEF', event_date: '2025-09-10', manual_revenue: 400 });
+    const cmp = (await c.get('/reports/dashboard?year=2026')).body;
+    expect(cmp.previous.revenue).toBe(400);
+    expect(cmp.by_month[8]).toMatchObject({ revenue: 1000, prev_revenue: 400 });
+    const me = (await c.get('/auth/me')).body;
+    const other = (await c.post('/users', { name: 'Other AM', code: 'OAM', is_active: false })).body;
+    expect((await c.get(`/reports/dashboard?year=2026&owner_id=${me.id}`)).body.kpis.total).toBe(3);
+    expect((await c.get(`/reports/dashboard?year=2026&owner_id=${other.id}`)).body.kpis.total).toBe(0);
 
     const xlsx = await app.inject({ method: 'GET', url: '/api/reports/contracts.xlsx?year=2026', headers: { authorization: `Bearer ${c.token}` } });
     expect(xlsx.statusCode).toBe(200);

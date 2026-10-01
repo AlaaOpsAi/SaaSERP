@@ -19,4 +19,8 @@ export const config = {
   port: Number(process.env.PORT ?? 4000),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
   webDist: process.env.WEB_DIST ?? '',
+  // When false (the default), new workspaces wait for a platform operator.
+  autoApproveSignups: process.env.AUTO_APPROVE_SIGNUPS === 'true',
+  // Optional incoming-webhook URL (Slack, Teams, Zapier...) pinged on every sign-up.
+  signupWebhookUrl: process.env.SIGNUP_WEBHOOK_URL ?? '',
 };

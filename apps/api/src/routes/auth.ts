@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { authed, tx } from '../auth.js';
+import { config } from '../config.js';
 import { withTenant, withoutTenant } from '../db.js';
 import { seedTenantDefaults } from '../lib/defaults.js';
 import { badRequest, conflict, HttpError } from '../lib/errors.js';
@@ -15,6 +16,8 @@ const signupSchema = z.object({
   password: z.string().min(8).max(200),
   business_unit_code: z.string().trim().toUpperCase().regex(/^[A-Z]{1,4}$/).optional(),
   currency: z.string().length(3).toUpperCase().optional(),
+  phone: z.string().trim().max(40).optional(),
+  note: z.string().trim().max(1000).optional(),
 });
 
 const loginSchema = z.object({
@@ -22,6 +25,25 @@ const loginSchema = z.object({
   password: z.string().min(1),
   workspace: z.string().trim().toLowerCase().optional(),
 });
+
+const INACTIVE_MESSAGES: Record<string, string> = {
+  pending: 'Your workspace is waiting for approval. We will let you know as soon as it is activated.',
+  rejected: 'Your workspace request was not approved.',
+  suspended: 'This workspace has been suspended. Please contact support.',
+};
+
+/** Tell the platform operator about a new sign-up (Slack/Teams/Zapier-style incoming webhook). */
+function notifySignup(body: z.infer<typeof signupSchema>) {
+  if (!config.signupWebhookUrl) return;
+  const text = `New workspace waiting for approval: ${body.company_name} (${body.slug}) — ${body.name} <${body.email}>`
+    + (body.phone ? `, ${body.phone}` : '') + (body.note ? `\n> ${body.note}` : '');
+  fetch(config.signupWebhookUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
+}
 
 function initials(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
@@ -43,8 +65,10 @@ export async function authRoutes(app: FastifyInstance) {
       body.business_unit_code || body.company_name.replace(/[^A-Za-z]/g, '').slice(0, 1).toUpperCase() || 'A';
     const user = await withTenant(tenantId, async (db) => {
       await db.query(
-        `INSERT INTO tenants (id, slug, name, currency) VALUES ($1, $2, $3, $4)`,
-        [tenantId, body.slug, body.company_name, body.currency ?? 'KWD'],
+        `INSERT INTO tenants (id, slug, name, currency, status, contact_phone, signup_note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [tenantId, body.slug, body.company_name, body.currency ?? 'KWD',
+         config.autoApproveSignups ? 'active' : 'pending', body.phone ?? null, body.note ?? null],
       );
       await db.query(
         `INSERT INTO business_units (tenant_id, code, name) VALUES (current_tenant_id(), $1, $2)`,
@@ -60,15 +84,20 @@ export async function authRoutes(app: FastifyInstance) {
       return rows[0] as { id: string; role: 'owner' };
     });
 
+    if (!config.autoApproveSignups) {
+      notifySignup(body);
+      return { status: 'pending' as const, workspace: body.slug };
+    }
     const token = app.jwt.sign({ sub: user.id, tid: tenantId, role: user.role }, { expiresIn: '12h' });
-    return { token };
+    return { status: 'active' as const, workspace: body.slug, token };
   });
 
   app.post('/auth/login', async (req) => {
     const body = loginSchema.parse(req.body);
     const matches = await withoutTenant(async (db) => {
       const { rows } = await db.query('SELECT * FROM auth_find_users($1)', [body.email]);
-      return rows as { user_id: string; tenant_id: string; tenant_slug: string; tenant_name: string; password_hash: string | null; is_active: boolean }[];
+      return rows as { user_id: string; tenant_id: string; tenant_slug: string; tenant_name: string;
+                       password_hash: string | null; is_active: boolean; tenant_status: string; status_reason: string | null }[];
     });
 
     let candidates = matches.filter((m) => m.is_active);
@@ -86,6 +115,12 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const match = verified[0];
+    if (match.tenant_status !== 'active') {
+      throw new HttpError(403, INACTIVE_MESSAGES[match.tenant_status] ?? 'This workspace is not active', {
+        tenant_status: match.tenant_status,
+        reason: match.tenant_status === 'pending' ? null : match.status_reason,
+      });
+    }
     const role = await withTenant(match.tenant_id, async (db) => {
       const { rows } = await db.query(
         'UPDATE users SET last_login_at = now() WHERE id = $1 RETURNING role',

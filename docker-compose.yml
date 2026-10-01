@@ -24,6 +24,10 @@ services:
       # Set JWT_SECRET in a .env file next to this one (see README).
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       CORS_ORIGIN: http://localhost:4000
+      # New workspaces wait for approval at /platform. Set to "true" to skip review.
+      AUTO_APPROVE_SIGNUPS: ${AUTO_APPROVE_SIGNUPS:-false}
+      # Optional Slack/Teams/Zapier incoming-webhook URL pinged on every new sign-up.
+      SIGNUP_WEBHOOK_URL: ${SIGNUP_WEBHOOK_URL:-}
     ports: ["${APP_PORT:-4000}:4000"]
     restart: unless-stopped
 volumes:

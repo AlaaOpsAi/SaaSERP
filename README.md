@@ -12,9 +12,10 @@ Oracle OPERA Cloud Sales & Event Management and on the team's existing *daily re
 | **Money** | Client payments, outstanding balance and aging; commission and partner shares with paid/unpaid tracking. |
 | **Activities** | Meetings, calls, follow-ups and site visits; they keep each booking's last/next follow-up dates up to date. |
 | **CRM** | Contacts and companies with booking history. |
-| **Dashboard** | Conversion, win rate, revenue, margin, pipeline, lead sources, lost reasons, AM performance, next 30 days. |
+| **Dashboard** | Year / business unit / account-manager filters; KPIs with change vs last year and sparklines; monthly revenue, margin, profit or bookings vs last year (chart or table); pipeline by stage, lead sources, lost reasons, team leaderboard, top deals and upcoming events. Every chart drills down into the matching bookings. |
 | **Excel** | Import the daily-report workbook (idempotent) and export a `CONTRACTS`-style sheet. |
-| **SaaS** | Self-service workspace sign-up, roles (owner/admin/manager/sales/finance/viewer), plan user limits, per-tenant currency, time zone and profit percentages. |
+| **Approvals** | New companies request a workspace; a platform operator approves (choosing plan and user limit), rejects with a reason, suspends or reactivates it in the operator console at `/platform`. Optional Slack/Teams webhook on each sign-up. |
+| **SaaS** | Self-service workspace requests, roles (owner/admin/manager/sales/finance/viewer), plan user limits, per-tenant currency, time zone and profit percentages. |
 
 ## Quick start (local)
 
@@ -25,7 +26,7 @@ npm install
 sudo -u postgres apps/api/scripts/setup-db.sh saaserp     # roles + database
 cp apps/api/.env.example apps/api/.env
 npm run db:migrate
-npm run db:seed          # demo workspace: owner@demo.test / demo12345
+npm run db:seed          # demo workspace owner@demo.test / demo12345, operator admin@platform.test / platform12345
 npm run dev:api          # http://localhost:4000
 npm run dev:web          # http://localhost:5173  (proxies /api)
 ```
@@ -46,6 +47,8 @@ docker compose up -d --build        # first build takes a few minutes
 open http://localhost:4000          # create your workspace, then Settings → Import from Excel
 ```
 
+- Create your operator account, then sign in at http://localhost:4000/platform to approve workspaces:
+  `docker compose exec app node apps/api/dist/scripts/create-platform-admin.js you@company.com 'a-long-password' "Your Name"`
 - Port 4000 busy? Add `APP_PORT=8080` to `.env` and open http://localhost:8080.
 - Logs: `docker compose logs -f app`
 - Stop: `docker compose down`. Your data stays in the `pgdata` volume.
@@ -70,4 +73,5 @@ the status workflow, diary conflicts, roles and plan limits, reports and the wor
 
 - [Architecture](docs/ARCHITECTURE.md): stack, multi-tenancy, data model, API.
 - [Workbook mapping](docs/EXCEL-MAPPING.md): how every column of the daily report maps into the system.
+- [Workspace approval](docs/APPROVALS.md): the sign-up review workflow and operator console.
 - [Roadmap](docs/ROADMAP.md): OPERA S&E capabilities still to build.

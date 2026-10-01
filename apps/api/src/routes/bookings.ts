@@ -73,6 +73,7 @@ const listQuery = z.object({
   owner_id: z.string().uuid().optional(),
   source: z.string().optional(),
   event_type: z.string().optional(),
+  lost_reason: z.string().optional(),
   venue_id: z.string().uuid().optional(),
   business_unit_id: z.string().uuid().optional(),
   q: z.string().trim().optional(),
@@ -229,6 +230,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       if (q.owner_id) where.push(`b.owner_id = ${p(q.owner_id)}`);
       if (q.source) where.push(`b.source = ${p(q.source)}`);
       if (q.event_type) where.push(`b.event_type = ${p(q.event_type)}`);
+      if (q.lost_reason) where.push(`b.lost_reason = ${p(q.lost_reason)}`);
       if (q.venue_id) where.push(`b.venue_id = ${p(q.venue_id)}`);
       if (q.business_unit_id) where.push(`b.business_unit_id = ${p(q.business_unit_id)}`);
       if (q.from) where.push(`b.event_date >= ${p(q.from)}`);

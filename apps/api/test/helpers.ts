@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { createPlatformAdmin } from '../scripts/create-platform-admin.js';
 import { buildApp } from '../src/app.js';
 
 export async function makeApp() {
@@ -33,10 +34,23 @@ export function client(app: FastifyInstance, token: string): Client {
   } as Client;
 }
 
-/** Sign up a fresh workspace and return an owner client. */
-export async function newTenant(app: FastifyInstance, overrides: Record<string, unknown> = {}) {
+export const PLATFORM_ADMIN = { email: 'ops@platform.test', password: 'platform-secret-1' };
+let platformToken: string | null = null;
+
+/** A signed-in platform operator (created on first use). */
+export async function platform(app: FastifyInstance): Promise<Client> {
+  if (!platformToken) {
+    await createPlatformAdmin(PLATFORM_ADMIN.email, PLATFORM_ADMIN.password, 'Ops', process.env.MIGRATION_DATABASE_URL);
+    const res = await app.inject({ method: 'POST', url: '/api/platform/login', payload: PLATFORM_ADMIN });
+    platformToken = res.json().token;
+  }
+  return client(app, platformToken!);
+}
+
+/** Sign up a workspace; it stays pending until an operator approves it. */
+export async function signup(app: FastifyInstance, overrides: Record<string, unknown> = {}) {
   const suffix = randomUUID().slice(0, 8);
-  const payload = {
+  const payload: Record<string, unknown> & { slug: string; email: string } = {
     company_name: `Co ${suffix}`,
     slug: `co-${suffix}`,
     name: 'Owner Person',
@@ -47,7 +61,24 @@ export async function newTenant(app: FastifyInstance, overrides: Record<string, 
   };
   const res = await app.inject({ method: 'POST', url: '/api/auth/signup', payload });
   if (res.statusCode !== 200) throw new Error(res.body);
-  return { ...client(app, res.json().token), slug: payload.slug, email: payload.email };
+  return { body: res.json(), ...payload };
+}
+
+export async function login(app: FastifyInstance, email: string, password = 'password123', workspace?: string) {
+  return app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, password, workspace } });
+}
+
+/** Sign up, approve as the operator, sign in, and return an owner client. */
+export async function newTenant(app: FastifyInstance, overrides: Record<string, unknown> = {}) {
+  const s = await signup(app, overrides);
+  const ops = await platform(app);
+  const { tenants } = (await ops.get('/platform/tenants')).body;
+  const tenant = tenants.find((t: { slug: string }) => t.slug === s.slug);
+  const approved = await ops.post(`/platform/tenants/${tenant.id}/approve`, {});
+  if (approved.status !== 200) throw new Error(JSON.stringify(approved.body));
+  const res = await login(app, s.email, s.password as string, s.slug);
+  if (res.statusCode !== 200) throw new Error(res.body);
+  return { ...client(app, res.json().token), slug: s.slug, email: s.email, tenantId: tenant.id as string };
 }
 
 /** A venue with one exclusive room and one shareable location. */

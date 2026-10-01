@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Diary } from './pages/Diary';
 import { Finance } from './pages/Finance';
 import { Login, Signup } from './pages/Auth';
+import { PlatformConsole, PlatformLogin } from './pages/Platform';
 import { Settings } from './pages/Settings';
 
 const NAV = [
@@ -27,6 +28,15 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
 
+  // The operator console has its own login and never uses a workspace session.
+  if (location.pathname.startsWith('/platform')) {
+    return (
+      <Routes>
+        <Route path="/platform/login" element={<PlatformLogin />} />
+        <Route path="/platform/*" element={<PlatformConsole />} />
+      </Routes>
+    );
+  }
   if (loading) return <div className="empty">Loading…</div>;
   if (!me) {
     return (

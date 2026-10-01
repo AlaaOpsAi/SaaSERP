@@ -11,7 +11,8 @@
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
     "import:xlsx": "tsx scripts/import-xlsx.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "platform:admin": "tsx scripts/create-platform-admin.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

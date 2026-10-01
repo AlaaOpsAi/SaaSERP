@@ -5,7 +5,7 @@ import { api, download, type Booking, type Conflict } from '../api';
 import { useAuth } from '../auth';
 import { BookingForm, bookingPayload, type BookingFormValues } from '../components/BookingForm';
 import { ErrorNote, Modal, StatusBadge } from '../components/ui';
-import { date, money, num, STATUS_LABEL } from '../format';
+import { date, money, MONTHS, num, STATUS_LABEL } from '../format';
 import { useLabel, useLookups, useSave, useUsers } from '../hooks';
 
 export function Bookings() {
@@ -74,6 +74,23 @@ export function Bookings() {
         </select>
         <label className="check"><input type="checkbox" checked={filter('followup_due') === 'true'} onChange={(e) => setFilter('followup_due', e.target.checked ? 'true' : '')} />Follow-up due</label>
       </div>
+
+      {(() => {
+        const lostLabel = lookups?.lost_reason?.find((l) => l.code === filter('lost_reason'))?.label ?? filter('lost_reason');
+        const chips = [
+          filter('month') && ['month', `Month: ${MONTHS[Number(filter('month')) - 1]}`],
+          filter('lost_reason') && ['lost_reason', `Lost reason: ${lostLabel}`],
+          filter('event_type') && ['event_type', `Event type: ${eventLabel(filter('event_type'))}`],
+          filter('business_unit_id') && ['business_unit_id', 'One business unit'],
+        ].filter(Boolean) as [string, string][];
+        return chips.length > 0 && (
+          <div className="row" style={{ marginBottom: 12 }}>
+            {chips.map(([key, label]) => (
+              <button key={key} className="sm chip" onClick={() => setFilter(key, '')} aria-label={`Remove filter ${label}`}>{label} ✕</button>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="card flush">
         <div className="table-wrap">

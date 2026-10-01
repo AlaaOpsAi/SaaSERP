@@ -1,21 +1,30 @@
 const TOKEN_KEY = 'saaserp.token';
+const PLATFORM_KEY = 'saaserp.platform';
+const memory: Record<string, string | null> = {};
 
-export function getToken(): string | null {
+function read(key: string): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(key);
   } catch {
-    return null;
+    return memory[key] ?? null;
   }
 }
 
-export function setToken(token: string | null) {
+function write(key: string, token: string | null) {
+  memory[key] = token;
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    if (token) localStorage.setItem(key, token);
+    else localStorage.removeItem(key);
   } catch {
     /* storage unavailable: session lasts until reload */
   }
 }
+
+export const getToken = () => read(TOKEN_KEY);
+export const setToken = (t: string | null) => write(TOKEN_KEY, t);
+/** Platform-operator session, kept apart from any workspace session. */
+export const getPlatformToken = () => read(PLATFORM_KEY);
+export const setPlatformToken = (t: string | null) => write(PLATFORM_KEY, t);
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: any) {
@@ -23,9 +32,12 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T = any>(path: string, init: { method?: string; body?: unknown; form?: FormData } = {}): Promise<T> {
+export async function api<T = any>(
+  path: string,
+  init: { method?: string; body?: unknown; form?: FormData; platform?: boolean } = {},
+): Promise<T> {
   const headers: Record<string, string> = {};
-  const token = getToken();
+  const token = init.platform ? getPlatformToken() : getToken();
   if (token) headers.authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;
   if (init.form) body = init.form;
@@ -34,11 +46,19 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
     body = JSON.stringify(init.body);
   }
   const res = await fetch(`/api${path}`, { method: init.method ?? (body ? 'POST' : 'GET'), headers, body });
-  if (res.status === 401 && token && path !== '/auth/login') {
-    setToken(null);
-    window.location.assign('/login');
-  }
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
+  if (init.platform) {
+    if (res.status === 401 && token && path !== '/platform/login') {
+      setPlatformToken(null);
+      window.location.assign('/platform/login');
+    }
+  } else if (token && path !== '/auth/login') {
+    // Session ended, or the workspace was suspended while signed in.
+    if (res.status === 401 || (res.status === 403 && data?.details?.tenant_status)) {
+      setToken(null);
+      window.location.assign(res.status === 403 ? `/login?inactive=${data.details.tenant_status}` : '/login');
+    }
+  }
   if (!res.ok) {
     let message = data?.error ?? `Request failed (${res.status})`;
     const fields = data?.details?.fieldErrors;

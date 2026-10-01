@@ -1,23 +1,34 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { ErrorNote, Field } from '../components/ui';
 
+const INACTIVE: Record<string, string> = {
+  pending: 'Your workspace is waiting for approval. We will let you know as soon as it is activated.',
+  rejected: 'Your workspace request was not approved.',
+  suspended: 'This workspace has been suspended. Please contact support.',
+};
+
 export function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [workspace, setWorkspace] = useState('');
   const [workspaces, setWorkspaces] = useState<{ slug: string; name: string }[] | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [inactive, setInactive] = useState<{ status: string; reason?: string | null } | null>(
+    params.get('inactive') ? { status: params.get('inactive')! } : null,
+  );
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setInactive(null);
     try {
       const { token } = await api<{ token: string }>('/auth/login', {
         body: { email, password, workspace: workspace || undefined },
@@ -26,7 +37,9 @@ export function Login() {
       navigate('/');
     } catch (err) {
       if (err instanceof ApiError && err.details?.workspaces) setWorkspaces(err.details.workspaces);
-      else setError(err);
+      else if (err instanceof ApiError && err.details?.tenant_status) {
+        setInactive({ status: err.details.tenant_status, reason: err.details.reason });
+      } else setError(err);
     } finally {
       setBusy(false);
     }
@@ -39,6 +52,12 @@ export function Login() {
           <h1>Sign in</h1>
           <p className="secondary" style={{ margin: 0 }}>Events & catering sales, bookings and function diary.</p>
         </div>
+        {inactive && (
+          <div className={`alert ${inactive.status === 'pending' ? 'info' : ''}`}>
+            {INACTIVE[inactive.status] ?? 'This workspace is not active.'}
+            {inactive.reason && <div style={{ marginTop: 4 }}><strong>Reason:</strong> {inactive.reason}</div>}
+          </div>
+        )}
         <ErrorNote error={error} />
         <Field label="Email"><input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Password"><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
@@ -51,7 +70,7 @@ export function Login() {
           </Field>
         )}
         <button className="primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="small secondary" style={{ margin: 0 }}>New company? <Link to="/signup">Create a workspace</Link></p>
+        <p className="small secondary" style={{ margin: 0 }}>New company? <Link to="/signup">Request a workspace</Link></p>
       </form>
     </div>
   );
@@ -60,9 +79,12 @@ export function Login() {
 export function Signup() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [f, setF] = useState({ company_name: '', slug: '', name: '', email: '', password: '', business_unit_code: '', currency: 'KWD' });
+  const [f, setF] = useState({
+    company_name: '', slug: '', name: '', email: '', password: '', business_unit_code: '', currency: 'KWD', phone: '', note: '',
+  });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(false);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((s) => ({ ...s, [k]: e.target.value }));
 
   async function submit(e: FormEvent) {
@@ -70,11 +92,13 @@ export function Signup() {
     setBusy(true);
     setError(null);
     try {
-      const { token } = await api<{ token: string }>('/auth/signup', {
-        body: { ...f, business_unit_code: f.business_unit_code || undefined },
+      const res = await api<{ status: 'pending' | 'active'; token?: string }>('/auth/signup', {
+        body: { ...f, business_unit_code: f.business_unit_code || undefined, phone: f.phone || undefined, note: f.note || undefined },
       });
-      await signIn(token);
-      navigate('/settings');
+      if (res.status === 'active' && res.token) {
+        await signIn(res.token);
+        navigate('/settings');
+      } else setPending(true);
     } catch (err) {
       setError(err);
     } finally {
@@ -82,12 +106,29 @@ export function Signup() {
     }
   }
 
+  if (pending) {
+    return (
+      <div className="auth-page">
+        <div className="card auth-card stack" style={{ textAlign: 'center' }}>
+          <div className="pending-mark" aria-hidden>⏳</div>
+          <h1>Request received</h1>
+          <p className="secondary" style={{ margin: 0 }}>
+            Thanks, {f.name.split(' ')[0]}. <strong>{f.company_name}</strong> is now waiting for approval.
+            We review new workspaces within one business day and will contact you at <strong>{f.email}</strong>.
+          </p>
+          <p className="small muted" style={{ margin: 0 }}>Workspace ID: {f.slug}</p>
+          <Link to="/login" className="btn">Back to sign in</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="auth-page">
       <form className="card auth-card stack" onSubmit={submit}>
         <div>
-          <h1>Create your workspace</h1>
-          <p className="secondary" style={{ margin: 0 }}>Free trial · up to 5 users.</p>
+          <h1>Request your workspace</h1>
+          <p className="secondary" style={{ margin: 0 }}>Every new workspace is reviewed before activation, usually within one business day.</p>
         </div>
         <ErrorNote error={error} />
         <Field label="Company name">
@@ -100,8 +141,11 @@ export function Signup() {
           <Field label="Workspace ID"><input required pattern="[a-z0-9][a-z0-9-]{1,40}" value={f.slug} onChange={set('slug')} /></Field>
           <Field label="Booking prefix"><input maxLength={4} placeholder="e.g. W" value={f.business_unit_code} onChange={set('business_unit_code')} /></Field>
         </div>
-        <Field label="Your name"><input required value={f.name} onChange={set('name')} /></Field>
-        <Field label="Email"><input type="email" required value={f.email} onChange={set('email')} /></Field>
+        <div className="grid-2">
+          <Field label="Your name"><input required value={f.name} onChange={set('name')} /></Field>
+          <Field label="Phone"><input type="tel" value={f.phone} onChange={set('phone')} placeholder="+965 …" /></Field>
+        </div>
+        <Field label="Work email"><input type="email" required value={f.email} onChange={set('email')} /></Field>
         <div className="grid-2">
           <Field label="Password (8+ characters)"><input type="password" minLength={8} required value={f.password} onChange={set('password')} /></Field>
           <Field label="Currency">
@@ -110,8 +154,11 @@ export function Signup() {
             </select>
           </Field>
         </div>
-        <button className="primary" disabled={busy}>{busy ? 'Creating…' : 'Create workspace'}</button>
-        <p className="small secondary" style={{ margin: 0 }}>Already have one? <Link to="/login">Sign in</Link></p>
+        <Field label="Tell us about your business (optional)">
+          <textarea maxLength={1000} value={f.note} onChange={set('note')} placeholder="e.g. Wedding planner, 6 sales staff, ~300 events a year" />
+        </Field>
+        <button className="primary" disabled={busy}>{busy ? 'Sending…' : 'Request workspace'}</button>
+        <p className="small secondary" style={{ margin: 0 }}>Already approved? <Link to="/login">Sign in</Link></p>
       </form>
     </div>
   );

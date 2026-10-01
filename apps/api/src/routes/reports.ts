@@ -7,30 +7,34 @@ import type { Db } from '../db.js';
 const query = z.object({
   year: z.coerce.number().int().min(2000).max(2100).default(new Date().getFullYear()),
   business_unit_id: z.string().uuid().optional(),
+  owner_id: z.string().uuid().optional(),
 });
+type Query = z.infer<typeof query>;
 
 // Period basis: the event date, or the enquiry date while no date is set
 // (the Y/M/D columns of the daily report).
 const PERIOD = 'coalesce(b.event_date, b.inquiry_date)';
 const WON = `b.status IN ('DEF','ACT')`;
+const OPEN = `b.status IN ('INQ','TEN')`;
 
-function scope(q: z.infer<typeof query>) {
+/** WHERE clause shared by every dashboard figure: year + optional unit + optional account manager. */
+function scope(q: Query, year = q.year) {
   return {
-    where: `extract(year FROM ${PERIOD}) = $1 AND ($2::uuid IS NULL OR b.business_unit_id = $2)`,
-    params: [q.year, q.business_unit_id ?? null] as unknown[],
+    where: `extract(year FROM ${PERIOD}) = $1 AND ($2::uuid IS NULL OR b.business_unit_id = $2)
+            AND ($3::uuid IS NULL OR b.owner_id = $3)`,
+    params: [year, q.business_unit_id ?? null, q.owner_id ?? null] as unknown[],
   };
 }
 
 const FROM = `FROM bookings b JOIN booking_finance f ON f.booking_id = b.id`;
 
-async function dashboard(db: Db, q: z.infer<typeof query>) {
-  const { where, params } = scope(q);
-
-  const kpis = (
+async function kpisFor(db: Db, q: Query, year: number) {
+  const { where, params } = scope(q, year);
+  const k = (
     await db.query(
       `SELECT count(*) AS total,
               count(*) FILTER (WHERE ${WON}) AS definite,
-              count(*) FILTER (WHERE b.status IN ('INQ','TEN')) AS open,
+              count(*) FILTER (WHERE ${OPEN}) AS open,
               count(*) FILTER (WHERE b.status = 'LOS') AS lost,
               count(*) FILTER (WHERE b.status = 'CXL') AS cancelled,
               coalesce(sum(f.revenue) FILTER (WHERE ${WON}), 0) AS revenue,
@@ -40,26 +44,34 @@ async function dashboard(db: Db, q: z.infer<typeof query>) {
               coalesce(sum(f.commission) FILTER (WHERE ${WON}), 0) AS commission,
               coalesce(sum(f.shares) FILTER (WHERE ${WON}), 0) AS shares,
               coalesce(sum(f.outstanding), 0) AS outstanding,
-              coalesce(sum(coalesce(b.contract_value, f.revenue)) FILTER (WHERE b.status IN ('INQ','TEN')), 0) AS pipeline_value,
-              coalesce(sum(b.pax) FILTER (WHERE ${WON}), 0) AS pax
+              coalesce(sum(coalesce(b.contract_value, f.revenue)) FILTER (WHERE ${OPEN}), 0) AS pipeline_value,
+              coalesce(sum(b.pax) FILTER (WHERE ${WON}), 0) AS pax,
+              avg(b.event_date - b.inquiry_date) FILTER (WHERE ${WON} AND b.event_date >= b.inquiry_date) AS avg_lead_days
        ${FROM} WHERE ${where}`,
       params,
     )
   ).rows[0];
-  kpis.conversion_rate = kpis.total ? kpis.definite / kpis.total : null;
-  const decided = kpis.definite + kpis.lost + kpis.cancelled;
-  kpis.win_rate = decided ? kpis.definite / decided : null;
-  kpis.margin_pct = kpis.revenue ? kpis.gross_margin / kpis.revenue : null;
+  k.conversion_rate = k.total ? k.definite / k.total : null;
+  const decided = k.definite + k.lost + k.cancelled;
+  k.win_rate = decided ? k.definite / decided : null;
+  k.margin_pct = k.revenue ? k.gross_margin / k.revenue : null;
+  k.avg_deal = k.definite ? k.revenue / k.definite : null;
+  k.avg_lead_days = k.avg_lead_days === null ? null : Math.round(Number(k.avg_lead_days));
+  return k;
+}
 
-  const byMonth = (
+async function byMonthFor(db: Db, q: Query, year: number) {
+  const { where, params } = scope(q, year);
+  return (
     await db.query(
       `SELECT m AS month,
               count(b.id) AS total,
               count(b.id) FILTER (WHERE ${WON}) AS definite,
-              count(b.id) FILTER (WHERE b.status IN ('INQ','TEN')) AS open,
+              count(b.id) FILTER (WHERE ${OPEN}) AS open,
               count(b.id) FILTER (WHERE b.status IN ('LOS','CXL')) AS lost,
               coalesce(sum(f.revenue) FILTER (WHERE ${WON}), 0) AS revenue,
-              coalesce(sum(f.gross_margin) FILTER (WHERE ${WON}), 0) AS gross_margin
+              coalesce(sum(f.gross_margin) FILTER (WHERE ${WON}), 0) AS gross_margin,
+              coalesce(sum(f.net_profit) FILTER (WHERE ${WON}), 0) AS net_profit
        FROM generate_series(1, 12) m
        LEFT JOIN bookings b ON extract(month FROM ${PERIOD}) = m AND ${where}
        LEFT JOIN booking_finance f ON f.booking_id = b.id
@@ -67,8 +79,25 @@ async function dashboard(db: Db, q: z.infer<typeof query>) {
       params,
     )
   ).rows;
+}
 
-  const grouped = async (expr: string, label: string) =>
+async function dashboard(db: Db, q: Query) {
+  const { where, params } = scope(q);
+  const [kpis, previous, months, prevMonths] = [
+    await kpisFor(db, q, q.year),
+    await kpisFor(db, q, q.year - 1),
+    await byMonthFor(db, q, q.year),
+    await byMonthFor(db, q, q.year - 1),
+  ];
+  const byMonth = months.map((m, i) => ({
+    ...m,
+    prev_total: prevMonths[i].total,
+    prev_revenue: prevMonths[i].revenue,
+    prev_gross_margin: prevMonths[i].gross_margin,
+    prev_net_profit: prevMonths[i].net_profit,
+  }));
+
+  const grouped = async (expr: string, label: string, joins = '') =>
     (
       await db.query(
         `SELECT ${expr} AS key, ${label} AS label,
@@ -77,37 +106,73 @@ async function dashboard(db: Db, q: z.infer<typeof query>) {
                 count(*) FILTER (WHERE b.status = 'LOS') AS lost,
                 coalesce(sum(f.revenue) FILTER (WHERE ${WON}), 0) AS revenue,
                 coalesce(sum(f.net_profit) FILTER (WHERE ${WON}), 0) AS net_profit
-         ${FROM}
-         LEFT JOIN users u ON u.id = b.owner_id
-         LEFT JOIN lookups l_src ON l_src.type = 'source' AND l_src.code = b.source
-         LEFT JOIN lookups l_evt ON l_evt.type = 'event_type' AND l_evt.code = b.event_type
+         ${FROM} ${joins}
          WHERE ${where}
          GROUP BY 1, 2 ORDER BY total DESC`,
         params,
       )
     ).rows;
 
-  const bySource = await grouped(`coalesce(b.source, '—')`, `coalesce(l_src.label, b.source, 'Unknown')`);
-  const byOwner = await grouped(`coalesce(u.code, '—')`, `coalesce(u.name, 'Unassigned')`);
-  const byEventType = await grouped(`coalesce(b.event_type, '—')`, `coalesce(l_evt.label, b.event_type, 'Unknown')`);
-  const byStatus = (await db.query(`SELECT b.status, count(*) AS total ${FROM} WHERE ${where} GROUP BY 1`, params)).rows;
-
-  const lostReasons = (
+  const bySource = await grouped(`b.source`, `coalesce(l.label, b.source, 'Unknown')`,
+    `LEFT JOIN lookups l ON l.type = 'source' AND l.code = b.source`);
+  const byEventType = await grouped(`b.event_type`, `coalesce(l.label, b.event_type, 'Unknown')`,
+    `LEFT JOIN lookups l ON l.type = 'event_type' AND l.code = b.event_type`);
+  const byOwner = (
     await db.query(
-      `SELECT coalesce(l.label, b.lost_reason) AS reason, count(*) AS total
-       ${FROM} LEFT JOIN lookups l ON l.type = 'lost_reason' AND l.code = b.lost_reason
-       WHERE ${where} AND b.status = 'LOS'
-       GROUP BY 1 ORDER BY total DESC LIMIT 12`,
+      `SELECT u.id AS key, coalesce(u.name, 'Unassigned') AS label, u.code,
+              count(*) AS total,
+              count(*) FILTER (WHERE ${WON}) AS definite,
+              count(*) FILTER (WHERE b.status = 'LOS') AS lost,
+              count(*) FILTER (WHERE ${OPEN}) AS open,
+              coalesce(sum(f.revenue) FILTER (WHERE ${WON}), 0) AS revenue,
+              coalesce(sum(f.net_profit) FILTER (WHERE ${WON}), 0) AS net_profit
+       ${FROM} LEFT JOIN users u ON u.id = b.owner_id
+       WHERE ${where}
+       GROUP BY u.id, u.name, u.code ORDER BY revenue DESC, total DESC`,
       params,
     )
   ).rows;
 
+  // Pipeline by current stage: how many bookings and how much value sit in each.
+  const byStatus = (
+    await db.query(
+      `SELECT s.status, count(b.id) AS total, coalesce(sum(coalesce(b.contract_value, f.revenue)), 0) AS value
+       FROM unnest(ARRAY['INQ','TEN','DEF','ACT','LOS','CXL']) WITH ORDINALITY s(status, ord)
+       LEFT JOIN bookings b ON b.status = s.status AND ${where}
+       LEFT JOIN booking_finance f ON f.booking_id = b.id
+       GROUP BY s.status, s.ord ORDER BY s.ord`,
+      params,
+    )
+  ).rows;
+
+  const lostReasons = (
+    await db.query(
+      `SELECT b.lost_reason AS code, coalesce(l.label, b.lost_reason) AS reason, count(*) AS total
+       ${FROM} LEFT JOIN lookups l ON l.type = 'lost_reason' AND l.code = b.lost_reason
+       WHERE ${where} AND b.status = 'LOS'
+       GROUP BY 1, 2 ORDER BY total DESC LIMIT 10`,
+      params,
+    )
+  ).rows;
+
+  const topDeals = (
+    await db.query(
+      `SELECT b.id, b.booking_no, b.name, b.status, b.event_date, b.pax, f.revenue, f.gross_margin, f.margin_pct
+       ${FROM} WHERE ${where} AND ${WON} AND f.revenue > 0
+       ORDER BY f.revenue DESC LIMIT 5`,
+      params,
+    )
+  ).rows;
+
+  const unitOwner = `($1::uuid IS NULL OR b.business_unit_id = $1) AND ($2::uuid IS NULL OR b.owner_id = $2)`;
   const upcoming = (
     await db.query(
-      `SELECT b.id, b.booking_no, b.name, b.status, b.event_date, b.pax, v.name AS venue_name, f.revenue, f.outstanding
+      `SELECT b.id, b.booking_no, b.name, b.status, b.event_date, b.pax, v.name AS venue_name, f.revenue, f.outstanding,
+              b.event_date - current_date AS days_until
        ${FROM} LEFT JOIN venues v ON v.id = b.venue_id
-       WHERE b.status IN ('TEN','DEF') AND b.event_date BETWEEN current_date AND current_date + 30
-       ORDER BY b.event_date LIMIT 15`,
+       WHERE b.status IN ('TEN','DEF') AND b.event_date BETWEEN current_date AND current_date + 30 AND ${unitOwner}
+       ORDER BY b.event_date LIMIT 8`,
+      [q.business_unit_id ?? null, q.owner_id ?? null],
     )
   ).rows;
 
@@ -116,12 +181,14 @@ async function dashboard(db: Db, q: z.infer<typeof query>) {
       `SELECT count(*) FILTER (WHERE next_followup_date < current_date) AS overdue,
               count(*) FILTER (WHERE next_followup_date = current_date) AS today,
               count(*) FILTER (WHERE next_followup_date IS NULL) AS unscheduled
-       FROM bookings WHERE status IN ('INQ','TEN')`,
+       FROM bookings b WHERE b.status IN ('INQ','TEN') AND ${unitOwner}`,
+      [q.business_unit_id ?? null, q.owner_id ?? null],
     )
   ).rows[0];
 
-  return { year: q.year, kpis, by_month: byMonth, by_status: byStatus, by_source: bySource, by_owner: byOwner,
-           by_event_type: byEventType, lost_reasons: lostReasons, upcoming, followups };
+  return { year: q.year, kpis, previous, by_month: byMonth, by_status: byStatus, by_source: bySource,
+           by_owner: byOwner, by_event_type: byEventType, lost_reasons: lostReasons, top_deals: topDeals,
+           upcoming, followups };
 }
 
 async function receivables(db: Db) {
@@ -153,7 +220,7 @@ async function payoutsDue(db: Db) {
 }
 
 /** The CONTRACTS sheet, regenerated from live data. */
-async function exportWorkbook(db: Db, q: z.infer<typeof query>): Promise<Buffer> {
+async function exportWorkbook(db: Db, q: Query): Promise<Buffer> {
   const { where, params } = scope(q);
   const { rows } = await db.query(
     `SELECT b.*, bu.code AS bu_code, u.code AS owner_code, c.name AS contact_name, c.phone AS contact_phone,

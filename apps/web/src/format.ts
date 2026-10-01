@@ -98,3 +98,13 @@ export const TRANSITIONS: Record<Status, Status[]> = {
 };
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Good morning" etc. by the workspace clock. */
+export function greeting(): string {
+  const h = Number(new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+export function longToday(): string {
+  return new Date().toLocaleDateString(undefined, { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
