@@ -30,33 +30,11 @@ export async function diaryRoutes(app: FastifyInstance) {
         [q.venue_id ?? null],
       );
 
-      const events = await db.query(
-        `WITH win AS (
-           SELECT ($1::date::timestamp AT TIME ZONE t.timezone) AS lo,
-                  (($2::date + 1)::timestamp AT TIME ZONE t.timezone) AS hi
-           FROM tenants t WHERE t.id = current_tenant_id()
-         )
-         SELECT e.id, e.name, e.function_space_id, e.start_at, e.end_at, e.expected_pax, e.setup_style,
-                b.id AS booking_id, b.booking_no, b.name AS booking_name, b.status, u.code AS owner_code,
-                EXISTS (
-                  SELECT 1 FROM booking_events o
-                  JOIN bookings ob ON ob.id = o.booking_id
-                  JOIN function_spaces os ON os.id = o.function_space_id AND NOT os.allow_overlap
-                  WHERE o.function_space_id = e.function_space_id AND o.id <> e.id AND ob.id <> b.id
-                    AND ob.status IN ('TEN','DEF','ACT')
-                    AND tstzrange(o.start_at, o.end_at) && tstzrange(e.start_at, e.end_at)
-                ) AS overlaps
-         FROM booking_events e
-         JOIN bookings b ON b.id = e.booking_id
-         LEFT JOIN users u ON u.id = b.owner_id
-         CROSS JOIN win
-         WHERE e.function_space_id IS NOT NULL
-           AND tstzrange(e.start_at, e.end_at) && tstzrange(win.lo, win.hi)
-           AND ($3 OR b.status NOT IN ('LOS', 'CXL'))
-         ORDER BY e.start_at`,
-        [q.from, q.to, q.include_lost],
-      );
-      return { spaces: spaces.rows, events: events.rows };
+      // Every occupied room is shown; details of other teams' bookings are hidden.
+      const events = await db.query('SELECT * FROM diary_events($1, $2, $3, $4)', [q.from, q.to, q.include_lost, q.venue_id ?? null]);
+      const rows = events.rows.map((e) =>
+        e.visible ? e : { ...e, name: 'Booked', booking_id: null, booking_no: '', booking_name: 'Another team', owner_code: null, expected_pax: null });
+      return { spaces: spaces.rows, events: rows };
     }),
   );
 }

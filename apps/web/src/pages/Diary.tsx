@@ -8,7 +8,7 @@ import { useVenues } from '../hooks';
 interface DiaryData {
   spaces: { id: string; name: string; capacity: number | null; venue_id: string; venue_name: string }[];
   events: { id: string; name: string; function_space_id: string; start_at: string; end_at: string; expected_pax: number | null;
-            booking_id: string; booking_no: string; booking_name: string; status: Status; owner_code: string | null; overlaps: boolean }[];
+            booking_id: string | null; booking_no: string; booking_name: string; status: Status; owner_code: string | null; overlaps: boolean }[];
 }
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -103,7 +103,12 @@ function Row({ space, days, byCell }: { space: DiaryData['spaces'][number]; days
       </div>
       {days.map((d) => (
         <div key={d} className="diary-cell">
-          {(byCell.get(`${space.id}|${d}`) ?? []).map((e) => (
+          {(byCell.get(`${space.id}|${d}`) ?? []).map((e) => !e.booking_id ? (
+            <span key={e.id} className={`diary-ev other ${e.overlaps ? 'clash' : ''}`} title="Booked by another team">
+              <strong>{time(e.start_at)}</strong> Booked
+              <div className="muted">Another team · {STATUS_LABEL[e.status]}</div>
+            </span>
+          ) : (
             <Link key={e.id} to={`/bookings/${e.booking_id}`} className={`diary-ev ${e.status} ${e.overlaps ? 'clash' : ''}`}
               title={`${e.booking_no} · ${e.booking_name} · ${STATUS_LABEL[e.status]}${e.overlaps ? ' · CLASH' : ''}`}>
               <strong>{time(e.start_at)}</strong> {e.booking_no}

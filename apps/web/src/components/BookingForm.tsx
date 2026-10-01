@@ -50,7 +50,7 @@ export function BookingForm({ initial, isNew, onSubmit, id }: {
         <Field label="Account manager">
           <select {...bind('owner_id')}>
             <option value="">Me</option>
-            {users?.map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>)}
+            {users?.filter((u) => u.in_my_team || u.id === form.owner_id).map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>)}
           </select>
         </Field>
         {isNew && (

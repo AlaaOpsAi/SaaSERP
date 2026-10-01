@@ -69,32 +69,91 @@ const ROLES: [Role, string][] = [
   ['finance', 'Finance'], ['viewer', 'Viewer'],
 ];
 
+const ROLE_LABEL = Object.fromEntries(ROLES) as Record<Role, string>;
+
+/** Children of each manager id ('' = top level), so the org chart can be drawn as a tree. */
+function byManager(users: User[]) {
+  const ids = new Set(users.map((u) => u.id));
+  const map = new Map<string, User[]>();
+  for (const u of users) {
+    const key = u.manager_id && ids.has(u.manager_id) ? u.manager_id : '';
+    map.set(key, [...(map.get(key) ?? []), u]);
+  }
+  return map;
+}
+
+function countBelow(id: string, kids: Map<string, User[]>): number {
+  return (kids.get(id) ?? []).reduce((n, k) => n + 1 + countBelow(k.id, kids), 0);
+}
+
 function Team() {
   const { can } = useAuth();
   const { data: users } = useUsers();
   const [editing, setEditing] = useState<Partial<User> | null>(null);
+  const [view, setView] = useState<'chart' | 'list'>('chart');
+  const kids = byManager(users ?? []);
+  const nameOf = (id: string | null) => users?.find((u) => u.id === id)?.name ?? '—';
+
+  const Node = ({ u, depth }: { u: User; depth: number }) => {
+    const below = countBelow(u.id, kids);
+    return (
+      <li>
+        <div className={`org-node ${u.is_active ? '' : 'inactive'}`}>
+          <span className="org-avatar" aria-hidden>{(u.code ?? u.name).slice(0, 3).toUpperCase()}</span>
+          <div className="grow">
+            <strong>{u.name}</strong> {u.code && <span className="tag">{u.code}</span>}
+            <div className="small secondary">
+              {ROLE_LABEL[u.role]} · {u.role === 'owner' || u.role === 'admin' || u.data_scope === 'all' ? 'sees whole company' : below ? `sees own + ${below} below` : 'sees own records'}
+              {!u.email && ' · no login'}{!u.is_active && u.email ? ' · inactive' : ''}
+            </div>
+          </div>
+          {depth > 0 && <span className="muted small">level {depth + 1}</span>}
+          {can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>Edit</button>}
+        </div>
+        {(kids.get(u.id) ?? []).length > 0 && (
+          <ul>{kids.get(u.id)!.map((k) => <Node key={k.id} u={k} depth={depth + 1} />)}</ul>
+        )}
+      </li>
+    );
+  };
+
   return (
     <div className="card flush">
       <div className="card-head" style={{ padding: '14px 16px 0' }}>
-        <span className="secondary small">Users without a login (inactive) can still be account managers on bookings.</span>
-        {can('admin') && <button className="primary sm" onClick={() => setEditing({ role: 'sales', is_active: true })}>Add user</button>}
+        <span className="secondary small" style={{ maxWidth: 620 }}>
+          Set who reports to whom. A manager sees their own bookings plus everything owned by anyone below them, at every level.
+          Owners, admins and anyone set to “whole company” see everything.
+        </span>
+        <div className="row">
+          <div className="segmented" role="tablist" aria-label="View">
+            <button role="tab" aria-selected={view === 'chart'} className={view === 'chart' ? 'on' : ''} onClick={() => setView('chart')}>Org chart</button>
+            <button role="tab" aria-selected={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>List</button>
+          </div>
+          {can('admin') && <button className="primary sm" onClick={() => setEditing({ role: 'sales', is_active: true, data_scope: 'team' })}>Add user</button>}
+        </div>
       </div>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th /></tr></thead>
-          <tbody>
-            {users?.map((u) => (
-              <tr key={u.id}>
-                <td>{u.name}</td><td><span className="tag">{u.code ?? '—'}</span></td><td>{u.email ?? '—'}</td>
-                <td>{ROLES.find(([r]) => r === u.role)?.[1]}</td>
-                <td>{u.is_active ? (u.email ? 'Active' : 'No login') : 'Inactive'}</td>
-                <td>{dateTime(u.last_login_at)}</td>
-                <td className="num">{can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>Edit</button>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {view === 'chart' ? (
+        <ul className="org">{(kids.get('') ?? []).map((u) => <Node key={u.id} u={u} depth={0} />)}</ul>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Role</th><th>Reports to</th><th>Can see</th><th>Status</th><th>Last login</th><th /></tr></thead>
+            <tbody>
+              {users?.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.name}</td><td><span className="tag">{u.code ?? '—'}</span></td><td>{u.email ?? '—'}</td>
+                  <td>{ROLE_LABEL[u.role]}</td>
+                  <td>{nameOf(u.manager_id)}</td>
+                  <td>{u.role === 'owner' || u.role === 'admin' || u.data_scope === 'all' ? 'Whole company' : 'Their team'}</td>
+                  <td>{u.is_active ? (u.email ? 'Active' : 'No login') : 'Inactive'}</td>
+                  <td>{dateTime(u.last_login_at)}</td>
+                  <td className="num">{can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>Edit</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {editing && <UserModal user={editing} onClose={() => setEditing(null)} />}
     </div>
   );
@@ -106,7 +165,16 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
   const { form, set, bind } = useForm({
     name: user.name ?? '', email: user.email ?? null, code: user.code ?? null, role: user.role ?? 'sales',
     is_active: user.is_active ?? true, password: null as string | null,
+    manager_id: user.manager_id ?? null, data_scope: user.data_scope ?? 'team',
   });
+  // Who this user may report to: anyone except themselves and the people below them.
+  const below = new Set<string>();
+  if (user.id && users) {
+    const kids = byManager(users);
+    const walk = (id: string) => (kids.get(id) ?? []).forEach((k) => { below.add(k.id); walk(k.id); });
+    walk(user.id);
+  }
+  const seesAllByRole = form.role === 'owner' || form.role === 'admin';
   const [mergeTarget, setMergeTarget] = useState('');
   const save = useSave(() => {
     const body = { ...form, password: form.password || undefined };
@@ -160,7 +228,23 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
           <label className="check" style={{ alignSelf: 'end', paddingBottom: 8 }}>
             <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active')(e.target.checked)} />Can sign in
           </label>
+          <Field label="Reports to">
+            <select value={form.manager_id ?? ''} onChange={(e) => set('manager_id')(e.target.value || null)}>
+              <option value="">— nobody (top level) —</option>
+              {users?.filter((u) => u.id !== user.id && !below.has(u.id)).map((u) => (
+                <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Can see">
+            <select value={seesAllByRole ? 'all' : form.data_scope} disabled={seesAllByRole}
+              onChange={(e) => set('data_scope')(e.target.value as 'all' | 'team')}>
+              <option value="team">Their team (own + everyone below)</option>
+              <option value="all">Whole company</option>
+            </select>
+          </Field>
         </div>
+        {seesAllByRole && <p className="small muted" style={{ margin: 0 }}>Owners and admins always see the whole company.</p>}
         {user.id && user.id !== me?.id && (
           <details className="merge-box">
             <summary>Duplicate of another user? Merge…</summary>

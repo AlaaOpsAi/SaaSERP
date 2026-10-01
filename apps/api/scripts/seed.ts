@@ -49,13 +49,20 @@ await app.inject({
 });
 
 await call('POST', '/business-units', token, { code: 'X', name: 'CONFX Group' });
+// A 4-level sales team plus a second branch, so team visibility can be tried:
+// Owner > Melinda (sales manager) > Lojain (team lead) > Joumana (account manager)
+//       > Ahmad (sales manager) > Ghada (account manager)
+// Faisal (finance) sees the whole company.
+const ownerId = (await call<{ id: string }>('GET', '/auth/me', token)).id;
 const team = [
-  ['Joumana', 'JOU', 'sales'], ['Lojain', 'LOJ', 'sales'], ['Melinda', 'MEL', 'manager'], ['Faisal', 'FTM', 'finance'],
+  ['Melinda', 'MEL', 'manager', null], ['Lojain', 'LOJ', 'manager', 'MEL'], ['Joumana', 'JOU', 'sales', 'LOJ'],
+  ['Ahmad', 'AHD', 'manager', null], ['Ghada', 'GHA', 'sales', 'AHD'], ['Faisal', 'FTM', 'finance', null],
 ] as const;
 const users: Record<string, string> = {};
-for (const [name, code, role] of team) {
+for (const [name, code, role, manager] of team) {
   const u = await call('POST', '/users', token, {
     name, code, role, email: `${code.toLowerCase()}@demo.test`, password: 'demo12345',
+    manager_id: manager ? users[manager] : role === 'finance' ? null : ownerId,
   });
   users[code] = u.id;
 }
@@ -135,7 +142,7 @@ for (let n = 0; n < 90; n++) {
   const status = past ? (roll < 0.38 ? 'DEF' : roll < 0.9 ? 'LOS' : 'CXL') : (roll < 0.3 ? 'DEF' : roll < 0.65 ? 'TEN' : 'INQ');
   const type = pick(types);
   const pax = 40 + Math.floor(rand() * 260);
-  const owner = pick(['JOU', 'JOU', 'LOJ', 'LOJ', 'LOJ', 'MEL']);
+  const owner = pick(['JOU', 'JOU', 'LOJ', 'LOJ', 'MEL', 'AHD', 'GHA', 'GHA']);
   const who = pick(names);
   const b = await call('POST', '/bookings', token, {
     name: `${who} ${type === 'W' ? 'wedding' : type === 'C' ? 'conference' : type === 'G' ? 'graduation' : type === 'D' ? 'dinner' : 'reception'}`,

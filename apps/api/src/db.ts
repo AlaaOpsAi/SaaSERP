@@ -21,6 +21,9 @@ export async function withTenant<T>(tenantId: string, fn: (db: Db) => Promise<T>
   try {
     await client.query('BEGIN');
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
+    // Server-side work (login, sign-up, imports, scripts) sees the whole tenant;
+    // requests made by a user narrow this to their team in auth.tx().
+    await client.query("SELECT set_config('app.see_all', 'on', true)");
     const result = await fn(client);
     await client.query('COMMIT');
     return result;

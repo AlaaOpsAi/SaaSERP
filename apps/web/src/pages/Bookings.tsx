@@ -9,7 +9,7 @@ import { date, money, MONTHS, num, STATUS_LABEL } from '../format';
 import { useLabel, useLookups, useSave, useUsers } from '../hooks';
 
 export function Bookings() {
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
@@ -58,8 +58,8 @@ export function Bookings() {
           {Array.from({ length: 6 }, (_, i) => year + 1 - i).map((y) => <option key={y}>{y}</option>)}
         </select>
         <select value={filter('owner_id')} onChange={(e) => setFilter('owner_id', e.target.value)} aria-label="Account manager">
-          <option value="">All AMs</option>
-          {users?.map((u) => <option key={u.id} value={u.id}>{u.code ?? u.name}</option>)}
+          <option value="">{me?.sees_all ? 'All AMs' : 'My whole team'}</option>
+          {users?.filter((u) => u.in_my_team).map((u) => <option key={u.id} value={u.id}>{u.code ?? u.name}</option>)}
         </select>
         <select value={filter('source')} onChange={(e) => setFilter('source', e.target.value)} aria-label="Source">
           <option value="">All sources</option>
@@ -173,7 +173,7 @@ function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (i
         <ErrorNote error={save.error} />
         {conflicts && (
           <div className="small secondary">
-            Clashes with {conflicts.map((c) => `${c.booking_no} (${c.booking_name}, ${STATUS_LABEL[c.status]})`).join(', ')}.
+            Clashes with {conflicts.map((c) => c.booking_id ? `${c.booking_no} (${c.booking_name}, ${STATUS_LABEL[c.status]})` : `${c.booking_name} (${STATUS_LABEL[c.status]})`).join(', ')}.
           </div>
         )}
         <BookingForm id="new-booking" isNew onSubmit={(v) => submit(v)} />

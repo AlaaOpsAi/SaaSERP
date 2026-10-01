@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { authed, can, hasRole, requireRole, tx } from '../auth.js';
+import { assertCanAssign, authed, can, hasRole, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { assertTransition, BLOCKING, findConflicts, nextBookingNo, type BookingStatus } from '../lib/booking.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
@@ -291,13 +291,15 @@ export async function bookingRoutes(app: FastifyInstance) {
         const { rows } = await db.query('SELECT currency FROM tenants WHERE id = current_tenant_id()');
         body.currency = rows[0].currency;
       }
+      const ownerId = body.owner_id === undefined ? req.user.sub : body.owner_id;
+      assertCanAssign(req, ownerId);
       const year = Number((body.event_date ?? body.inquiry_date ?? new Date().toISOString()).slice(0, 4));
       const booking = await insertRow<{ id: string; status: BookingStatus }>(db, 'bookings', {
         ...body,
         business_unit_id: businessUnitId,
         booking_no: await nextBookingNo(db, businessUnitId, year),
         status: initialStatus,
-        owner_id: body.owner_id === undefined ? req.user.sub : body.owner_id,
+        owner_id: ownerId,
         created_by: req.user.sub,
       });
       await db.query(
@@ -333,6 +335,7 @@ export async function bookingRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
       const body = bookingPatch.parse(req.body);
+      assertCanAssign(req, body.owner_id);
       if (body.function_space_id && body.venue_id === undefined) {
         const space = await getRow<{ venue_id: string }>(db, 'function_spaces', body.function_space_id, 'Function space');
         body.venue_id = space.venue_id;

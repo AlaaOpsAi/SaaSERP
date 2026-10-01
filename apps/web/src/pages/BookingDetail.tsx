@@ -36,8 +36,10 @@ export function BookingDetailPage() {
 
       {b.conflicts.length > 0 && (
         <div className="alert" style={{ marginBottom: 16 }}>
-          Space clash with {b.conflicts.map((c) => (
-            <Link key={c.booking_id + c.start_at} to={`/bookings/${c.booking_id}`} style={{ marginRight: 8 }}>
+          Space clash with {b.conflicts.map((c) => !c.booking_id ? (
+            <span key={c.event_id} style={{ marginRight: 8 }}>{c.booking_name} ({STATUS_LABEL[c.status]}, {c.space_name} {time(c.start_at)}–{time(c.end_at)})</span>
+          ) : (
+            <Link key={c.event_id} to={`/bookings/${c.booking_id}`} style={{ marginRight: 8 }}>
               {c.booking_no} ({STATUS_LABEL[c.status]}, {c.space_name} {time(c.start_at)}–{time(c.end_at)})
             </Link>
           ))}
@@ -331,7 +333,7 @@ function EventModal({ b, event, onClose }: { b: BookingDetail; event: Partial<Bo
     </>}>
       <form id="event-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(false, { onSuccess: onClose }); }}>
         <ErrorNote error={save.error} />
-        {clash && <div className="small secondary">Clashes with {clash.map((c) => `${c.booking_no} ${time(c.start_at)}–${time(c.end_at)}`).join(', ')}</div>}
+        {clash && <div className="small secondary">Clashes with {clash.map((c) => `${c.booking_id ? c.booking_no : c.booking_name} ${time(c.start_at)}–${time(c.end_at)}`).join(', ')}</div>}
         <div className="form-grid">
           <Field label="Name"><input required {...bind('name')} /></Field>
           <Field label="Function space">

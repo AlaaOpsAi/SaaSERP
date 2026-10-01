@@ -25,8 +25,29 @@ const userCreate = z.object({
   role: roles.default('sales'),
   password: z.string().min(8).optional(),
   is_active: z.boolean().default(true),
+  manager_id: z.string().uuid().nullish(),
+  data_scope: z.enum(['all', 'team']).optional(),
 });
 const userPatch = userCreate.partial();
+
+/** Roles that see the whole workspace unless told otherwise. */
+const SEES_ALL_BY_DEFAULT = new Set(['owner', 'admin', 'finance']);
+
+/** A manager must exist and must not be the user or anyone below them (no loops). */
+async function assertManager(db: Db, userId: string | null, managerId: string | null | undefined) {
+  if (!managerId) return;
+  if (managerId === userId) throw badRequest('Someone cannot report to themselves');
+  await getRow(db, 'users', managerId, 'Manager');
+  if (!userId) return;
+  const { rows } = await db.query(
+    `WITH RECURSIVE below(id, depth) AS (
+       SELECT $1::uuid, 0
+       UNION SELECT u.id, b.depth + 1 FROM users u JOIN below b ON u.manager_id = b.id WHERE b.depth < 20
+     ) SELECT 1 FROM below WHERE id = $2`,
+    [userId, managerId],
+  );
+  if (rows[0]) throw badRequest('That would create a loop: the chosen manager already reports to this person');
+}
 
 const buSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,4}$/),
@@ -105,7 +126,8 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.get('/users', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const { rows } = await db.query(
-        `SELECT id, email, name, code, role, is_active, last_login_at, created_at
+        `SELECT id, email, name, code, role, is_active, last_login_at, created_at, manager_id, data_scope,
+                (app_sees_all() OR id = ANY (app_team_ids())) AS in_my_team
          FROM users ORDER BY is_active DESC, name`,
       );
       return rows;
@@ -117,6 +139,8 @@ export async function settingsRoutes(app: FastifyInstance) {
       const { password, ...body } = userCreate.parse(req.body);
       if (body.role === 'owner' && req.user.role !== 'owner') throw forbidden('Only owners can add owners');
       await assertUnique(db, body);
+      await assertManager(db, null, body.manager_id);
+      body.data_scope ??= SEES_ALL_BY_DEFAULT.has(body.role) ? 'all' : 'team';
       if (body.is_active && body.email) {
         await assertSeat(db);
         if (!password) throw badRequest('Set a password so this user can sign in');
@@ -140,6 +164,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
       const current = await getRow<{ email: string | null; is_active: boolean; password_hash: string | null }>(db, 'users', userId, 'User');
       await assertUnique(db, body, userId);
+      if (body.manager_id !== undefined) await assertManager(db, userId, body.manager_id);
       const email = body.email === undefined ? current.email : body.email;
       const active = body.is_active ?? current.is_active;
       if (active && email) {
@@ -175,6 +200,12 @@ export async function settingsRoutes(app: FastifyInstance) {
         const r = await db.query(`UPDATE ${table} SET ${column} = $2 WHERE ${column} = $1`, [sourceId, targetId]);
         moved[`${table}.${column}`] = r.rowCount ?? 0;
       }
+      // The duplicate's reports now report to the kept user (unless that is the kept user itself).
+      await db.query('UPDATE users SET manager_id = $2 WHERE manager_id = $1 AND id <> $2', [sourceId, targetId]);
+      await db.query(
+        'UPDATE users SET manager_id = (SELECT manager_id FROM users WHERE id = $1) WHERE id = $2 AND manager_id = $1',
+        [sourceId, targetId],
+      );
       await db.query('DELETE FROM users WHERE id = $1', [sourceId]);
       if (source.code) {
         await db.query('UPDATE users SET code = coalesce(code, $2) WHERE id = $1', [targetId, source.code]);

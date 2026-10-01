@@ -92,6 +92,12 @@ export interface Me {
   email: string;
   name: string;
   code: string;
+  data_scope: 'all' | 'team';
+  manager_id: string | null;
+  /** True when this user sees the whole workspace. */
+  sees_all: boolean;
+  /** This user and everyone who reports to them. */
+  team_ids: string[];
   role: Role;
   tenant: {
     id: string; slug: string; name: string; plan: string; currency: string; timezone: string;
@@ -100,7 +106,12 @@ export interface Me {
 }
 
 export interface Lookup { id: string; type: string; code: string; label: string; is_active: boolean; sort_order: number }
-export interface User { id: string; name: string; email: string | null; code: string | null; role: Role; is_active: boolean; last_login_at: string | null }
+export interface User {
+  id: string; name: string; email: string | null; code: string | null; role: Role; is_active: boolean; last_login_at: string | null;
+  manager_id: string | null; data_scope: 'all' | 'team';
+  /** Whether the signed-in user can see this person's records (and assign to them). */
+  in_my_team: boolean;
+}
 export interface Space { id: string; venue_id: string; name: string; capacity: number | null; allow_overlap: boolean; is_active: boolean }
 export interface Venue { id: string; name: string; kind: string; address: string | null; is_active: boolean; spaces: Space[] }
 export interface BusinessUnit { id: string; code: string; name: string; is_active: boolean }
@@ -133,7 +144,7 @@ export interface Activity {
 }
 export interface Payment { id: string; paid_on: string; amount: number; method: string; bank_account: string | null; reference: string | null }
 export interface Payout { id: string; kind: 'commission' | 'share'; payee_name: string; pct: number; amount: number; status: 'pending' | 'paid'; paid_on: string | null }
-export interface Conflict { booking_id: string; booking_no: string; booking_name: string; status: Status; space_name: string; start_at: string; end_at: string }
+export interface Conflict { event_id: string; booking_id: string | null; booking_no: string; booking_name: string; status: Status; space_name: string; start_at: string; end_at: string }
 
 export interface BookingDetail extends Booking {
   events: BookingEvent[]; items: Item[]; activities: Activity[]; payments: Payment[]; payouts: Payout[];

@@ -135,7 +135,8 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/auth/me', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const { rows } = await db.query(
-        `SELECT u.id, u.email, u.name, u.code, u.role,
+        `SELECT u.id, u.email, u.name, u.code, u.role, u.data_scope, u.manager_id,
+                app_sees_all() AS sees_all, app_team_ids() AS team_ids,
                 json_build_object('id', t.id, 'slug', t.slug, 'name', t.name, 'plan', t.plan,
                                   'currency', t.currency, 'timezone', t.timezone,
                                   'fixed_cost_pct', t.fixed_cost_pct,

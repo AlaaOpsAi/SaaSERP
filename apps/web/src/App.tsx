@@ -69,7 +69,10 @@ export function App() {
         ))}
         <div className="sidebar-foot">
           <div><strong>{me.name}</strong> <span className="tag">{me.code}</span></div>
-          <div className="muted" style={{ margin: '2px 0 8px' }}>{me.role} · {me.tenant.slug} · {me.tenant.plan}</div>
+          <div className="muted" style={{ margin: '2px 0 8px' }}>
+            {me.role} · {me.tenant.slug} · {me.tenant.plan}
+            <div>{me.sees_all ? 'Sees the whole company' : me.team_ids.length > 1 ? `Sees own + ${me.team_ids.length - 1} in team` : 'Sees own records'}</div>
+          </div>
           <button className="sm" onClick={signOut}>Sign out</button>
         </div>
       </nav>

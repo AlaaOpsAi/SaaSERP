@@ -84,8 +84,8 @@ export function Dashboard() {
           </select>
         )}
         <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Account manager">
-          <option value="">Whole team</option>
-          {users?.map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>)}
+          <option value="">{me?.sees_all ? 'Whole company' : 'My whole team'}</option>
+          {users?.filter((u) => u.in_my_team).map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>)}
         </select>
         {(unit || owner || year !== thisYear) && (
           <button className="ghost" onClick={() => { setYear(thisYear); setUnit(''); setOwner(''); }}>Reset</button>
