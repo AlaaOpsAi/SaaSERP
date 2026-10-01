@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import { Icon } from './components/ui';
+import { Bell } from './components/Bell';
 import { Activities } from './pages/Activities';
+import { Delegations } from './pages/Delegations';
 import { BookingDetailPage } from './pages/BookingDetail';
 import { Bookings } from './pages/Bookings';
 import { Clients } from './pages/Clients';
@@ -19,6 +21,7 @@ const NAV = [
   ['/diary', 'Function diary', Icon.diary],
   ['/activities', 'Activities', Icon.activities],
   ['/clients', 'Clients', Icon.clients],
+  ['/delegations', 'Cover & delegation', Icon.cover],
   ['/finance', 'Finance', Icon.finance],
   ['/settings', 'Settings', Icon.settings],
 ] as const;
@@ -56,10 +59,11 @@ export function App() {
       <nav className={`sidebar ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
         <div className="brand">
           <div className="brand-mark">{me.tenant.name.slice(0, 2).toUpperCase()}</div>
-          <div>
+          <div className="grow">
             {me.tenant.name}
             <small>Sales & Event Management</small>
           </div>
+          <Bell />
         </div>
         {NAV.map(([to, label, icon]) => (
           <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
@@ -77,6 +81,18 @@ export function App() {
         </div>
       </nav>
       <main className="main">
+        {(me.covering ?? []).length > 0 && (
+          <div className="cover-banner">
+            You are covering for <strong>{me.covering.map((c) => c.delegator_name).join(', ')}</strong>
+            {me.covering[0].ends_on ? ` until ${new Date(`${me.covering[0].ends_on}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : ''}.
+            {' '}Their bookings appear in your lists{me.covering.some((c) => c.access === 'view') ? ' (some view only)' : ''}. <NavLink to="/delegations">Details</NavLink>
+          </div>
+        )}
+        {(me.covered_by ?? []).length > 0 && (
+          <div className="cover-banner subtle">
+            <strong>{me.covered_by.map((c) => c.delegate_name).join(', ')}</strong> {me.covered_by.length > 1 ? 'are' : 'is'} covering for you. <NavLink to="/delegations">Manage</NavLink>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/bookings" element={<Bookings />} />
@@ -84,6 +100,7 @@ export function App() {
           <Route path="/diary" element={<Diary />} />
           <Route path="/activities" element={<Activities />} />
           <Route path="/clients" element={<Clients />} />
+          <Route path="/delegations" element={<Delegations />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -4,6 +4,7 @@ import { assertCanAssign, authed, can, hasRole, requireRole, tx } from '../auth.
 import type { Db } from '../db.js';
 import { assertTransition, BLOCKING, findConflicts, nextBookingNo, type BookingStatus } from '../lib/booking.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { bookingOf, logChange, writable } from '../lib/guard.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
@@ -177,11 +178,18 @@ async function bookingDetail(db: Db, bookingId: string) {
   const payments = await q('SELECT * FROM payments WHERE booking_id = $1 ORDER BY paid_on, created_at');
   const payouts = await q('SELECT * FROM booking_payout_amounts WHERE booking_id = $1 ORDER BY kind, created_at');
   const history = await q(
-    `SELECT h.*, u.name AS changed_by_name FROM booking_status_history h
-     LEFT JOIN users u ON u.id = h.changed_by
+    `SELECT h.*, u.name AS changed_by_name, ob.name AS on_behalf_of_name FROM booking_status_history h
+     LEFT JOIN users u ON u.id = h.changed_by LEFT JOIN users ob ON ob.id = h.on_behalf_of
      WHERE h.booking_id = $1 ORDER BY h.changed_at`,
   );
+  const log = await q(
+    `SELECT l.id, l.action, l.details, l.created_at, u.name AS actor_name, ob.name AS on_behalf_of_name
+     FROM booking_log l LEFT JOIN users u ON u.id = l.actor_id LEFT JOIN users ob ON ob.id = l.on_behalf_of
+     WHERE l.booking_id = $1 ORDER BY l.created_at`,
+  );
   const conflicts = await findConflicts(db, bookingId);
+  // Whether the viewer may change this booking (false under a "view only" delegation).
+  const access = (await db.query('SELECT app_can_write(owner_id, created_by) AS can_edit FROM bookings WHERE id = $1', [bookingId])).rows[0];
   return {
     ...booking,
     events,
@@ -190,7 +198,9 @@ async function bookingDetail(db: Db, bookingId: string) {
     payments,
     payouts,
     history,
+    log,
     conflicts,
+    can_edit: access.can_edit,
   };
 }
 
@@ -335,12 +345,16 @@ export async function bookingRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
       const body = bookingPatch.parse(req.body);
+      const ctx = await writable(db, req, bookingId);
       assertCanAssign(req, body.owner_id);
       if (body.function_space_id && body.venue_id === undefined) {
         const space = await getRow<{ venue_id: string }>(db, 'function_spaces', body.function_space_id, 'Function space');
         body.venue_id = space.venue_id;
       }
+      const before = await getRow<Record<string, unknown>>(db, 'bookings', bookingId, 'Booking');
       await updateRow(db, 'bookings', bookingId, body, 'Booking');
+      const changed = Object.keys(body).filter((k) => String(before[k] ?? '') !== String((body as Record<string, unknown>)[k] ?? ''));
+      if (changed.length) await logChange(db, req, ctx, 'updated', { fields: changed });
       return bookingDetail(db, bookingId);
     }),
   );
@@ -349,6 +363,7 @@ export async function bookingRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
       const { status: to, reason, force } = statusChange.parse(req.body);
+      const ctx = await writable(db, req, bookingId);
       const from = await bookingStatus(db, bookingId);
       assertTransition(from, to);
       if (from === to) return bookingDetail(db, bookingId);
@@ -372,9 +387,9 @@ export async function bookingRoutes(app: FastifyInstance) {
         [bookingId, to, reason ?? null],
       );
       await db.query(
-        `INSERT INTO booking_status_history (tenant_id, booking_id, from_status, to_status, reason, changed_by)
-         VALUES (current_tenant_id(), $1, $2, $3, $4, $5)`,
-        [bookingId, from, to, reason ?? null, req.user.sub],
+        `INSERT INTO booking_status_history (tenant_id, booking_id, from_status, to_status, reason, changed_by, on_behalf_of)
+         VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6)`,
+        [bookingId, from, to, reason ?? null, req.user.sub, ctx.onBehalfOf],
       );
       return bookingDetail(db, bookingId);
     }),
@@ -411,9 +426,12 @@ export async function bookingRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
       const { force, ...body } = eventSchema.extend({ force: z.boolean().optional() }).parse(req.body);
+      const ctx = await writable(db, req, bookingId);
       if (new Date(body.end_at) <= new Date(body.start_at)) throw badRequest('End must be after start');
       await checkEventConflicts(req, db, bookingId, body, force);
-      return insertRow(db, 'booking_events', { ...body, booking_id: bookingId });
+      const event = await insertRow<{ id: string }>(db, 'booking_events', { ...body, booking_id: bookingId });
+      await logChange(db, req, ctx, 'event added', { name: body.name, start_at: body.start_at });
+      return event;
     }),
   );
 
@@ -421,8 +439,9 @@ export async function bookingRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const eventId = id.parse(req.params).id;
       const { force, ...body } = eventSchema.partial().extend({ force: z.boolean().optional() }).parse(req.body);
-      const current = await getRow<{ booking_id: string; function_space_id: string | null; start_at: Date; end_at: Date }>(
+      const current = await getRow<{ booking_id: string; name: string; function_space_id: string | null; start_at: Date; end_at: Date }>(
         db, 'booking_events', eventId, 'Event');
+      const ctx = await writable(db, req, current.booking_id);
       const merged = {
         function_space_id: body.function_space_id === undefined ? current.function_space_id : body.function_space_id,
         start_at: body.start_at ?? current.start_at.toISOString(),
@@ -430,13 +449,18 @@ export async function bookingRoutes(app: FastifyInstance) {
       };
       if (new Date(merged.end_at) <= new Date(merged.start_at)) throw badRequest('End must be after start');
       await checkEventConflicts(req, db, current.booking_id, merged, force);
-      return updateRow(db, 'booking_events', eventId, body, 'Event');
+      const event = await updateRow(db, 'booking_events', eventId, body, 'Event');
+      await logChange(db, req, ctx, 'event changed', { name: body.name ?? current.name, fields: Object.keys(body) });
+      return event;
     }),
   );
 
   app.delete('/booking-events/:id', sell, (req) =>
     tx(req, async (db) => {
-      await deleteRow(db, 'booking_events', id.parse(req.params).id, 'Event');
+      const eventId = id.parse(req.params).id;
+      const ctx = await writable(db, req, await bookingOf(db, 'booking_events', eventId, 'Event'));
+      await deleteRow(db, 'booking_events', eventId, 'Event');
+      await logChange(db, req, ctx, 'event removed');
       return { ok: true };
     }),
   );
@@ -444,56 +468,89 @@ export async function bookingRoutes(app: FastifyInstance) {
   // ---- revenue / cost lines ----------------------------------------------
 
   app.post('/bookings/:id/items', sell, (req) =>
-    tx(req, (db) => insertRow(db, 'booking_items', { ...itemSchema.parse(req.body), booking_id: id.parse(req.params).id })),
+    tx(req, async (db) => {
+      const bookingId = id.parse(req.params).id;
+      const body = itemSchema.parse(req.body);
+      const ctx = await writable(db, req, bookingId);
+      const item = await insertRow(db, 'booking_items', { ...body, booking_id: bookingId });
+      await logChange(db, req, ctx, 'line added', { description: body.description, amount: body.quantity * body.unit_price });
+      return item;
+    }),
   );
   app.patch('/booking-items/:id', sell, (req) =>
-    tx(req, (db) => updateRow(db, 'booking_items', id.parse(req.params).id, itemSchema.partial().parse(req.body), 'Line')),
+    tx(req, async (db) => {
+      const itemId = id.parse(req.params).id;
+      const body = itemSchema.partial().parse(req.body);
+      const ctx = await writable(db, req, await bookingOf(db, 'booking_items', itemId, 'Line'));
+      const item = await updateRow(db, 'booking_items', itemId, body, 'Line');
+      await logChange(db, req, ctx, 'line changed', { fields: Object.keys(body) });
+      return item;
+    }),
   );
   app.delete('/booking-items/:id', sell, (req) =>
     tx(req, async (db) => {
-      await deleteRow(db, 'booking_items', id.parse(req.params).id, 'Line');
+      const itemId = id.parse(req.params).id;
+      const ctx = await writable(db, req, await bookingOf(db, 'booking_items', itemId, 'Line'));
+      await deleteRow(db, 'booking_items', itemId, 'Line');
+      await logChange(db, req, ctx, 'line removed');
       return { ok: true };
     }),
   );
 
-  // ---- payments ------------------------------------------------------------
+  // ---- payments (never by a delegate) ---------------------------------------
 
   app.post('/bookings/:id/payments', finance, (req) =>
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
-      const payment = await insertRow(db, 'payments', {
-        ...paymentSchema.parse(req.body),
-        booking_id: bookingId,
-        created_by: req.user.sub,
-      });
+      const body = paymentSchema.parse(req.body);
+      const ctx = await writable(db, req, bookingId, { money: true });
+      const payment = await insertRow(db, 'payments', { ...body, booking_id: bookingId, created_by: req.user.sub });
       await syncFullyPaid(db, bookingId);
+      await logChange(db, req, ctx, 'payment recorded', { amount: body.amount, paid_on: body.paid_on });
       return payment;
     }),
   );
   app.delete('/payments/:id', finance, (req) =>
     tx(req, async (db) => {
-      const payment = await getRow<{ booking_id: string }>(db, 'payments', id.parse(req.params).id, 'Payment');
-      await deleteRow(db, 'payments', id.parse(req.params).id, 'Payment');
+      const paymentId = id.parse(req.params).id;
+      const payment = await getRow<{ booking_id: string; amount: number }>(db, 'payments', paymentId, 'Payment');
+      const ctx = await writable(db, req, payment.booking_id, { money: true });
+      await deleteRow(db, 'payments', paymentId, 'Payment');
       await syncFullyPaid(db, payment.booking_id);
+      await logChange(db, req, ctx, 'payment deleted', { amount: payment.amount });
       return { ok: true };
     }),
   );
 
-  // ---- commission & shares ----------------------------------------------
+  // ---- commission & shares (never by a delegate) -----------------------------
 
   app.post('/bookings/:id/payouts', finance, (req) =>
-    tx(req, (db) => insertRow(db, 'booking_payouts', { ...payoutSchema.parse(req.body), booking_id: id.parse(req.params).id })),
+    tx(req, async (db) => {
+      const bookingId = id.parse(req.params).id;
+      const body = payoutSchema.parse(req.body);
+      const ctx = await writable(db, req, bookingId, { money: true });
+      const payout = await insertRow(db, 'booking_payouts', { ...body, booking_id: bookingId });
+      await logChange(db, req, ctx, `${body.kind} added`, { payee: body.payee_name, pct: body.pct });
+      return payout;
+    }),
   );
   app.patch('/booking-payouts/:id', finance, (req) =>
-    tx(req, (db) => {
+    tx(req, async (db) => {
+      const payoutId = id.parse(req.params).id;
       const body = payoutSchema.partial().parse(req.body);
+      const ctx = await writable(db, req, await bookingOf(db, 'booking_payouts', payoutId, 'Payout'), { money: true });
       if (body.status === 'paid' && body.paid_on === undefined) body.paid_on = new Date().toISOString().slice(0, 10);
-      return updateRow(db, 'booking_payouts', id.parse(req.params).id, body, 'Payout');
+      const payout = await updateRow(db, 'booking_payouts', payoutId, body, 'Payout');
+      await logChange(db, req, ctx, body.status === 'paid' ? 'payout marked paid' : 'payout changed', { fields: Object.keys(body) });
+      return payout;
     }),
   );
   app.delete('/booking-payouts/:id', finance, (req) =>
     tx(req, async (db) => {
-      await deleteRow(db, 'booking_payouts', id.parse(req.params).id, 'Payout');
+      const payoutId = id.parse(req.params).id;
+      const ctx = await writable(db, req, await bookingOf(db, 'booking_payouts', payoutId, 'Payout'), { money: true });
+      await deleteRow(db, 'booking_payouts', payoutId, 'Payout');
+      await logChange(db, req, ctx, 'payout removed');
       return { ok: true };
     }),
   );

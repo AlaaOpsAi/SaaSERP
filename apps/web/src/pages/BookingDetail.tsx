@@ -46,6 +46,7 @@ export function BookingDetailPage() {
         </div>
       )}
 
+      <CoverNote b={b} />
       <Pipeline status={b.status} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 16, alignItems: 'start' }} className="detail-grid">
@@ -74,6 +75,34 @@ export function BookingDetailPage() {
   );
 }
 
+/**
+ * What the signed-in user may do on this booking. While covering for a colleague
+ * ("view & act") you can work the booking but never record money; "view only" is read-only.
+ */
+function useAccess(b: BookingDetail) {
+  const { can, me } = useAuth();
+  const covering = Boolean(me && !me.sees_all && b.owner_id && !me.team_ids.includes(b.owner_id) && b.created_by !== me.id);
+  const allowed = {
+    sell: can('sell') && b.can_edit,
+    finance: can('finance') && b.can_edit && !covering,
+    manage: can('manage') && b.can_edit,
+    admin: can('admin') && b.can_edit,
+  };
+  return { can: (k: keyof typeof allowed) => allowed[k], covering };
+}
+
+function CoverNote({ b }: { b: BookingDetail }) {
+  const { covering } = useAccess(b);
+  if (!covering) return null;
+  return (
+    <div className="alert info" style={{ marginBottom: 12 }}>
+      {b.can_edit
+        ? <>You are covering for <strong>{b.owner_name}</strong>. Changes you make are recorded as made on their behalf.</>
+        : <>You can view <strong>{b.owner_name}</strong>'s booking while covering, but not change it.</>}
+    </div>
+  );
+}
+
 function Pipeline({ status }: { status: Status }) {
   const steps: Status[] = ['INQ', 'TEN', 'DEF', 'ACT'];
   const idx = steps.indexOf(status);
@@ -90,7 +119,7 @@ function Pipeline({ status }: { status: Status }) {
 }
 
 function StatusActions({ booking }: { booking: BookingDetail }) {
-  const { can } = useAuth();
+  const { can } = useAccess(booking);
   const { data: lookups } = useLookups();
   const [target, setTarget] = useState<Status | null>(null);
   const [reason, setReason] = useState<string | null>(null);
@@ -195,7 +224,7 @@ function ProfitCard({ b }: { b: BookingDetail }) {
 }
 
 function Overview({ b, onEdit }: { b: BookingDetail; onEdit: () => void }) {
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const eventLabel = useLabel('event_type');
   const sourceLabel = useLabel('source');
   const lostLabel = useLabel('lost_reason');
@@ -231,7 +260,7 @@ function Overview({ b, onEdit }: { b: BookingDetail; onEdit: () => void }) {
 function EditBooking({ b, onClose }: { b: BookingDetail; onClose: () => void }) {
   const save = useSave((v: object) => api(`/bookings/${b.id}`, { method: 'PATCH', body: v }), [['booking', b.id], ['bookings']]);
   const navigate = useNavigate();
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const del = useSave(() => api(`/bookings/${b.id}`, { method: 'DELETE' }), [['bookings'], ['dashboard']]);
   return (
     <Modal
@@ -260,7 +289,7 @@ function EditBooking({ b, onClose }: { b: BookingDetail; onClose: () => void }) 
 // ---- events ----------------------------------------------------------------
 
 function Events({ b }: { b: BookingDetail }) {
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const [editing, setEditing] = useState<Partial<BookingEvent> | null>(null);
   const del = useSave((id: string) => api(`/booking-events/${id}`, { method: 'DELETE' }), [['booking', b.id], ['diary']]);
   return (
@@ -299,7 +328,7 @@ function Events({ b }: { b: BookingDetail }) {
 }
 
 function EventModal({ b, event, onClose }: { b: BookingDetail; event: Partial<BookingEvent>; onClose: () => void }) {
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const { data: venues } = useVenues();
   const { data: lookups } = useLookups();
   const base = b.event_date ?? today();
@@ -361,7 +390,7 @@ function EventModal({ b, event, onClose }: { b: BookingDetail; event: Partial<Bo
 // ---- lines -----------------------------------------------------------------
 
 function Lines({ b }: { b: BookingDetail }) {
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const { data: lookups } = useLookups();
   const categoryLabel = useLabel('item_category');
   const blank = { category: 'F&B', description: '', quantity: 1 as number | null, unit_price: 0 as number | null, unit_cost: 0 as number | null };
@@ -456,7 +485,7 @@ export function ActivityForm({ bookingId, onDone }: { bookingId?: string; onDone
 }
 
 function BookingActivities({ b }: { b: BookingDetail }) {
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const complete = useSave((v: { id: string; outcome: string | null }) =>
     api(`/activities/${v.id}/complete`, { body: { outcome: v.outcome } }), [['booking', b.id], ['activities']]);
   return (
@@ -492,7 +521,7 @@ function BookingActivities({ b }: { b: BookingDetail }) {
 // ---- money -----------------------------------------------------------------
 
 function Money({ b }: { b: BookingDetail }) {
-  const { can } = useAuth();
+  const { can } = useAccess(b);
   const { data: lookups } = useLookups();
   const { data: users } = useUsers();
   const inv = [['booking', b.id], ['bookings'], ['receivables'], ['payouts']];
@@ -506,8 +535,10 @@ function Money({ b }: { b: BookingDetail }) {
   const markPaid = useSave((id: string) => api(`/booking-payouts/${id}`, { method: 'PATCH', body: { status: 'paid' } }), inv);
   const delPayout = useSave((id: string) => api(`/booking-payouts/${id}`, { method: 'DELETE' }), inv);
 
+  const { covering } = useAccess(b);
   return (
     <div className="stack">
+      {covering && <div className="alert info">You are covering for this booking's owner: payments and commissions stay with finance and their managers.</div>}
       <h3>Client payments</h3>
       <div className="table-wrap">
         <table>
@@ -581,19 +612,40 @@ function Money({ b }: { b: BookingDetail }) {
 
 function History({ b }: { b: BookingDetail }) {
   const lostLabel = useLabel('lost_reason');
+  type Entry = { at: string; who: string | null; behalf: string | null; what: React.ReactNode };
+  const entries: Entry[] = [
+    ...b.history.map((h) => ({
+      at: h.changed_at, who: h.changed_by_name, behalf: h.on_behalf_of_name,
+      what: <>{h.from_status ? <><StatusBadge status={h.from_status} /> → </> : 'Created as '}<StatusBadge status={h.to_status} />
+        {h.reason && <span className="secondary"> · {h.to_status === 'LOS' ? lostLabel(h.reason) : h.reason}</span>}</>,
+    })),
+    ...b.log.map((l) => ({
+      at: l.created_at, who: l.actor_name, behalf: l.on_behalf_of_name,
+      what: <>{l.action[0].toUpperCase() + l.action.slice(1)}<span className="secondary">{describe(l.details)}</span></>,
+    })),
+  ].sort((x, y) => x.at.localeCompare(y.at));
   return (
     <table>
-      <thead><tr><th>When</th><th>Change</th><th>By</th><th>Reason</th></tr></thead>
+      <thead><tr><th>When</th><th>What</th><th>By</th></tr></thead>
       <tbody>
-        {b.history.map((h) => (
-          <tr key={h.id}>
-            <td>{dateTime(h.changed_at)}</td>
-            <td>{h.from_status ? <><StatusBadge status={h.from_status} /> → </> : 'Created as '}<StatusBadge status={h.to_status} /></td>
-            <td>{h.changed_by_name ?? '—'}</td>
-            <td>{h.to_status === 'LOS' ? lostLabel(h.reason) : h.reason ?? ''}</td>
+        {entries.map((e, i) => (
+          <tr key={i}>
+            <td style={{ whiteSpace: 'nowrap' }}>{dateTime(e.at)}</td>
+            <td>{e.what}</td>
+            <td>{e.who ?? '—'}{e.behalf && <div className="small muted">on behalf of {e.behalf}</div>}</td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+}
+
+/** Short human summary of a log entry's details. */
+function describe(d: Record<string, unknown>): string {
+  const parts: string[] = [];
+  if (Array.isArray(d.fields) && d.fields.length) parts.push(String(d.fields.map((f) => String(f).replace(/_/g, ' ')).join(', ')));
+  for (const k of ['name', 'description', 'subject', 'payee', 'outcome'] as const) if (d[k]) parts.push(String(d[k]));
+  if (typeof d.amount === 'number') parts.push(money(d.amount));
+  if (d.from && d.to) parts.push(`${d.from} → ${d.to}`);
+  return parts.length ? ` · ${parts.join(' · ')}` : '';
 }

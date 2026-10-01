@@ -87,9 +87,12 @@ function countBelow(id: string, kids: Map<string, User[]>): number {
 }
 
 function Team() {
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const { data: users } = useUsers();
   const [editing, setEditing] = useState<Partial<User> | null>(null);
+  const [transferring, setTransferring] = useState<User | null>(null);
+  // Managers can hand over the work of people in their team; admins anyone's (but never their own).
+  const canTransfer = (u: User) => can('manage') && u.id !== me?.id && (me?.sees_all || me?.team_ids.includes(u.id));
   const [view, setView] = useState<'chart' | 'list'>('chart');
   const kids = byManager(users ?? []);
   const nameOf = (id: string | null) => users?.find((u) => u.id === id)?.name ?? '—';
@@ -108,6 +111,7 @@ function Team() {
             </div>
           </div>
           {depth > 0 && <span className="muted small">level {depth + 1}</span>}
+          {canTransfer(u) && u.is_active && <button className="sm ghost" onClick={() => setTransferring(u)}>Transfer…</button>}
           {can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>Edit</button>}
         </div>
         {(kids.get(u.id) ?? []).length > 0 && (
@@ -147,7 +151,10 @@ function Team() {
                   <td>{u.role === 'owner' || u.role === 'admin' || u.data_scope === 'all' ? 'Whole company' : 'Their team'}</td>
                   <td>{u.is_active ? (u.email ? 'Active' : 'No login') : 'Inactive'}</td>
                   <td>{dateTime(u.last_login_at)}</td>
-                  <td className="num">{can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>Edit</button>}</td>
+                  <td className="num">
+                    {canTransfer(u) && u.is_active && <button className="sm ghost" onClick={() => setTransferring(u)}>Transfer…</button>}
+                    {can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>Edit</button>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -155,7 +162,59 @@ function Team() {
         </div>
       )}
       {editing && <UserModal user={editing} onClose={() => setEditing(null)} />}
+      {transferring && <TransferModal user={transferring} onClose={() => setTransferring(null)} />}
     </div>
+  );
+}
+
+/** Someone is leaving (or changing role): move their work to a colleague in one go. */
+function TransferModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const { me } = useAuth();
+  const { data: users } = useUsers();
+  const [f, setF] = useState({ to_user_id: '', bookings: 'open', activities: true, clients: true, reports: true, deactivate: true });
+  const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
+  const targets = (users ?? []).filter((u) => u.id !== user.id && u.is_active && (me?.sees_all || me?.team_ids.includes(u.id)));
+  const hasReports = (users ?? []).some((u) => u.manager_id === user.id);
+  const save = useSave(() => api<{ moved: Record<string, number> }>(`/users/${user.id}/transfer`, { body: f }),
+    [['users'], ['bookings'], ['dashboard'], ['activities'], ['delegations']]);
+  const done = save.data?.moved;
+  return (
+    <Modal title={`Transfer ${user.name}'s work`} onClose={onClose} footer={done ? <button className="primary" onClick={onClose}>Done</button> : <>
+      <button onClick={onClose}>Cancel</button>
+      <button className="danger" form="transfer-form" disabled={save.isPending || !f.to_user_id}>Transfer{f.deactivate ? ' & deactivate' : ''}</button>
+    </>}>
+      {done ? (
+        <div className="alert info">
+          Moved {done.bookings} bookings, {done.activities} follow-ups and {done.clients} clients{done.reports ? `, and ${done.reports} people now report to the new owner` : ''}.
+          {f.deactivate && ` ${user.name} can no longer sign in.`}
+        </div>
+      ) : (
+        <form id="transfer-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined); }}>
+          <ErrorNote error={save.error} />
+          <p className="secondary" style={{ margin: 0 }}>
+            Use this when {user.name} leaves or changes role. History stays, and commissions already earned stay with {user.name}.
+            For a temporary absence, use <strong>Cover & delegation</strong> instead.
+          </p>
+          <Field label="Hand over to">
+            <select required value={f.to_user_id} onChange={(e) => set('to_user_id', e.target.value)}>
+              <option value="">Choose a colleague…</option>
+              {targets.map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>)}
+            </select>
+          </Field>
+          <Field label="Bookings">
+            <select value={f.bookings} onChange={(e) => set('bookings', e.target.value)}>
+              <option value="open">Open ones: inquiry, tentative, definite (closed history stays with {user.name})</option>
+              <option value="all">All bookings, including actualised, lost and cancelled</option>
+              <option value="none">None</option>
+            </select>
+          </Field>
+          <label className="check"><input type="checkbox" checked={f.activities} onChange={(e) => set('activities', e.target.checked)} />Open follow-ups and tasks</label>
+          <label className="check"><input type="checkbox" checked={f.clients} onChange={(e) => set('clients', e.target.checked)} />Companies they own</label>
+          {hasReports && <label className="check"><input type="checkbox" checked={f.reports} onChange={(e) => set('reports', e.target.checked)} />People who report to {user.name} now report to the new owner</label>}
+          <label className="check"><input type="checkbox" checked={f.deactivate} onChange={(e) => set('deactivate', e.target.checked)} />Deactivate {user.name} (signs them out, ends any cover)</label>
+        </form>
+      )}
+    </Modal>
   );
 }
 

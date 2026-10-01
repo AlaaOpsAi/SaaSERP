@@ -64,10 +64,23 @@ export function tx<T>(req: FastifyRequest, fn: (db: Db) => Promise<T>): Promise<
   });
 }
 
+export interface Covering {
+  delegationId: string;
+  delegatorId: string;
+  access: 'view' | 'act';
+  /** Owners whose records this delegation opens (the delegator, plus their team if included). */
+  ownerIds: string[];
+  handoverActivities: boolean;
+}
+
 export interface Scope {
   seesAll: boolean;
   /** The user and everyone who reports to them, at any depth. */
   teamIds: string[];
+  /** Active delegations to this user (people they are covering for). */
+  covering: Covering[];
+  /** Owners the user may change records of: own team + "view & act" delegations. */
+  writeIds: string[];
 }
 
 declare module 'fastify' {
@@ -76,29 +89,63 @@ declare module 'fastify' {
   }
 }
 
+const SUBTREE = `WITH RECURSIVE team(id, depth) AS (
+    SELECT unnest($1::uuid[]), 0
+    UNION
+    SELECT u.id, t.depth + 1 FROM users u JOIN team t ON u.manager_id = t.id WHERE t.depth < 20
+  ) SELECT coalesce(array_agg(DISTINCT id), '{}') AS ids FROM team`;
+
+async function subtree(db: Db, roots: string[]): Promise<string[]> {
+  if (!roots.length) return [];
+  return (await db.query(SUBTREE, [roots])).rows[0].ids;
+}
+
 /** Set the row-level-security context for this transaction. */
 async function applyScope(db: Db, userId: string, role: Role, dataScope: 'all' | 'team'): Promise<Scope> {
   const seesAll = role === 'owner' || role === 'admin' || dataScope === 'all';
-  const { rows } = await db.query(
-    `WITH RECURSIVE team(id, depth) AS (
-       SELECT $1::uuid, 0
-       UNION
-       SELECT u.id, t.depth + 1 FROM users u JOIN team t ON u.manager_id = t.id WHERE t.depth < 20
-     ) SELECT array_agg(id) AS ids FROM team`,
+  const teamIds = await subtree(db, [userId]);
+
+  // Delegations in force today (workspace calendar). Delegations do not chain.
+  const { rows: active } = await db.query(
+    `SELECT d.id, d.delegator_id, d.access, d.include_team, d.handover_activities
+     FROM delegations d JOIN tenants t ON t.id = d.tenant_id JOIN users u ON u.id = d.delegator_id
+     WHERE d.delegate_id = $1 AND d.revoked_at IS NULL
+       AND d.starts_on <= (now() AT TIME ZONE t.timezone)::date
+       AND (d.ends_on IS NULL OR d.ends_on >= (now() AT TIME ZONE t.timezone)::date)`,
     [userId],
   );
-  const teamIds: string[] = rows[0].ids ?? [userId];
+  const covering: Covering[] = [];
+  for (const d of active) {
+    covering.push({
+      delegationId: d.id, delegatorId: d.delegator_id, access: d.access, handoverActivities: d.handover_activities,
+      ownerIds: d.include_team ? await subtree(db, [d.delegator_id]) : [d.delegator_id],
+    });
+  }
+  const readIds = [...new Set([...teamIds, ...covering.flatMap((c) => c.ownerIds)])];
+  const writeIds = [...new Set([...teamIds, ...covering.filter((c) => c.access === 'act').flatMap((c) => c.ownerIds)])];
   await db.query(
-    `SELECT set_config('app.see_all', $1, true), set_config('app.user_id', $2, true), set_config('app.team_ids', $3, true)`,
-    [seesAll ? 'on' : 'off', userId, teamIds.join(',')],
+    `SELECT set_config('app.see_all', $1, true), set_config('app.user_id', $2, true),
+            set_config('app.team_ids', $3, true), set_config('app.write_ids', $4, true)`,
+    [seesAll ? 'on' : 'off', userId, readIds.join(','), writeIds.join(',')],
   );
-  return { seesAll, teamIds };
+  return { seesAll, teamIds, covering, writeIds };
+}
+
+/**
+ * When the caller touches a record only because they are covering for someone,
+ * the delegator they act for (for the audit trail); otherwise null.
+ */
+export function onBehalfOf(req: FastifyRequest, ownerId: string | null | undefined): string | null {
+  const scope = req.scope;
+  if (!scope || !ownerId || scope.seesAll || scope.teamIds.includes(ownerId)) return null;
+  return scope.covering.find((c) => c.ownerIds.includes(ownerId))?.delegatorId ?? null;
 }
 
 /** Throw unless the caller may hand a record to `ownerId` (themselves or someone in their team). */
 export function assertCanAssign(req: FastifyRequest, ownerId: string | null | undefined) {
   if (!req.scope || req.scope.seesAll || ownerId === undefined) return;
-  if (ownerId === null || !req.scope.teamIds.includes(ownerId)) {
+  // Own team, or someone you are covering for with "view & act".
+  if (ownerId === null || !req.scope.writeIds.includes(ownerId)) {
     throw forbidden('You can only assign bookings to yourself or people in your team');
   }
 }

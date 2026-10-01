@@ -145,7 +145,21 @@ export async function authRoutes(app: FastifyInstance) {
         [req.user.sub],
       );
       if (!rows[0]) throw new HttpError(401, 'Session expired');
-      return rows[0];
+      // Who I am covering for right now, and who is covering for me.
+      const covering = (await db.query(
+        `SELECT d.id, u.name AS delegator_name, d.access, d.ends_on, d.include_team FROM delegations d
+         JOIN users u ON u.id = d.delegator_id WHERE d.id = ANY($1::uuid[])`,
+        [(req.scope?.covering ?? []).map((c) => c.delegationId)],
+      )).rows;
+      const coveredBy = (await db.query(
+        `SELECT d.id, u.name AS delegate_name, d.access, d.ends_on FROM delegations d
+         JOIN tenants t ON t.id = d.tenant_id JOIN users u ON u.id = d.delegate_id
+         WHERE d.delegator_id = $1 AND d.revoked_at IS NULL
+           AND d.starts_on <= (now() AT TIME ZONE t.timezone)::date
+           AND (d.ends_on IS NULL OR d.ends_on >= (now() AT TIME ZONE t.timezone)::date)`,
+        [req.user.sub],
+      )).rows;
+      return { ...rows[0], team_ids: req.scope?.teamIds ?? rows[0].team_ids, covering, covered_by: coveredBy };
     }),
   );
 }

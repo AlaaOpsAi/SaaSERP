@@ -50,8 +50,10 @@ export function Activities() {
                   <tr key={a.id}>
                     <td style={{ color: overdue ? 'var(--danger)' : undefined }}>{overdue && '⚠ '}{dateTime(a.due_at)}</td>
                     <td><span className="tag">{a.type.replace('_', ' ')}</span> {a.subject}
+                      {a.not_mine && scope === 'mine' && <span className="tag cover-tag">covering · {a.owner_name}</span>}
                       {(a.location || a.notes) && <div className="small secondary">{[a.location, a.notes].filter(Boolean).join(' · ')}</div>}
-                      {a.outcome && <div className="small secondary">✓ {a.outcome}</div>}</td>
+                      {a.outcome && <div className="small secondary">✓ {a.outcome}</div>}
+                      {a.completed_by_name && a.completed_on_behalf_of_name && <div className="small muted">done by {a.completed_by_name} for {a.completed_on_behalf_of_name}</div>}</td>
                     <td>{a.booking_id ? <><Link to={`/bookings/${a.booking_id}`}>{a.booking_no}</Link> {a.booking_status && <StatusBadge status={a.booking_status} />}<div className="small secondary">{a.booking_name}</div></> : '—'}</td>
                     <td>{a.contact_name ?? '—'}<div className="small secondary">{a.contact_phone}</div></td>
                     <td>{a.owner_name ?? '—'}</td>

@@ -98,6 +98,10 @@ export interface Me {
   sees_all: boolean;
   /** This user and everyone who reports to them. */
   team_ids: string[];
+  /** Colleagues this user is covering for right now. */
+  covering: { id: string; delegator_name: string; access: 'view' | 'act'; ends_on: string | null; include_team: boolean }[];
+  /** Colleagues covering for this user right now. */
+  covered_by: { id: string; delegate_name: string; access: 'view' | 'act'; ends_on: string | null }[];
   role: Role;
   tenant: {
     id: string; slug: string; name: string; plan: string; currency: string; timezone: string;
@@ -126,7 +130,7 @@ export interface Booking {
   inquiry_date: string; decision_due_date: string | null; last_followup_date: string | null; next_followup_date: string | null;
   followup_notes: string | null; description: string | null; lost_reason: string | null; cancel_reason: string | null;
   manual_revenue: number | null; manual_cost: number | null; contract_value: number | null; credit_facility: boolean;
-  fully_paid_date: string | null; currency: string;
+  fully_paid_date: string | null; currency: string; created_by: string | null;
   revenue: number; cost: number; gross_margin: number; margin_pct: number | null; diff: number | null;
   fixed_cost: number; cf_cost: number; net_profit: number; commission: number; shares: number;
   paid: number; outstanding: number; aging_days: number;
@@ -141,6 +145,7 @@ export interface Activity {
   id: string; type: string; subject: string; due_at: string; location: string | null; notes: string | null; outcome: string | null;
   completed_at: string | null; owner_id: string | null; owner_name: string | null; booking_id: string | null;
   booking_no?: string; booking_name?: string; booking_status?: Status; contact_name?: string; contact_phone?: string;
+  not_mine?: boolean; completed_by_name?: string | null; completed_on_behalf_of_name?: string | null;
 }
 export interface Payment { id: string; paid_on: string; amount: number; method: string; bank_account: string | null; reference: string | null }
 export interface Payout { id: string; kind: 'commission' | 'share'; payee_name: string; pct: number; amount: number; status: 'pending' | 'paid'; paid_on: string | null }
@@ -148,6 +153,9 @@ export interface Conflict { event_id: string; booking_id: string | null; booking
 
 export interface BookingDetail extends Booking {
   events: BookingEvent[]; items: Item[]; activities: Activity[]; payments: Payment[]; payouts: Payout[];
-  history: { id: string; from_status: Status | null; to_status: Status; reason: string | null; changed_by_name: string | null; changed_at: string }[];
+  history: { id: string; from_status: Status | null; to_status: Status; reason: string | null; changed_by_name: string | null;
+             on_behalf_of_name: string | null; changed_at: string }[];
+  log: { id: string; action: string; details: Record<string, unknown>; created_at: string; actor_name: string | null; on_behalf_of_name: string | null }[];
+  can_edit: boolean;
   conflicts: Conflict[];
 }

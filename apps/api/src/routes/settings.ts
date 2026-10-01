@@ -4,6 +4,7 @@ import { authed, can, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { badRequest, conflict, forbidden } from '../lib/errors.js';
 import { hashPassword } from '../lib/password.js';
+import { notify } from '../lib/notify.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
@@ -127,7 +128,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const { rows } = await db.query(
         `SELECT id, email, name, code, role, is_active, last_login_at, created_at, manager_id, data_scope,
-                (app_sees_all() OR id = ANY (app_team_ids())) AS in_my_team
+                (app_sees_all() OR id = ANY (app_write_ids())) AS in_my_team
          FROM users ORDER BY is_active DESC, name`,
       );
       return rows;
@@ -178,6 +179,70 @@ export async function settingsRoutes(app: FastifyInstance) {
       }, 'User');
       delete user.password_hash;
       return user;
+    }),
+  );
+
+  // Transfer: someone is leaving. Their work moves to a colleague; history and paid commission stay.
+  app.post('/users/:id/transfer', { preHandler: requireRole(can.manage) }, (req) =>
+    tx(req, async (db) => {
+      const { id: fromId } = id.parse(req.params);
+      const body = z.object({
+        to_user_id: z.string().uuid(),
+        bookings: z.enum(['open', 'all', 'none']).default('open'),
+        activities: z.boolean().default(true),
+        clients: z.boolean().default(true),
+        reports: z.boolean().default(true),
+        deactivate: z.boolean().default(true),
+      }).parse(req.body);
+      const scope = req.scope!;
+      if (fromId === req.user.sub) throw badRequest('You cannot transfer your own work; ask your manager or an admin');
+      if (fromId === body.to_user_id) throw badRequest('Choose a different person to take over');
+      const from = await getRow<{ name: string; role: string }>(db, 'users', fromId, 'User');
+      const to = await getRow<{ name: string; is_active: boolean }>(db, 'users', body.to_user_id, 'User');
+      if (!scope.seesAll && (!scope.teamIds.includes(fromId) || !scope.teamIds.includes(body.to_user_id))) {
+        throw forbidden('You can transfer work only between people in your team');
+      }
+      if (from.role === 'owner' && req.user.role !== 'owner') throw forbidden('Only owners can transfer an owner');
+      if (!to.is_active) throw badRequest(`${to.name} is not active`);
+
+      const statuses = body.bookings === 'open' ? ['INQ', 'TEN', 'DEF'] : ['INQ', 'TEN', 'DEF', 'ACT', 'LOS', 'CXL'];
+      const moved = { bookings: 0, activities: 0, clients: 0, reports: 0 };
+      if (body.bookings !== 'none') {
+        const r = await db.query(
+          `UPDATE bookings SET owner_id = $2 WHERE owner_id = $1 AND status = ANY($3) RETURNING id`,
+          [fromId, body.to_user_id, statuses],
+        );
+        moved.bookings = r.rowCount ?? 0;
+        if (r.rows.length) {
+          await db.query(
+            `INSERT INTO booking_log (tenant_id, booking_id, actor_id, action, details)
+             SELECT current_tenant_id(), unnest($1::uuid[]), $2, 'transferred', $3`,
+            [r.rows.map((x) => x.id), req.user.sub, JSON.stringify({ from: from.name, to: to.name })],
+          );
+        }
+      }
+      if (body.activities) {
+        moved.activities = (await db.query(
+          'UPDATE activities SET owner_id = $2 WHERE owner_id = $1 AND completed_at IS NULL', [fromId, body.to_user_id])).rowCount ?? 0;
+      }
+      if (body.clients) {
+        moved.clients = (await db.query('UPDATE accounts SET owner_id = $2 WHERE owner_id = $1', [fromId, body.to_user_id])).rowCount ?? 0;
+      }
+      if (body.reports) {
+        moved.reports = (await db.query(
+          'UPDATE users SET manager_id = $2 WHERE manager_id = $1 AND id <> $2', [fromId, body.to_user_id])).rowCount ?? 0;
+      }
+      if (body.deactivate) {
+        await db.query('UPDATE users SET is_active = false WHERE id = $1', [fromId]);
+        await db.query(
+          `UPDATE delegations SET revoked_at = now(), revoked_by = $2
+           WHERE (delegator_id = $1 OR delegate_id = $1) AND revoked_at IS NULL`,
+          [fromId, req.user.sub],
+        );
+      }
+      await notify(db, body.to_user_id,
+        `${from.name}'s work was transferred to you: ${moved.bookings} bookings, ${moved.activities} follow-ups, ${moved.clients} clients.`, '/bookings');
+      return { moved, deactivated: body.deactivate };
     }),
   );
 

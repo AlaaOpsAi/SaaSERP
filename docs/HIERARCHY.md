@@ -44,3 +44,38 @@ Team-scoped users can only assign bookings to themselves or to someone below the
 - It stores these for the transaction (`app.see_all`, `app.user_id`, `app.team_ids`).
 - **Restrictive** row-level-security policies (migration `003_team_hierarchy.sql`) require both the tenant match and team visibility on every query. A missed filter in application code therefore cannot leak another team's records.
 - Clash detection and the diary use `SECURITY DEFINER` functions (`booking_conflicts`, `diary_events`). They read the whole workspace and return only whether each row is visible; the API hides details of the rows that aren't.
+
+## Cover & delegation (temporary)
+
+**Cover & delegation** in the menu lets one colleague cover another, for example during leave.
+
+| Option | Meaning |
+|---|---|
+| Whose records | your own; managers can also set up cover for anyone in their team, admins for anyone |
+| Covered by | any colleague who can sign in |
+| From / until | access starts and stops by itself; leave "until" empty for open-ended cover (e.g. a sales coordinator) |
+| View & act (default) | the cover can see, follow up, update and confirm bookings, and create bookings for the person covered |
+| View only | the cover can see bookings and history but change nothing |
+| Also cover their team | for managers: includes everyone below them |
+| Hand over follow-ups | the person's open follow-ups appear in the cover's own activity list |
+
+Rules:
+- Someone covering **never records payments or commissions**. Those stay with finance and the owner's managers.
+- Cover doesn't chain: covering for Joumana doesn't give access to whoever Joumana covers for.
+- Anything done while covering is logged **"by Ghada, on behalf of Joumana"**: field changes, status changes, events, lines and completed follow-ups. It shows in the booking's **History** tab.
+- **Notifications (the bell):** the person covering, the person covered (if someone else set it up) and the covered person's manager are told when cover is set up, changed or ended.
+- Banners remind both people while cover is active.
+- Cover can be shortened, extended or ended early by the person covered, their managers, admins or the cover themselves.
+
+## Transfer (someone leaves)
+
+**Settings → Team → Transfer…** is for managers (within their team) and admins. It moves a person's work to a colleague in one step:
+- open bookings (or all of them), open follow-ups, companies they own, and their direct reports
+- optionally deactivates them: they're signed out at once and any cover involving them ends
+
+Every moved booking gets a "transferred from → to" entry in its history. Commissions already set up stay with the original person.
+
+## Enforcement
+
+- Read and write are separate. `app.team_ids` holds what you may **read**: your team plus every cover in force. `app.write_ids` holds what you may **change**: your team plus "view & act" covers.
+- Row-level-security policies are split into SELECT, INSERT, UPDATE and DELETE (migration `004_delegation.sql`). So a "view only" cover is enforced by the database, not just hidden in the screens.
