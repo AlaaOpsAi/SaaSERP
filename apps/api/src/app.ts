@@ -26,6 +26,18 @@ const PG_ERRORS: Record<string, [number, string]> = {
   '22P02': [400, 'Invalid value'],
 };
 
+// Plain-language messages for unique constraints.
+const UNIQUE_MESSAGES: Record<string, string> = {
+  users_tenant_id_email_key: 'Another user in this workspace already uses this email',
+  users_tenant_id_code_key: 'Another user in this workspace already uses these initials',
+  business_units_tenant_id_code_key: 'A business unit with this code already exists',
+  lookups_tenant_id_type_code_key: 'This list already has an entry with that code',
+  venues_tenant_id_name_key: 'A venue with this name already exists',
+  function_spaces_tenant_id_venue_id_name_key: 'This venue already has a room with that name',
+  bookings_tenant_id_booking_no_key: 'A booking with this number already exists',
+  tenants_slug_key: 'That workspace ID is already taken',
+};
+
 export async function buildApp(opts: { logger?: boolean } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 2 * 1024 * 1024 });
 
@@ -39,6 +51,10 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     }
     if (err instanceof HttpError) {
       return reply.code(err.statusCode).send({ error: err.message, details: err.details });
+    }
+    const constraint = (err as { constraint?: string }).constraint;
+    if ((err as { code?: string }).code === '23505' && constraint && UNIQUE_MESSAGES[constraint]) {
+      return reply.code(409).send({ error: UNIQUE_MESSAGES[constraint], details: { constraint } });
     }
     const pg = 'code' in err && typeof err.code === 'string' ? PG_ERRORS[err.code] : undefined;
     if (pg) {

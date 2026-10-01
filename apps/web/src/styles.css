@@ -368,3 +368,5 @@ svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; borde
 .card-head > .row { max-width: 100%; min-width: 0; }
 .card-head .segmented { flex: 0 1 auto; min-width: 0; }
 .tooltip.inside { top: 4px; transform: translateX(-50%); }
+.merge-box { border-top: 1px solid var(--border); padding-top: 12px; }
+.merge-box summary { cursor: pointer; color: var(--text-2); font-size: 13px; font-weight: 600; }

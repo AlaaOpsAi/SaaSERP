@@ -101,19 +101,50 @@ function Team() {
 }
 
 function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void }) {
+  const { me } = useAuth();
+  const { data: users } = useUsers();
   const { form, set, bind } = useForm({
     name: user.name ?? '', email: user.email ?? null, code: user.code ?? null, role: user.role ?? 'sales',
     is_active: user.is_active ?? true, password: null as string | null,
   });
+  const [mergeTarget, setMergeTarget] = useState('');
   const save = useSave(() => {
     const body = { ...form, password: form.password || undefined };
     return user.id ? api(`/users/${user.id}`, { method: 'PATCH', body }) : api('/users', { body });
   }, [['users']]);
+  const merge = useSave((v: { source: string; target: string }) => api(`/users/${v.source}/merge-into/${v.target}`, { method: 'POST' }),
+    [['users'], ['bookings'], ['dashboard'], ['booking']]);
+
+  // The save clashed with another user's email or initials: offer to merge the duplicate.
+  const existing = (save.error as { details?: { existing_user?: User } } | null)?.details?.existing_user;
+  // Keep whichever of the two can sign in (and never merge away your own account).
+  const keepExisting = existing && user.id && (existing.id === me?.id || (Boolean(existing.email) && user.id !== me?.id));
+  const hasLogin = Boolean(user.is_active && user.email);
+  const givingLogin = form.is_active && Boolean(form.email) && !hasLogin;
+
   return (
     <Modal title={user.id ? `Edit ${user.name}` : 'Add user'} onClose={onClose}
       footer={<><button onClick={onClose}>Cancel</button><button className="primary" form="user-form" disabled={save.isPending}>Save</button></>}>
       <form id="user-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined, { onSuccess: onClose }); }}>
-        <ErrorNote error={save.error} />
+        <ErrorNote error={save.error ?? merge.error} />
+        {existing && user.id && (
+          <div className="alert info stack" style={{ gap: 8 }}>
+            <span>
+              {keepExisting
+                ? <>Merging moves {user.name}'s bookings, activities and payouts to <strong>{existing.name}</strong>, then removes {user.name}.</>
+                : <>Merging moves <strong>{existing.name}</strong>'s bookings, activities and payouts to {user.name}, then removes {existing.name}. Then save again.</>}
+            </span>
+            <div>
+              <button type="button" className="sm primary" disabled={merge.isPending}
+                onClick={() => merge.mutate(
+                  keepExisting ? { source: user.id!, target: existing.id } : { source: existing.id, target: user.id! },
+                  { onSuccess: () => { if (keepExisting) onClose(); else save.reset(); } },
+                )}>
+                {keepExisting ? `Merge ${user.name} into ${existing.name}` : `Merge ${existing.name} into ${user.name}`}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="form-grid">
           <Field label="Name"><input required {...bind('name')} /></Field>
           <Field label="Initials code (AM)"><input maxLength={6} {...bind('code')} placeholder="e.g. JOU" /></Field>
@@ -123,11 +154,33 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
               {ROLES.map(([r, l]) => <option key={r} value={r}>{l}</option>)}
             </select>
           </Field>
-          <Field label={user.id ? 'New password (optional)' : 'Password'}><input type="password" minLength={8} {...bind('password')} /></Field>
+          <Field label={!user.id || givingLogin ? 'Password (needed to sign in)' : 'New password (optional)'}>
+            <input type="password" minLength={8} required={givingLogin && !user.id} {...bind('password')} />
+          </Field>
           <label className="check" style={{ alignSelf: 'end', paddingBottom: 8 }}>
             <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active')(e.target.checked)} />Can sign in
           </label>
         </div>
+        {user.id && user.id !== me?.id && (
+          <details className="merge-box">
+            <summary>Duplicate of another user? Merge…</summary>
+            <p className="small secondary">
+              Moves {user.name}'s bookings, activities, clients and payouts to the user you choose, then removes {user.name}.
+              Use it when the Excel import created an account manager who already has a login.
+            </p>
+            <div className="row">
+              <select value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)} aria-label="Merge into" style={{ width: 'auto' }}>
+                <option value="">Merge into…</option>
+                {users?.filter((u) => u.id !== user.id).map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}{u.email ? ` · ${u.email}` : ''}</option>)}
+              </select>
+              <button type="button" className="sm danger" disabled={!mergeTarget || merge.isPending}
+                onClick={() => confirm(`Merge ${user.name} into ${users?.find((u) => u.id === mergeTarget)?.name}? This cannot be undone.`)
+                  && merge.mutate({ source: user.id!, target: mergeTarget }, { onSuccess: onClose })}>
+                Merge
+              </button>
+            </div>
+          </details>
+        )}
       </form>
     </Modal>
   );

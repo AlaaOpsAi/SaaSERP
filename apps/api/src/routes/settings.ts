@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authed, can, requireRole, tx } from '../auth.js';
-import { badRequest, forbidden } from '../lib/errors.js';
+import type { Db } from '../db.js';
+import { badRequest, conflict, forbidden } from '../lib/errors.js';
 import { hashPassword } from '../lib/password.js';
-import { deleteRow, insertRow, updateRow } from '../lib/sql.js';
+import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
 const pct = z.number().min(0).max(1);
@@ -57,6 +58,41 @@ const spaceSchema = z.object({
   is_active: z.boolean().optional(),
 });
 
+/** Name the user who already holds this email or initials, instead of a bare unique-violation. */
+async function assertUnique(db: Db, fields: { email?: string | null; code?: string | null }, exceptId?: string) {
+  for (const field of ['email', 'code'] as const) {
+    const value = fields[field];
+    if (!value) continue;
+    const { rows } = await db.query(
+      `SELECT id, name, code, email, is_active FROM users WHERE ${field} = $1 AND ($2::uuid IS NULL OR id <> $2) LIMIT 1`,
+      [value, exceptId ?? null],
+    );
+    if (rows[0]) {
+      const other = rows[0];
+      const who = `${other.name}${other.code ? ` (${other.code})` : ''}`;
+      throw conflict(
+        field === 'email'
+          ? `${who} already uses the email ${value}. If they are the same person, merge the two users.`
+          : `${who} already uses the initials ${value}. If they are the same person, merge the two users.`,
+        { field, existing_user: other },
+      );
+    }
+  }
+}
+
+/** Login users (active, with an email) may not exceed the plan allowance. */
+async function assertSeat(db: Db, exceptId?: string) {
+  const { rows } = await db.query(
+    `SELECT t.max_users,
+            (SELECT count(*) FROM users WHERE is_active AND email IS NOT NULL AND ($1::uuid IS NULL OR id <> $1)) AS n
+     FROM tenants t WHERE t.id = current_tenant_id()`,
+    [exceptId ?? null],
+  );
+  if (rows[0].n >= rows[0].max_users) {
+    throw badRequest(`Your plan allows ${rows[0].max_users} login users. Deactivate someone or ask us to raise the limit.`);
+  }
+}
+
 export async function settingsRoutes(app: FastifyInstance) {
   const admin = { preHandler: requireRole(can.admin) };
 
@@ -80,14 +116,10 @@ export async function settingsRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const { password, ...body } = userCreate.parse(req.body);
       if (body.role === 'owner' && req.user.role !== 'owner') throw forbidden('Only owners can add owners');
+      await assertUnique(db, body);
       if (body.is_active && body.email) {
-        const { rows } = await db.query(
-          `SELECT t.max_users, (SELECT count(*) FROM users WHERE is_active AND email IS NOT NULL) AS n
-           FROM tenants t WHERE t.id = current_tenant_id()`,
-        );
-        if (rows[0].n >= rows[0].max_users) {
-          throw badRequest(`Your plan allows ${rows[0].max_users} login users. Upgrade to add more.`);
-        }
+        await assertSeat(db);
+        if (!password) throw badRequest('Set a password so this user can sign in');
       }
       const user = await insertRow<Record<string, unknown>>(db, 'users', {
         ...body,
@@ -106,12 +138,49 @@ export async function settingsRoutes(app: FastifyInstance) {
       if (userId === req.user.sub && (body.is_active === false || (body.role && body.role !== req.user.role))) {
         throw badRequest('You cannot deactivate yourself or change your own role');
       }
+      const current = await getRow<{ email: string | null; is_active: boolean; password_hash: string | null }>(db, 'users', userId, 'User');
+      await assertUnique(db, body, userId);
+      const email = body.email === undefined ? current.email : body.email;
+      const active = body.is_active ?? current.is_active;
+      if (active && email) {
+        // Becoming a login user takes a seat and needs a password.
+        if (!(current.is_active && current.email)) await assertSeat(db, userId);
+        if (!current.password_hash && !password) throw badRequest('Set a password so this user can sign in');
+      }
       const user = await updateRow<Record<string, unknown>>(db, 'users', userId, {
         ...body,
         password_hash: password ? await hashPassword(password) : undefined,
       }, 'User');
       delete user.password_hash;
       return user;
+    }),
+  );
+
+  // Merge a duplicate user into another: their bookings, activities, clients and
+  // payouts move to the target, which also takes over the initials if it has none.
+  app.post('/users/:id/merge-into/:targetId', admin, (req) =>
+    tx(req, async (db) => {
+      const { id: sourceId, targetId } = z.object({ id: z.string().uuid(), targetId: z.string().uuid() }).parse(req.params);
+      if (sourceId === targetId) throw badRequest('Choose two different users');
+      if (sourceId === req.user.sub) throw badRequest('You cannot merge away your own account; merge the other user into yours');
+      const source = await getRow<{ role: string; code: string | null }>(db, 'users', sourceId, 'User');
+      await getRow(db, 'users', targetId, 'User');
+      if (source.role === 'owner' && req.user.role !== 'owner') throw forbidden('Only owners can merge an owner');
+      const moves: [string, string][] = [
+        ['bookings', 'owner_id'], ['bookings', 'created_by'], ['activities', 'owner_id'], ['accounts', 'owner_id'],
+        ['booking_payouts', 'user_id'], ['payments', 'created_by'], ['booking_status_history', 'changed_by'],
+      ];
+      const moved: Record<string, number> = {};
+      for (const [table, column] of moves) {
+        const r = await db.query(`UPDATE ${table} SET ${column} = $2 WHERE ${column} = $1`, [sourceId, targetId]);
+        moved[`${table}.${column}`] = r.rowCount ?? 0;
+      }
+      await db.query('DELETE FROM users WHERE id = $1', [sourceId]);
+      if (source.code) {
+        await db.query('UPDATE users SET code = coalesce(code, $2) WHERE id = $1', [targetId, source.code]);
+      }
+      const { rows } = await db.query('SELECT id, email, name, code, role, is_active FROM users WHERE id = $1', [targetId]);
+      return { user: rows[0], moved };
     }),
   );
 
