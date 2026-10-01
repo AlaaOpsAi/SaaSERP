@@ -17,6 +17,7 @@ Oracle OPERA Cloud Sales & Event Management and on the team's existing *daily re
 | **Team hierarchy** | Users report to managers, to any depth (e.g. Director → Manager → Team lead → Account manager). Managers see their own records plus everyone below them; account managers see their own. Enforced by the database for bookings, everything inside them, activities, dashboards, finance and exports. Room clashes are still checked company-wide, and other teams' rooms show as anonymous "Booked" blocks. |
 | **Cover & transfer** | Time-boxed cover for colleagues on leave (view & act, or view only), with follow-up hand-over, an "on behalf of" audit trail, manager notifications (bell) and no money actions for the person covering. Transfer moves a leaver's work to a colleague and deactivates them. |
 | **Approvals** | New companies request a workspace; a platform operator approves (choosing plan and user limit), rejects with a reason, suspends or reactivates it in the operator console at `/platform`. Optional Slack/Teams webhook on each sign-up. |
+| **Mobile app** | iOS & Android app (Expo): home KPIs, bookings with search, one-tap call/WhatsApp, status changes, follow-ups, quick new enquiry, room diary and notifications. See [docs/MOBILE.md](docs/MOBILE.md). |
 | **SaaS** | Self-service workspace requests, roles (owner/admin/manager/sales/finance/viewer), plan user limits, per-tenant currency, time zone and profit percentages. |
 
 ## Quick start (local)
@@ -76,5 +77,6 @@ the status workflow, diary conflicts, roles and plan limits, reports and the wor
 - [Architecture](docs/ARCHITECTURE.md): stack, multi-tenancy, data model, API.
 - [Workbook mapping](docs/EXCEL-MAPPING.md): how every column of the daily report maps into the system.
 - [Team hierarchy, cover & transfer](docs/HIERARCHY.md): who sees which records.
+- [Mobile app](docs/MOBILE.md): run it on your phone, build for the stores.
 - [Workspace approval](docs/APPROVALS.md): the sign-up review workflow and operator console.
 - [Roadmap](docs/ROADMAP.md): OPERA S&E capabilities still to build.

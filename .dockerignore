@@ -5,3 +5,4 @@ node_modules
 **/.env
 *.xlsx
 .git
+apps/mobile

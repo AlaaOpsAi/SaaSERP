@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "SaaSERP Sales",
+    "slug": "saaserp-sales",
+    "scheme": "saaserp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saaserp.sales",
+      "infoPlist": {
+        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
+      }
+    },
+    "android": {
+      "package": "com.saaserp.sales",
+      "adaptiveIcon": {
+        "backgroundColor": "#1F3A5F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "extra": {
+      "defaultServer": "http://localhost:4000"
+    }
+  }
+}
