@@ -36,11 +36,22 @@ Import your workbook either from **Settings → Import from Excel**, or from the
 npm run import:xlsx -w apps/api -- <workspace-id> path/to/REPORT_Daily.xlsx
 ```
 
-### Docker
+### Docker (e.g. on a Mac)
 
 ```bash
-docker compose up --build     # http://localhost:4000
+git clone https://github.com/AlaaOpsAi/SaaSERP.git && cd SaaSERP
+git checkout claude/affectionate-sagan-hru2m7
+echo "JWT_SECRET=$(openssl rand -hex 32)" > .env
+docker compose up -d --build        # first build takes a few minutes
+open http://localhost:4000          # create your workspace, then Settings → Import from Excel
 ```
+
+- Port 4000 busy? Add `APP_PORT=8080` to `.env` and open http://localhost:8080.
+- Logs: `docker compose logs -f app`
+- Stop: `docker compose down`. Your data stays in the `pgdata` volume.
+- Update: `git pull && docker compose up -d --build`. Migrations run automatically on start.
+- Back up: `docker compose exec db pg_dump -U postgres saaserp > backup.sql`
+- Wipe everything: `docker compose down -v`. This deletes all data.
 
 The image runs migrations on start and serves the web app and the API from one process.
 

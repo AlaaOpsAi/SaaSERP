@@ -9,7 +9,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./deploy/init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
-    ports: ["5432:5432"]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 3s
@@ -21,8 +21,10 @@ services:
     environment:
       DATABASE_URL: postgres://saaserp_app:saaserp_app@db:5432/saaserp
       MIGRATION_DATABASE_URL: postgres://saaserp_owner:saaserp_owner@db:5432/saaserp
-      JWT_SECRET: change-me-in-production
+      # Set JWT_SECRET in a .env file next to this one (see README).
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       CORS_ORIGIN: http://localhost:4000
-    ports: ["4000:4000"]
+    ports: ["${APP_PORT:-4000}:4000"]
+    restart: unless-stopped
 volumes:
   pgdata:

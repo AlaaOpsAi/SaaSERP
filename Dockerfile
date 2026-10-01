@@ -1,5 +1,5 @@
 # Single image: API + built web app.
-FROM node:22-alpine AS build
+FROM node:22-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/
@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine
+FROM node:22-slim
 WORKDIR /app
 ENV NODE_ENV=production WEB_DIST=/app/apps/web/dist PORT=4000
 COPY package.json package-lock.json ./
