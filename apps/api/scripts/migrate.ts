@@ -40,6 +40,13 @@ export async function migrate(url = config.migrationDatabaseUrl, appRole = confi
     await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${role}`);
     await client.query(`REVOKE ALL ON schema_migrations FROM ${role}`);
     await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${role}`);
+    // Optional read-only reporting role (see docs/OPERATIONS.md): SELECT on everything.
+    const ro = await client.query("SELECT 1 FROM pg_roles WHERE rolname = 'saaserp_readonly'");
+    if (ro.rows[0]) {
+      await client.query('GRANT USAGE ON SCHEMA public TO saaserp_readonly');
+      await client.query('GRANT SELECT ON ALL TABLES IN SCHEMA public TO saaserp_readonly');
+      await client.query('REVOKE SELECT ON platform_admins FROM saaserp_readonly');
+    }
   } finally {
     await client.end();
   }

@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
 import { date, money } from '../format';
 import { useLookups, useSave } from '../hooks';
+import { t } from '../i18n';
 
 interface Contact { id: string; name: string; phone: string | null; email: string | null; nationality: string | null; address: string | null;
   social_handle: string | null; notes: string | null; account_id: string | null; account_name: string | null; booking_count: number }
@@ -26,17 +27,17 @@ export function Clients() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Clients</h1><p>Individuals and companies you sell to, with their booking history.</p></div>
-        {can('sell') && <button className="primary" onClick={() => setOpen({ kind: tab })}>New {tab === 'contacts' ? 'contact' : 'company'}</button>}
+        <div><h1>{t("Clients")}</h1><p>{t("Individuals and companies you sell to, with their booking history.")}</p></div>
+        {can('sell') && <button className="primary" onClick={() => setOpen({ kind: tab })}>{t("New")}{' '}{tab === 'contacts' ? t("contact") : t("company")}</button>}
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[['contacts', 'Contacts'], ['accounts', 'Companies']]} />
-      <div className="filters"><input type="search" placeholder="Search name, phone, email…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="filters"><input type="search" placeholder={t("Search name, phone, email…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="card flush">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>{tab === 'contacts' ? 'Company' : 'Type'}</th><th className="num">Bookings</th></tr></thead>
+            <thead><tr><th>{t("Name")}</th><th>{t("Phone")}</th><th>{t("Email")}</th><th>{tab === 'contacts' ? t("Company") : t("Type")}</th><th className="num">{t("Bookings")}</th></tr></thead>
             <tbody>
-              {data?.length === 0 && <tr><td colSpan={5} className="empty">No {tab} found.</td></tr>}
+              {data?.length === 0 && <tr><td colSpan={5} className="empty">{t("No")}{' '}{tab}{' '}{t("found.")}</td></tr>}
               {data?.map((r) => (
                 <tr key={r.id} className="clickable" onClick={() => setOpen({ kind: tab, id: r.id })}>
                   <td><strong>{r.name}</strong>{'social_handle' in r && r.social_handle && <div className="small secondary">{r.social_handle}</div>}</td>
@@ -83,35 +84,35 @@ function ClientForm({ kind, initial, onClose }: { kind: 'contacts' | 'accounts';
   const editable = can('sell');
 
   return (
-    <Modal title={initial?.id ? String(initial.name) : kind === 'contacts' ? 'New contact' : 'New company'} onClose={onClose}
-      footer={editable ? <><button onClick={onClose}>Cancel</button><button className="primary" form="client-form" disabled={save.isPending}>Save</button></> : undefined}>
+    <Modal title={initial?.id ? String(initial.name) : kind === 'contacts' ? t("New contact") : t("New company")} onClose={onClose}
+      footer={editable ? <><button onClick={onClose}>{t("Cancel")}</button><button className="primary" form="client-form" disabled={save.isPending}>{t("Save")}</button></> : undefined}>
       <form id="client-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined, { onSuccess: onClose }); }}>
         <ErrorNote error={save.error} />
         <fieldset disabled={!editable} className="form-grid" style={{ border: 'none', padding: 0, margin: 0 }}>
-          <Field label="Name" className="span-2"><input required {...bind('name')} /></Field>
-          <Field label="Phone"><input {...bind('phone')} /></Field>
-          <Field label="Email"><input type="email" {...bind('email')} /></Field>
+          <Field label={t("Name")} className="span-2"><input required {...bind('name')} /></Field>
+          <Field label={t("Phone")}><input {...bind('phone')} /></Field>
+          <Field label={t("Email")}><input type="email" {...bind('email')} /></Field>
           {kind === 'contacts' ? <>
-            <Field label="Company">
+            <Field label={t("Company")}>
               <select {...bind('account_id')}><option value="">—</option>{accounts?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
             </Field>
-            <Field label="Nationality / country"><input {...bind('nationality')} /></Field>
-            <Field label="Instagram / social"><input {...bind('social_handle')} /></Field>
-            <Field label="Address / area"><input {...bind('address')} /></Field>
+            <Field label={t("Nationality / country")}><input {...bind('nationality')} /></Field>
+            <Field label={t("Instagram / social")}><input {...bind('social_handle')} /></Field>
+            <Field label={t("Address / area")}><input {...bind('address')} /></Field>
           </> : <>
-            <Field label="Type">
-              <select {...bind('kind')}><option value="company">Company</option><option value="agency">Agency</option><option value="government">Government</option><option value="individual">Individual</option></select>
+            <Field label={t("Type")}>
+              <select {...bind('kind')}><option value="company">{t("Company")}</option><option value="agency">{t("Agency")}</option><option value="government">{t("Government")}</option><option value="individual">{t("Individual")}</option></select>
             </Field>
-            <Field label="Business type"><LookupSelect options={lookups?.business_type} value={form.business_type} onChange={set('business_type')} /></Field>
-            <Field label="Country"><input {...bind('country')} /></Field>
-            <Field label="Address"><input {...bind('address')} /></Field>
+            <Field label={t("Business type")}><LookupSelect options={lookups?.business_type} value={form.business_type} onChange={set('business_type')} /></Field>
+            <Field label={t("Country")}><input {...bind('country')} /></Field>
+            <Field label={t("Address")}><input {...bind('address')} /></Field>
           </>}
-          <Field label="Notes" className="span-all"><textarea {...bind('notes')} /></Field>
+          <Field label={t("Notes")} className="span-all"><textarea {...bind('notes')} /></Field>
         </fieldset>
         {initial?.bookings && (
           <div>
-            <h3 style={{ marginBottom: 8 }}>Bookings</h3>
-            {initial.bookings.length === 0 ? <p className="muted">None yet.</p> : (
+            <h3 style={{ marginBottom: 8 }}>{t("Bookings")}</h3>
+            {initial.bookings.length === 0 ? <p className="muted">{t("None yet.")}</p> : (
               <table>
                 <tbody>
                   {initial.bookings.map((b) => (

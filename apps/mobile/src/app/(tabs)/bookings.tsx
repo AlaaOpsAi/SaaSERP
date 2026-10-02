@@ -9,6 +9,7 @@ import { api, type Booking } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { money } from '../../lib/format';
 import { useColors } from '../../lib/theme';
+import { t } from '../../i18n';
 
 type Filter = 'open' | 'won' | 'lost' | 'all';
 const STATUS: Record<Filter, string> = { open: 'INQ,TEN', won: 'DEF,ACT', lost: 'LOS,CXL', all: '' };
@@ -24,13 +25,13 @@ export default function Bookings() {
   const [query, setQuery] = useState('');
   useEffect(() => { if (params.filter) setFilter(params.filter); }, [params.filter]);
   useEffect(() => {
-    const t = setTimeout(() => setQuery(q.trim()), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setQuery(q.trim()), 300);
+    return () => clearTimeout(timer);
   }, [q]);
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => can('sell') && (
-        <Pressable onPress={() => router.push('/booking/new')} accessibilityLabel="New enquiry" hitSlop={10} style={{ paddingHorizontal: 14 }}>
+        <Pressable onPress={() => router.push('/booking/new')} accessibilityLabel={t("New enquiry")} hitSlop={10} style={{ paddingHorizontal: 14 }}>
           <Ionicons name="add-circle" size={28} color={c.accent} />
         </Pressable>
       ),
@@ -56,12 +57,12 @@ export default function Bookings() {
       <View style={{ padding: 12, gap: 10, backgroundColor: c.surface, borderBottomWidth: 1, borderColor: c.border }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface2, borderRadius: 10, paddingHorizontal: 10 }}>
           <Ionicons name="search" size={18} color={c.muted} />
-          <TextInput value={q} onChangeText={setQ} placeholder="Name, client, phone, booking no." placeholderTextColor={c.muted}
+          <TextInput value={q} onChangeText={setQ} placeholder={t("Name, client, phone, booking no.")} placeholderTextColor={c.muted}
             style={{ flex: 1, paddingVertical: 10, color: c.text, fontSize: 15 }} autoCorrect={false} clearButtonMode="while-editing" />
         </View>
         <Chips<Filter> value={filter} onChange={setFilter}
           options={[['open', 'Open'], ['won', 'Definite'], ['lost', 'Lost'], ['all', 'All']]} />
-        {totals && <T small muted>{totals.count} bookings{totals.revenue ? ` · ${money(totals.revenue, true)} definite revenue` : ''}</T>}
+        {totals && <T small muted>{t('{n} bookings', { n: totals.count })}{totals.revenue ? ` · ${t('{amount} definite revenue', { amount: money(totals.revenue, true) })}` : ''}</T>}
       </View>
       <ErrorText error={list.error} />
       <FlatList

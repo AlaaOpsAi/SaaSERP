@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { MONTHS } from '../format';
+import { monthNames } from '../format';
+import { t } from '../i18n';
 
 /* Chart building blocks. Colours come from CSS tokens (validated palette):
  * series-1 = the current period, --muted = the comparison / de-emphasised series.
@@ -58,9 +59,9 @@ export function Delta({ current, previous, label, upIsGood = true, asPoints = fa
   let diff: number;
   if (asPoints) {
     diff = current - previous;
-    text = `${diff >= 0 ? '+' : '−'}${Math.abs(diff * 100).toFixed(1)} pts`;
+    text = `${diff >= 0 ? '+' : '−'}${Math.abs(diff * 100).toFixed(1)} ${t('pts')}`;
   } else {
-    if (previous === 0) return <span className="delta">{current === 0 ? `no change vs ${label}` : `new vs ${label}`}</span>;
+    if (previous === 0) return <span className="delta">{current === 0 ? t('no change vs {label}', { label }) : t('new vs {label}', { label })}</span>;
     diff = (current - previous) / Math.abs(previous);
     text = `${diff >= 0 ? '+' : '−'}${Math.abs(diff * 100).toFixed(diff !== 0 && Math.abs(diff) < 0.1 ? 1 : 0)}%`;
   }
@@ -68,7 +69,7 @@ export function Delta({ current, previous, label, upIsGood = true, asPoints = fa
   const good = flat ? null : (diff > 0) === upIsGood;
   return (
     <span className={`delta ${good === null ? '' : good ? 'up' : 'down'}`}>
-      <span aria-hidden>{flat ? '→' : diff > 0 ? '▲' : '▼'}</span> {text} <span className="muted">vs {label}</span>
+      <span aria-hidden>{flat ? '→' : diff > 0 ? '▲' : '▼'}</span> {text} <span className="muted">{t("vs")}{' '}{label}</span>
     </span>
   );
 }
@@ -117,17 +118,17 @@ export function TrendChart({ current, previous, currentLabel, previousLabel, for
         <span><i className="line-key" style={{ background: 'var(--series-1)' }} />{currentLabel}</span>
         {previous && previousLabel && <span><i className="line-key" style={{ background: 'var(--muted)' }} />{previousLabel}</span>}
       </div>
-      <svg width={width} height={height} role="img" aria-label={`${currentLabel} by month`} tabIndex={0} onKeyDown={onKey}
+      <svg width={width} height={height} role="img" aria-label={t('{label} by month', { label: currentLabel })} tabIndex={0} onKeyDown={onKey}
         onFocus={() => setHover((h) => h ?? new Date().getMonth())} onBlur={() => setHover(null)}
         onPointerMove={(e) => pick(e.clientX, e.currentTarget)} onPointerLeave={() => setHover(null)}
         onClick={() => hover !== null && onSelect?.(hover)} style={{ cursor: onSelect ? 'pointer' : 'default', display: 'block' }}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={pad.l} x2={width - pad.r} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
-            <text x={pad.l - 8} y={y(t)} dy="0.32em" textAnchor="end" className="axis-text">{format(t)}</text>
+        {ticks.map((tick) => (
+          <g key={tick}>
+            <line x1={pad.l} x2={width - pad.r} y1={y(tick)} y2={y(tick)} stroke="var(--grid)" strokeWidth={1} />
+            <text x={pad.l - 8} y={y(tick)} dy="0.32em" textAnchor="end" className="axis-text">{format(tick)}</text>
           </g>
         ))}
-        {MONTHS.map((m, i) => <text key={m} x={x(i)} y={height - 6} textAnchor="middle" className="axis-text">{m}</text>)}
+        {monthNames().map((m, i) => <text key={m} x={x(i)} y={height - 6} textAnchor="middle" className="axis-text">{m}</text>)}
         <path d={area} fill="var(--series-1)" opacity={0.1} className="draw-in" />
         {previous && <path d={path(previous)} fill="none" stroke="var(--muted)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
         <path d={path(drawn)} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" className="draw-line" />
@@ -141,10 +142,10 @@ export function TrendChart({ current, previous, currentLabel, previousLabel, for
       </svg>
       {hover !== null && (
         <div className="tooltip" style={{ left: Math.min(Math.max(x(hover), 90), width - 90), top: Math.max(y(current[hover]), 40) }}>
-          <div className="tt-title">{MONTHS[hover]}</div>
+          <div className="tt-title">{monthNames()[hover]}</div>
           <div className="tt-row"><i className="line-key" style={{ background: 'var(--series-1)' }} /><strong>{hover <= until ? format(current[hover]) : '—'}</strong> {currentLabel}</div>
           {previous && <div className="tt-row"><i className="line-key" style={{ background: 'var(--muted)' }} /><strong>{format(previous[hover])}</strong> {previousLabel}</div>}
-          {onSelect && <div className="tt-hint">Click to see bookings</div>}
+          {onSelect && <div className="tt-hint">{t("Click to see bookings")}</div>}
         </div>
       )}
     </div>
@@ -165,13 +166,13 @@ export function StackedColumns({ data, series, onSelect, format = String }: {
     <div className="chart">
       <div className="legend">{series.map((s) => <span key={s.key}><i style={{ background: s.color }} />{s.label}</span>)}</div>
       <div className="col-plot">
-        <div className="col-axis" aria-hidden>{[...ticks].reverse().map((t) => <span key={t}>{format(t)}</span>)}</div>
-        <div className="cols" role="group" aria-label="Bookings by month">
-          {ticks.map((t) => <div key={t} className="gridline" style={{ bottom: `${(t / top) * 100}%` }} />)}
+        <div className="col-axis" aria-hidden>{[...ticks].reverse().map((tick) => <span key={tick}>{format(tick)}</span>)}</div>
+        <div className="cols" role="group" aria-label={t("Bookings by month")}>
+          {ticks.map((tick) => <div key={tick} className="gridline" style={{ bottom: `${(tick / top) * 100}%` }} />)}
           {data.map((d, i) => (
             <button key={i} className="col" type="button" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
               onFocus={() => setHover(i)} onBlur={() => setHover(null)} onClick={() => onSelect?.(i)}
-              aria-label={`${MONTHS[i]}: ${series.map((s) => `${s.label} ${format(d[s.key] ?? 0)}`).join(', ')}`}>
+              aria-label={`${monthNames()[i]}: ${series.map((s) => `${s.label} ${format(d[s.key] ?? 0)}`).join(', ')}`}>
               <span className="col-stack" style={{ height: `${(totals[i] / top) * 100}%` }}>
                 {series.map((s) => (d[s.key] ?? 0) > 0 && (
                   <span key={s.key} className="seg" style={{ flexGrow: d[s.key], background: s.color }} />
@@ -181,16 +182,16 @@ export function StackedColumns({ data, series, onSelect, format = String }: {
           ))}
           {hover !== null && (
             <div className="tooltip inside" style={{ left: `${Math.min(88, Math.max(12, ((hover + 0.5) / 12) * 100))}%` }}>
-              <div className="tt-title">{MONTHS[hover]} · {format(totals[hover])} total</div>
+              <div className="tt-title">{monthNames()[hover]} · {format(totals[hover])}{' '}{t("total")}</div>
               {series.map((s) => (
                 <div key={s.key} className="tt-row"><i className="line-key" style={{ background: s.color }} /><strong>{format(data[hover][s.key] ?? 0)}</strong> {s.label}</div>
               ))}
-              {onSelect && <div className="tt-hint">Click to see bookings</div>}
+              {onSelect && <div className="tt-hint">{t("Click to see bookings")}</div>}
             </div>
           )}
         </div>
       </div>
-      <div className="col-labels">{MONTHS.map((m) => <span key={m}>{m}</span>)}</div>
+      <div className="col-labels">{monthNames().map((m) => <span key={m}>{m}</span>)}</div>
     </div>
   );
 }
@@ -206,7 +207,7 @@ export function RankedBars({ rows, format = String, empty, onSelect, limit = 8 }
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? rows : rows.slice(0, limit);
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (!rows.length) return <div className="empty">{empty ?? 'No data yet'}</div>;
+  if (!rows.length) return <div className="empty">{empty ?? t("No data yet")}</div>;
   return (
     <div className="ranked">
       {shown.map((r) => {
@@ -223,7 +224,7 @@ export function RankedBars({ rows, format = String, empty, onSelect, limit = 8 }
       })}
       {rows.length > limit && (
         <button type="button" className="ghost sm" onClick={() => setExpanded((e) => !e)}>
-          {expanded ? 'Show fewer' : `Show all ${rows.length}`}
+          {expanded ? t("Show fewer") : t('Show all {n}', { n: rows.length })}
         </button>
       )}
     </div>
@@ -236,9 +237,9 @@ export function MonthTable({ columns, rows }: { columns: { key: string; label: s
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Month</th>{columns.map((c) => <th key={c.key} className="num">{c.label}</th>)}</tr></thead>
-        <tbody>{rows.map((r, i) => <tr key={i}><td>{MONTHS[i]}</td>{columns.map((c) => <td key={c.key} className="num">{c.format(r[c.key] ?? 0)}</td>)}</tr>)}</tbody>
-        <tfoot><tr><td>Total</td>{columns.map((c) => <td key={c.key} className="num">{c.format(totals[c.key])}</td>)}</tr></tfoot>
+        <thead><tr><th>{t("Month")}</th>{columns.map((c) => <th key={c.key} className="num">{c.label}</th>)}</tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i}><td>{monthNames()[i]}</td>{columns.map((c) => <td key={c.key} className="num">{c.format(r[c.key] ?? 0)}</td>)}</tr>)}</tbody>
+        <tfoot><tr><td>{t("Total")}</td>{columns.map((c) => <td key={c.key} className="num">{c.format(totals[c.key])}</td>)}</tr></tfoot>
       </table>
     </div>
   );

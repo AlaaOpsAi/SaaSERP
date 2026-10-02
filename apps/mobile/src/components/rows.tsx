@@ -6,6 +6,9 @@ import { api, type Activity, type Booking } from '../lib/api';
 import { date, dateTime, money } from '../lib/format';
 import { useColors } from '../lib/theme';
 import { StatusBadge, T, Tag } from './ui';
+import { t } from '../i18n';
+
+const ACTIVITY_TYPE: Record<string, string> = { followup: 'Follow-up', call: 'Call', meeting: 'Meeting', email: 'Email', site_visit: 'Site visit', task: 'Task' };
 
 export function BookingRow({ b }: { b: Booking }) {
   const c = useColors();
@@ -17,10 +20,10 @@ export function BookingRow({ b }: { b: Booking }) {
         <StatusBadge status={b.status} />
       </View>
       <T small muted numberOfLines={1}>
-        {b.booking_no} · {date(b.event_date)}{b.venue_name ? ` · ${b.venue_name}` : ''}{b.pax ? ` · ${b.pax} pax` : ''}
+        {b.booking_no} · {date(b.event_date)}{b.venue_name ? ` · ${b.venue_name}` : ''}{b.pax ? ` · ${t('{n} pax', { n: b.pax })}` : ''}
       </T>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <T small muted numberOfLines={1} style={{ flex: 1 }}>{[b.contact_name, b.contact_phone].filter(Boolean).join(' · ') || 'No client'}</T>
+        <T small muted numberOfLines={1} style={{ flex: 1 }}>{[b.contact_name, b.contact_phone].filter(Boolean).join(' · ') || t("No client")}</T>
         {b.revenue > 0 && <T small bold>{money(b.revenue, true)}</T>}
         {b.owner_code && <T small muted>  {b.owner_code}</T>}
       </View>
@@ -47,11 +50,11 @@ export function ActivityRow({ a, showBooking = true }: { a: Activity; showBookin
       <Pressable style={{ flex: 1, gap: 3 }} disabled={!a.booking_id} onPress={() => a.booking_id && router.push(`/booking/${a.booking_id}`)}>
         <T bold style={done ? { textDecorationLine: 'line-through', color: c.muted } : undefined} numberOfLines={2}>{a.subject}</T>
         <T small muted style={overdue ? { color: c.danger } : undefined}>
-          {overdue ? 'Overdue · ' : ''}{dateTime(a.due_at)} · {a.type.replace('_', ' ')}
+          {overdue ? t("Overdue · ") : ''}{dateTime(a.due_at)} · {t(ACTIVITY_TYPE[a.type] ?? a.type)}
         </T>
         {showBooking && a.booking_name && <T small muted numberOfLines={1}>{a.booking_no} · {a.booking_name}{a.contact_phone ? ` · ${a.contact_phone}` : ''}</T>}
-        {a.not_mine && !done && <Tag accent>covering · {a.owner_name}</Tag>}
-        {done && a.completed_on_behalf_of_name && <T small muted>done by {a.completed_by_name} for {a.completed_on_behalf_of_name}</T>}
+        {a.not_mine && !done && <Tag accent>{t("covering ·")}{' '}{a.owner_name}</Tag>}
+        {done && a.completed_on_behalf_of_name && <T small muted>{t("done by")}{' '}{a.completed_by_name}{' '}{t("for")}{' '}{a.completed_on_behalf_of_name}</T>}
       </Pressable>
     </View>
   );

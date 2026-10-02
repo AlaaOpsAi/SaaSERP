@@ -11,6 +11,8 @@ const id = z.object({ id: z.string().uuid() });
 const pct = z.number().min(0).max(1);
 
 const tenantPatch = z.object({
+  default_locale: z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/),
+  branding: z.object({ accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional() }),
   name: z.string().trim().min(2).max(120),
   currency: z.string().length(3).toUpperCase(),
   timezone: z.string().min(3),
@@ -62,6 +64,7 @@ const lookupSchema = z.object({
   label: z.string().trim().min(1),
   sort_order: z.number().int().optional(),
   is_active: z.boolean().optional(),
+  translations: z.record(z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/), z.string().trim().max(200)).optional(),
 });
 
 const venueSchema = z.object({
@@ -120,7 +123,10 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   // ---- tenant ------------------------------------------------------------
   app.patch('/tenant', admin, (req) =>
-    tx(req, (db) => updateRow(db, 'tenants', req.user.tid, tenantPatch.parse(req.body), 'Tenant')),
+    tx(req, (db) => {
+      const { branding, ...rest } = tenantPatch.parse(req.body);
+      return updateRow(db, 'tenants', req.user.tid, { ...rest, branding: branding ? JSON.stringify(branding) : undefined }, 'Tenant');
+    }),
   );
 
   // ---- users -------------------------------------------------------------
@@ -298,9 +304,11 @@ export async function settingsRoutes(app: FastifyInstance) {
       return grouped;
     }),
   );
-  app.post('/lookups', admin, (req) => tx(req, (db) => insertRow(db, 'lookups', lookupSchema.parse(req.body))));
+  const lookupRow = (b: { translations?: Record<string, string> } & Record<string, unknown>) =>
+    ({ ...b, translations: b.translations ? JSON.stringify(b.translations) : undefined });
+  app.post('/lookups', admin, (req) => tx(req, (db) => insertRow(db, 'lookups', lookupRow(lookupSchema.parse(req.body)))));
   app.patch('/lookups/:id', admin, (req) =>
-    tx(req, (db) => updateRow(db, 'lookups', id.parse(req.params).id, lookupSchema.partial().parse(req.body), 'Lookup')),
+    tx(req, (db) => updateRow(db, 'lookups', id.parse(req.params).id, lookupRow(lookupSchema.partial().parse(req.body)), 'Lookup')),
   );
   app.delete('/lookups/:id', admin, (req) =>
     tx(req, async (db) => {

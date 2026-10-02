@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { dateTime } from '../format';
 import { useSave } from '../hooks';
+import { t } from '../i18n';
 
 interface Note { id: string; text: string; link: string | null; read_at: string | null; created_at: string }
 
@@ -27,9 +28,9 @@ export function Bell() {
         {unread > 0 && <span className="bell-count">{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
-        <div className="bell-panel" role="dialog" aria-label="Notifications" onClick={(e) => e.stopPropagation()}>
-          <div className="spread" style={{ marginBottom: 6 }}><strong>Notifications</strong><button className="sm ghost" onClick={() => setOpen(false)}>✕</button></div>
-          {!data?.items.length && <div className="empty">Nothing yet.</div>}
+        <div className="bell-panel" role="dialog" aria-label={t("Notifications")} onClick={(e) => e.stopPropagation()}>
+          <div className="spread" style={{ marginBottom: 6 }}><strong>{t("Notifications")}</strong><button className="sm ghost" onClick={() => setOpen(false)}>✕</button></div>
+          {!data?.items.length && <div className="empty">{t("Nothing yet.")}</div>}
           {data?.items.map((n) => (
             <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`}>
               {n.link ? <Link to={n.link} onClick={() => setOpen(false)}>{n.text}</Link> : n.text}

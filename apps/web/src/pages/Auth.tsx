@@ -3,6 +3,20 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { ErrorNote, Field } from '../components/ui';
+import { LANGUAGES, lang, setLanguage, storeLanguage } from '../i18n';
+import { t } from '../i18n';
+
+/** Language picker shown before sign-in. */
+export function LanguageSwitch({ onChange }: { onChange?: (code: string) => void }) {
+  return (
+    <div className="lang-switch" role="group" aria-label="Language">
+      {LANGUAGES.map((l) => (
+        <button key={l.code} type="button" lang={l.code} className={`sm ${lang().code === l.code ? 'on' : ''}`}
+          onClick={() => { setLanguage(l.code); storeLanguage(l.code); onChange?.(l.code); }}>{l.name}</button>
+      ))}
+    </div>
+  );
+}
 
 const INACTIVE: Record<string, string> = {
   pending: 'Your workspace is waiting for approval. We will let you know as soon as it is activated.',
@@ -10,7 +24,7 @@ const INACTIVE: Record<string, string> = {
   suspended: 'This workspace has been suspended. Please contact support.',
 };
 
-export function Login() {
+export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -48,35 +62,36 @@ export function Login() {
   return (
     <div className="auth-page">
       <form className="card auth-card stack" onSubmit={submit}>
+        <LanguageSwitch onChange={onLanguage} />
         <div>
-          <h1>Sign in</h1>
-          <p className="secondary" style={{ margin: 0 }}>Events & catering sales, bookings and function diary.</p>
+          <h1>{t("Sign in")}</h1>
+          <p className="secondary" style={{ margin: 0 }}>{t("Events & catering sales, bookings and function diary.")}</p>
         </div>
         {inactive && (
           <div className={`alert ${inactive.status === 'pending' ? 'info' : ''}`}>
-            {INACTIVE[inactive.status] ?? 'This workspace is not active.'}
-            {inactive.reason && <div style={{ marginTop: 4 }}><strong>Reason:</strong> {inactive.reason}</div>}
+            {t(INACTIVE[inactive.status] ?? "This workspace is not active.")}
+            {inactive.reason && <div style={{ marginTop: 4 }}><strong>{t("Reason:")}</strong> {inactive.reason}</div>}
           </div>
         )}
         <ErrorNote error={error} />
-        <Field label="Email"><input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <Field label="Password"><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+        <Field label={t("Email")}><input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        <Field label={t("Password")}><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         {workspaces && (
-          <Field label="Workspace">
+          <Field label={t("Workspace")}>
             <select required value={workspace} onChange={(e) => setWorkspace(e.target.value)}>
-              <option value="">Choose a workspace…</option>
+              <option value="">{t("Choose a workspace…")}</option>
               {workspaces.map((w) => <option key={w.slug} value={w.slug}>{w.name} ({w.slug})</option>)}
             </select>
           </Field>
         )}
-        <button className="primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="small secondary" style={{ margin: 0 }}>New company? <Link to="/signup">Request a workspace</Link></p>
+        <button className="primary" disabled={busy}>{busy ? t("Signing in…") : t("Sign in")}</button>
+        <p className="small secondary" style={{ margin: 0 }}>{t("New company?")}{' '}<Link to="/signup">{t("Request a workspace")}</Link></p>
       </form>
     </div>
   );
 }
 
-export function Signup() {
+export function Signup({ onLanguage }: { onLanguage?: (code: string) => void }) {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [f, setF] = useState({
@@ -111,13 +126,11 @@ export function Signup() {
       <div className="auth-page">
         <div className="card auth-card stack" style={{ textAlign: 'center' }}>
           <div className="pending-mark" aria-hidden>⏳</div>
-          <h1>Request received</h1>
-          <p className="secondary" style={{ margin: 0 }}>
-            Thanks, {f.name.split(' ')[0]}. <strong>{f.company_name}</strong> is now waiting for approval.
-            We review new workspaces within one business day and will contact you at <strong>{f.email}</strong>.
+          <h1>{t("Request received")}</h1>
+          <p className="secondary" style={{ margin: 0 }}>{t("Thanks,")}{' '}{f.name.split(' ')[0]}. <strong>{f.company_name}</strong>{' '}{t("is now waiting for approval. We review new workspaces within one business day and will contact you at")}{' '}<strong>{f.email}</strong>.
           </p>
-          <p className="small muted" style={{ margin: 0 }}>Workspace ID: {f.slug}</p>
-          <Link to="/login" className="btn">Back to sign in</Link>
+          <p className="small muted" style={{ margin: 0 }}>{t("Workspace ID:")}{' '}{f.slug}</p>
+          <Link to="/login" className="btn">{t("Back to sign in")}</Link>
         </div>
       </div>
     );
@@ -126,39 +139,40 @@ export function Signup() {
   return (
     <div className="auth-page">
       <form className="card auth-card stack" onSubmit={submit}>
+        <LanguageSwitch onChange={onLanguage} />
         <div>
-          <h1>Request your workspace</h1>
-          <p className="secondary" style={{ margin: 0 }}>Every new workspace is reviewed before activation, usually within one business day.</p>
+          <h1>{t("Request your workspace")}</h1>
+          <p className="secondary" style={{ margin: 0 }}>{t("Every new workspace is reviewed before activation, usually within one business day.")}</p>
         </div>
         <ErrorNote error={error} />
-        <Field label="Company name">
+        <Field label={t("Company name")}>
           <input required value={f.company_name} onChange={(e) => {
             const v = e.target.value;
             setF((s) => ({ ...s, company_name: v, slug: s.slug || v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }));
           }} />
         </Field>
         <div className="grid-2">
-          <Field label="Workspace ID"><input required pattern="[a-z0-9][a-z0-9-]{1,40}" value={f.slug} onChange={set('slug')} /></Field>
-          <Field label="Booking prefix"><input maxLength={4} placeholder="e.g. W" value={f.business_unit_code} onChange={set('business_unit_code')} /></Field>
+          <Field label={t("Workspace ID")}><input required pattern="[a-z0-9][a-z0-9-]{1,40}" value={f.slug} onChange={set('slug')} /></Field>
+          <Field label={t("Booking prefix")}><input maxLength={4} placeholder="e.g. W" value={f.business_unit_code} onChange={set('business_unit_code')} /></Field>
         </div>
         <div className="grid-2">
-          <Field label="Your name"><input required value={f.name} onChange={set('name')} /></Field>
-          <Field label="Phone"><input type="tel" value={f.phone} onChange={set('phone')} placeholder="+965 …" /></Field>
+          <Field label={t("Your name")}><input required value={f.name} onChange={set('name')} /></Field>
+          <Field label={t("Phone")}><input type="tel" value={f.phone} onChange={set('phone')} placeholder="+965 …" /></Field>
         </div>
-        <Field label="Work email"><input type="email" required value={f.email} onChange={set('email')} /></Field>
+        <Field label={t("Work email")}><input type="email" required value={f.email} onChange={set('email')} /></Field>
         <div className="grid-2">
-          <Field label="Password (8+ characters)"><input type="password" minLength={8} required value={f.password} onChange={set('password')} /></Field>
-          <Field label="Currency">
+          <Field label={t("Password (8+ characters)")}><input type="password" minLength={8} required value={f.password} onChange={set('password')} /></Field>
+          <Field label={t("Currency")}>
             <select value={f.currency} onChange={set('currency')}>
               {['KWD', 'SAR', 'AED', 'QAR', 'BHD', 'OMR', 'USD', 'EUR'].map((c) => <option key={c}>{c}</option>)}
             </select>
           </Field>
         </div>
-        <Field label="Tell us about your business (optional)">
-          <textarea maxLength={1000} value={f.note} onChange={set('note')} placeholder="e.g. Wedding planner, 6 sales staff, ~300 events a year" />
+        <Field label={t("Tell us about your business (optional)")}>
+          <textarea maxLength={1000} value={f.note} onChange={set('note')} placeholder={t("e.g. Wedding planner, 6 sales staff, ~300 events a year")} />
         </Field>
-        <button className="primary" disabled={busy}>{busy ? 'Sending…' : 'Request workspace'}</button>
-        <p className="small secondary" style={{ margin: 0 }}>Already approved? <Link to="/login">Sign in</Link></p>
+        <button className="primary" disabled={busy}>{busy ? t("Sending…") : t("Request workspace")}</button>
+        <p className="small secondary" style={{ margin: 0 }}>{t("Already approved?")}{' '}<Link to="/login">{t("Sign in")}</Link></p>
       </form>
     </div>
   );

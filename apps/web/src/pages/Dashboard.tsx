@@ -5,8 +5,9 @@ import { api, type Status } from '../api';
 import { useAuth } from '../auth';
 import { Delta, MonthTable, RankedBars, Sparkline, StackedColumns, TrendChart } from '../components/Charts';
 import { StatusBadge } from '../components/ui';
-import { date, greeting, longToday, money, MONTHS, num, pct, STATUS_LABEL } from '../format';
-import { useBusinessUnits, useUsers } from '../hooks';
+import { date, greeting, longToday, money, monthNames, num, pct, statusLabel } from '../format';
+import { useBusinessUnits, useLabel, useUsers } from '../hooks';
+import { t } from '../i18n';
 
 type K = Record<string, number | null>;
 interface Month { month: number; total: number; definite: number; open: number; lost: number; revenue: number; gross_margin: number;
@@ -39,6 +40,8 @@ export function Dashboard() {
   const [metric, setMetric] = useState<Metric>('revenue');
   const [asTable, setAsTable] = useState(false);
   const { data: units } = useBusinessUnits();
+  const sourceLabel = useLabel('source');
+  const lostLabel = useLabel('lost_reason');
   const { data: users } = useUsers();
 
   const qs = new URLSearchParams({ year: String(year), ...(unit && { business_unit_id: unit }), ...(owner && { owner_id: owner }) }).toString();
@@ -67,49 +70,49 @@ export function Dashboard() {
       <div className="page-head dash-head">
         <div>
           <h1>{greeting()}, {me?.name.split(' ')[0]}</h1>
-          <p>{longToday()} · {me?.tenant.name} · figures in {me?.tenant.currency}</p>
+          <p>{longToday()} · {me?.tenant.name}{' '}{t("· figures in")}{' '}{me?.tenant.currency}</p>
         </div>
       </div>
 
-      <div className="filters dash-filters" role="group" aria-label="Dashboard filters">
+      <div className="filters dash-filters" role="group" aria-label={t("Dashboard filters")}>
         <div className="stepper">
-          <button onClick={() => setYear((y) => y - 1)} aria-label="Previous year">‹</button>
+          <button onClick={() => setYear((y) => y - 1)} aria-label={t("Previous year")}>‹</button>
           <span>{year}</span>
-          <button onClick={() => setYear((y) => y + 1)} aria-label="Next year" disabled={year >= thisYear + 2}>›</button>
+          <button onClick={() => setYear((y) => y + 1)} aria-label={t("Next year")} disabled={year >= thisYear + 2}>›</button>
         </div>
         {(units?.length ?? 0) > 1 && (
-          <select value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Business unit">
-            <option value="">All business units</option>
+          <select value={unit} onChange={(e) => setUnit(e.target.value)} aria-label={t("Business unit")}>
+            <option value="">{t("All business units")}</option>
             {units!.map((u) => <option key={u.id} value={u.id}>{u.code} · {u.name}</option>)}
           </select>
         )}
-        <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Account manager">
-          <option value="">{me?.sees_all ? 'Whole company' : 'My whole team'}</option>
+        <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label={t("Account manager")}>
+          <option value="">{me?.sees_all ? t("Whole company") : t("My whole team")}</option>
           {users?.filter((u) => u.in_my_team).map((u) => <option key={u.id} value={u.id}>{u.name}{u.code ? ` (${u.code})` : ''}</option>)}
         </select>
         {(unit || owner || year !== thisYear) && (
-          <button className="ghost" onClick={() => { setYear(thisYear); setUnit(''); setOwner(''); }}>Reset</button>
+          <button className="ghost" onClick={() => { setYear(thisYear); setUnit(''); setOwner(''); }}>{t("Reset")}</button>
         )}
-        {isFetching && <span className="muted small">Updating…</span>}
+        {isFetching && <span className="muted small">{t("Updating…")}</span>}
       </div>
 
-      {!data ? <div className="empty">Loading…</div> : (
+      {!data ? <div className="empty">{t("Loading…")}</div> : (
         <div className={`dash ${isFetching && isPlaceholderData ? 'refreshing' : ''}`}>
           {/* ---- hero + attention ---------------------------------------- */}
           <div className="dash-top">
             <div className="card hero">
-              <div className="hero-label">Definite revenue · {year}</div>
+              <div className="hero-label">{t("Definite revenue ·")}{' '}{year}</div>
               <div className="hero-value">{money(k.revenue)}</div>
               <Delta current={k.revenue} previous={prev.revenue} label={prevLabel} />
               <div className="hero-meta">
-                <span><strong>{num(k.definite)}</strong> definite</span>
-                <span><strong>{money(k.avg_deal, { compact: true })}</strong> avg deal</span>
-                <span><strong>{k.avg_lead_days ?? '—'}</strong> days avg lead time</span>
-                <span><strong>{num(k.pax)}</strong> guests</span>
+                <span><strong>{num(k.definite)}</strong>{' '}{t("definite")}</span>
+                <span><strong>{money(k.avg_deal, { compact: true })}</strong>{' '}{t("avg deal")}</span>
+                <span><strong>{k.avg_lead_days ?? '—'}</strong>{' '}{t("days avg lead time")}</span>
+                <span><strong>{num(k.pax)}</strong>{' '}{t("guests")}</span>
               </div>
               <div className="hero-spark">
-                <div className="small muted" style={{ marginBottom: 4 }}>Cumulative definite revenue by event month, including future events already confirmed</div>
-                <TrendChart current={cumulative(series('revenue'))} previous={cumulative(series('prev_revenue'))} currentLabel={`${year} booked`}
+                <div className="small muted" style={{ marginBottom: 4 }}>{t("Cumulative definite revenue by event month, including future events already confirmed")}</div>
+                <TrendChart current={cumulative(series('revenue'))} previous={cumulative(series('prev_revenue'))} currentLabel={t('{year} booked', { year })}
                   previousLabel={prevLabel} format={compact} height={150} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT' })} />
               </div>
             </div>
@@ -118,24 +121,24 @@ export function Dashboard() {
                 <span className="attn-icon" aria-hidden>{data.followups.overdue ? '⚠' : '✓'}</span>
                 <div>
                   <div className="attn-value">{num(data.followups.overdue)}</div>
-                  <div className="attn-label">follow-ups overdue</div>
-                  <div className="small muted">{num(data.followups.today)} due today · {num(data.followups.unscheduled)} open leads with no follow-up</div>
+                  <div className="attn-label">{t("follow-ups overdue")}</div>
+                  <div className="small muted">{num(data.followups.today)}{' '}{t("due today ·")}{' '}{num(data.followups.unscheduled)}{' '}{t("open leads with no follow-up")}</div>
                 </div>
               </Link>
               <Link to="/finance" className="card attn">
                 <span className="attn-icon" aria-hidden>¤</span>
                 <div>
                   <div className="attn-value">{money(k.outstanding, { compact: true })}</div>
-                  <div className="attn-label">client outstanding</div>
-                  <div className="small muted">Open receivables and aging →</div>
+                  <div className="attn-label">{t("client outstanding")}</div>
+                  <div className="small muted">{t("Open receivables and aging →")}</div>
                 </div>
               </Link>
               <button type="button" className="card attn" onClick={() => drill({ status: 'INQ,TEN' })}>
                 <span className="attn-icon" aria-hidden>◎</span>
                 <div>
                   <div className="attn-value">{money(k.pipeline_value, { compact: true })}</div>
-                  <div className="attn-label">open pipeline</div>
-                  <div className="small muted">{num(k.open)} enquiries & tentative holds →</div>
+                  <div className="attn-label">{t("open pipeline")}</div>
+                  <div className="small muted">{num(k.open)}{' '}{t("enquiries & tentative holds →")}</div>
                 </div>
               </button>
             </div>
@@ -143,17 +146,17 @@ export function Dashboard() {
 
           {/* ---- KPI tiles -------------------------------------------------- */}
           <div className="kpis kpi-tiles">
-            <Tile label="Bookings" value={num(k.total)} spark={series('total')} upTo={upTo} onClick={() => drill({})}
+            <Tile label={t("Bookings")} value={num(k.total)} spark={series('total')} upTo={upTo} onClick={() => drill({})}
               delta={<Delta current={k.total} previous={prev.total} label={prevLabel} />} />
-            <Tile label="Conversion" value={pct(k.conversion_rate)} sub="definite ÷ all bookings" onClick={() => drill({ status: 'DEF,ACT' })}
+            <Tile label={t("Conversion")} value={pct(k.conversion_rate)} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF,ACT' })}
               delta={<Delta current={k.conversion_rate} previous={prev.conversion_rate} label={prevLabel} asPoints />} />
-            <Tile label="Win rate" value={pct(k.win_rate)} sub="definite ÷ decided" onClick={() => drill({ status: 'LOS' })}
+            <Tile label={t("Win rate")} value={pct(k.win_rate)} sub={t("definite ÷ decided")} onClick={() => drill({ status: 'LOS' })}
               delta={<Delta current={k.win_rate} previous={prev.win_rate} label={prevLabel} asPoints />} />
-            <Tile label="Gross margin" value={money(k.gross_margin, { compact: true })} sub={`${pct(k.margin_pct)} of revenue`} spark={series('gross_margin')} upTo={upTo}
+            <Tile label={t("Gross margin")} value={money(k.gross_margin, { compact: true })} sub={t('{pct} of revenue', { pct: pct(k.margin_pct) })} spark={series('gross_margin')} upTo={upTo}
               delta={<Delta current={k.gross_margin} previous={prev.gross_margin} label={prevLabel} />} />
-            <Tile label="Net profit" value={money(k.net_profit, { compact: true })} sub="after fixed & credit costs" spark={series('net_profit')} upTo={upTo}
+            <Tile label={t("Net profit")} value={money(k.net_profit, { compact: true })} sub={t("after fixed & credit costs")} spark={series('net_profit')} upTo={upTo}
               delta={<Delta current={k.net_profit} previous={prev.net_profit} label={prevLabel} />} />
-            <Tile label="Lost" value={num(k.lost)} sub={`${num(k.cancelled)} cancelled`} onClick={() => drill({ status: 'LOS' })}
+            <Tile label={t("Lost")} value={num(k.lost)} sub={t('{n} cancelled', { n: num(k.cancelled) })} onClick={() => drill({ status: 'LOS' })}
               delta={<Delta current={k.lost} previous={prev.lost} label={prevLabel} upIsGood={false} />} />
           </div>
 
@@ -161,33 +164,33 @@ export function Dashboard() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Monthly performance</h2>
-                <span className="muted small">{year} vs {prevLabel} · click a month to open its bookings</span>
+                <h2>{t("Monthly performance")}</h2>
+                <span className="muted small">{year}{' '}{t("vs")}{' '}{prevLabel}{' '}{t("· click a month to open its bookings")}</span>
               </div>
               <div className="row">
-                <div className="segmented" role="tablist" aria-label="Metric">
+                <div className="segmented" role="tablist" aria-label={t("Metric")}>
                   {METRICS.map(([key, label]) => (
-                    <button key={key} role="tab" aria-selected={metric === key} className={metric === key ? 'on' : ''} onClick={() => setMetric(key)}>{label}</button>
+                    <button key={key} role="tab" aria-selected={metric === key} className={metric === key ? 'on' : ''} onClick={() => setMetric(key)}>{t(label)}</button>
                   ))}
                 </div>
-                <button className="sm ghost" onClick={() => setAsTable((t) => !t)}>{asTable ? 'Chart' : 'Table'}</button>
+                <button className="sm ghost" onClick={() => setAsTable((v) => !v)}>{asTable ? t("Chart") : t("Table")}</button>
               </div>
             </div>
             {asTable ? (
               metric === 'bookings'
                 ? <MonthTable rows={months as unknown as Record<string, number>[]} columns={[
-                    { key: 'definite', label: 'Definite', format: num }, { key: 'open', label: 'Open', format: num },
-                    { key: 'lost', label: 'Lost / cancelled', format: num }, { key: 'total', label: 'Total', format: num },
-                    { key: 'prev_total', label: `Total ${prevLabel}`, format: num }]} />
+                    { key: 'definite', label: t('Definite'), format: num }, { key: 'open', label: t('Open'), format: num },
+                    { key: 'lost', label: t('Lost / cancelled'), format: num }, { key: 'total', label: t('Total'), format: num },
+                    { key: 'prev_total', label: t('Total {year}', { year: prevLabel }), format: num }]} />
                 : <MonthTable rows={months as unknown as Record<string, number>[]} columns={[
                     { key: metric, label: `${year}`, format: (v) => money(v) }, { key: `prev_${metric}`, label: prevLabel, format: (v) => money(v) }]} />
             ) : metric === 'bookings' ? (
               <StackedColumns data={months as unknown as Record<string, number>[]} format={num}
                 onSelect={(i) => drill({ month: String(i + 1) })}
                 series={[
-                  { key: 'definite', label: 'Definite', color: 'var(--series-1)' },
-                  { key: 'open', label: 'Open (INQ/TEN)', color: 'var(--series-2)' },
-                  { key: 'lost', label: 'Lost / cancelled', color: 'var(--muted)' },
+                  { key: 'definite', label: t('Definite'), color: 'var(--series-1)' },
+                  { key: 'open', label: t('Open (INQ/TEN)'), color: 'var(--series-2)' },
+                  { key: 'lost', label: t('Lost / cancelled'), color: 'var(--muted)' },
                 ]} />
             ) : (
               <TrendChart current={series(metric)} previous={series(`prev_${metric}` as keyof Month)} currentLabel={String(year)} previousLabel={prevLabel}
@@ -198,45 +201,45 @@ export function Dashboard() {
           {/* ---- breakdowns ---------------------------------------------------- */}
           <div className="grid-3">
             <div className="card">
-              <div className="card-head"><h2>Pipeline by stage</h2><span className="muted small">bookings · value</span></div>
+              <div className="card-head"><h2>{t("Pipeline by stage")}</h2><span className="muted small">{t("bookings · value")}</span></div>
               <RankedBars onSelect={(s) => drill({ status: s })} format={num}
                 rows={data.by_status.filter((s) => s.total > 0).map((s) => ({
-                  key: s.status, label: STATUS_LABEL[s.status], value: s.total, marker: STATUS_COLOR[s.status],
+                  key: s.status, label: statusLabel(s.status), value: s.total, marker: STATUS_COLOR[s.status],
                   note: s.value ? `· ${money(s.value, { compact: true })}` : undefined,
                 }))} />
             </div>
             <div className="card">
-              <div className="card-head"><h2>Lead sources</h2><span className="muted small">bookings · % won</span></div>
+              <div className="card-head"><h2>{t("Lead sources")}</h2><span className="muted small">{t("bookings · % won")}</span></div>
               <RankedBars onSelect={(src) => drill(src === '∅' ? {} : { source: src })} format={num}
                 rows={data.by_source.map((s) => ({
-                  key: s.key ?? '∅', label: s.label, value: s.total, note: `· ${pct(s.total ? s.definite / s.total : null, 0)}`,
+                  key: s.key ?? '∅', label: s.key ? sourceLabel(s.key) : t('Unknown'), value: s.total, note: `· ${pct(s.total ? s.definite / s.total : null, 0)}`,
                 }))} />
             </div>
             <div className="card">
-              <div className="card-head"><h2>Why we lose</h2><span className="muted small">lost bookings</span></div>
-              <RankedBars onSelect={(code) => drill({ status: 'LOS', lost_reason: code })} format={num} empty="No lost bookings 🎉"
-                rows={data.lost_reasons.map((r) => ({ key: r.code, label: r.reason, value: r.total }))} />
+              <div className="card-head"><h2>{t("Why we lose")}</h2><span className="muted small">{t("lost bookings")}</span></div>
+              <RankedBars onSelect={(code) => drill({ status: 'LOS', lost_reason: code })} format={num} empty={t("No lost bookings 🎉")}
+                rows={data.lost_reasons.map((r) => ({ key: r.code, label: lostLabel(r.code), value: r.total }))} />
             </div>
           </div>
 
           <div className="grid-2 dash-bottom">
             <div className="card flush">
-              <div className="card-head"><h2>Team leaderboard</h2><span className="muted small">click a name to see their bookings</span></div>
+              <div className="card-head"><h2>{t("Team leaderboard")}</h2><span className="muted small">{t("click a name to see their bookings")}</span></div>
               <div className="table-wrap">
                 <table className="leaderboard">
-                  <thead><tr><th>Account manager</th><th className="num">Leads</th><th>Conversion</th><th className="num">Revenue</th><th className="num">Net profit</th></tr></thead>
+                  <thead><tr><th>{t("Account manager")}</th><th className="num">{t("Leads")}</th><th>{t("Conversion")}</th><th className="num">{t("Revenue")}</th><th className="num">{t("Net profit")}</th></tr></thead>
                   <tbody>
-                    {data.by_owner.length === 0 && <tr><td colSpan={6} className="empty">No bookings in this period.</td></tr>}
+                    {data.by_owner.length === 0 && <tr><td colSpan={6} className="empty">{t("No bookings in this period.")}</td></tr>}
                     {data.by_owner.map((o, i) => {
                       const conv = o.total ? o.definite / o.total : 0;
                       const maxRev = Math.max(1, ...data.by_owner.map((x) => x.revenue));
                       return (
-                        <tr key={o.key ?? 'none'} className="clickable" onClick={() => o.key && setOwner(o.key)} title={o.key ? 'Filter the dashboard to this person' : undefined}>
-                          <td><span className="muted">{i + 1}.</span> <strong>{o.label}</strong> {o.code && <span className="tag">{o.code}</span>}<div className="small muted">{o.open ?? 0} open · {o.lost} lost</div></td>
+                        <tr key={o.key ?? 'none'} className="clickable" onClick={() => o.key && setOwner(o.key)} title={o.key ? t("Filter the dashboard to this person") : undefined}>
+                          <td><span className="muted">{i + 1}.</span> <strong>{o.label}</strong> {o.code && <span className="tag">{o.code}</span>}<div className="small muted">{o.open ?? 0}{' '}{t("open ·")}{' '}{o.lost}{' '}{t("lost")}</div></td>
                           <td className="num">{o.total}</td>
                           <td style={{ minWidth: 120 }}>
                             <div className="meter" aria-hidden><span style={{ width: `${conv * 100}%` }} /></div>
-                            <span className="small">{pct(conv, 0)} · {o.definite} won</span>
+                            <span className="small">{pct(conv, 0)} · {o.definite}{' '}{t("won")}</span>
                           </td>
                           <td className="num">
                             {money(o.revenue, { compact: true })}
@@ -252,13 +255,13 @@ export function Dashboard() {
             </div>
             <div className="stack">
               <div className="card">
-                <div className="card-head"><h2>Coming up</h2><Link to="/diary" className="small">Function diary →</Link></div>
-                {data.upcoming.length === 0 ? <div className="empty">No events in the next 30 days.</div> : (
+                <div className="card-head"><h2>{t("Coming up")}</h2><Link to="/diary" className="small">{t("Function diary →")}</Link></div>
+                {data.upcoming.length === 0 ? <div className="empty">{t("No events in the next 30 days.")}</div> : (
                   <ol className="timeline">
                     {data.upcoming.map((u) => (
                       <li key={u.id}>
                         <span className={`when ${u.days_until <= 7 ? 'soon' : ''}`}>
-                          {u.days_until === 0 ? 'Today' : u.days_until === 1 ? 'Tomorrow' : `in ${u.days_until} d`}
+                          {u.days_until === 0 ? t("Today") : u.days_until === 1 ? t("Tomorrow") : t('in {n} d', { n: u.days_until })}
                         </span>
                         <div className="grow">
                           <Link to={`/bookings/${u.id}`}><strong>{u.name}</strong></Link>
@@ -266,7 +269,7 @@ export function Dashboard() {
                         </div>
                         <div className="num">
                           <StatusBadge status={u.status} />
-                          {u.outstanding > 0 && <div className="small muted">{money(u.outstanding, { compact: true })} due</div>}
+                          {u.outstanding > 0 && <div className="small muted">{money(u.outstanding, { compact: true })}{' '}{t("due")}</div>}
                         </div>
                       </li>
                     ))}
@@ -274,17 +277,16 @@ export function Dashboard() {
                 )}
               </div>
               <div className="card">
-                <div className="card-head"><h2>Top deals</h2><span className="muted small">definite, by revenue</span></div>
-                {data.top_deals.length === 0 ? <div className="empty">No priced definite bookings yet.</div> : (
+                <div className="card-head"><h2>{t("Top deals")}</h2><span className="muted small">{t("definite, by revenue")}</span></div>
+                {data.top_deals.length === 0 ? <div className="empty">{t("No priced definite bookings yet.")}</div> : (
                   <RankedBars format={(v) => money(v, { compact: true })} onSelect={(id) => navigate(`/bookings/${id}`)}
                     rows={data.top_deals.map((d) => ({ key: d.id, label: `${d.booking_no} · ${d.name}`, value: d.revenue,
-                      note: d.margin_pct !== null ? `· ${pct(d.margin_pct, 0)} margin` : undefined }))} />
+                      note: d.margin_pct !== null ? `· ${t('{pct} margin', { pct: pct(d.margin_pct, 0) })}` : undefined }))} />
                 )}
               </div>
             </div>
           </div>
-          <p className="muted small" style={{ marginTop: 16 }}>
-            Bookings are counted in the month of their event date (or enquiry date while no date is set). {MONTHS[upTo]} {year === thisYear ? 'is the current month.' : ''}
+          <p className="muted small" style={{ marginTop: 16 }}>{t("Bookings are counted in the month of their event date (or enquiry date while no date is set).")}{' '}{monthNames()[upTo]} {year === thisYear ? t("is the current month.") : ''}
           </p>
         </div>
       )}

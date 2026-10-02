@@ -6,6 +6,7 @@ import {
 import type { Status } from '../lib/api';
 import { STATUS_LABEL } from '../lib/format';
 import { STATUS_COLOR, useColors } from '../lib/theme';
+import { t } from '../i18n';
 
 export type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -106,7 +107,7 @@ export function Chips<T extends string>({ options, value, onChange, label }: {
           return (
             <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="button" accessibilityState={{ selected: on }}
               style={[s.chip, { backgroundColor: on ? c.accent : c.surface, borderColor: on ? c.accent : c.borderStrong }]}>
-              <Text style={{ color: on ? c.onAccent : c.text, fontSize: 13, fontWeight: '600' }}>{l}</Text>
+              <Text style={{ color: on ? c.onAccent : c.text, fontSize: 13, fontWeight: '600' }}>{t(l)}</Text>
             </Pressable>
           );
         })}

@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, hasToken, loadSession, setToken, setUnauthorizedHandler, type Me, type Role } from './api';
 import { setTenantLocale } from './format';
+import { setAppearance } from './theme';
+import { deviceLanguage, setLanguage, storedLanguage } from '../i18n';
 
 interface AuthState {
   ready: boolean;
@@ -19,10 +21,17 @@ const AREAS: Record<string, Role[]> = {
 
 const Ctx = createContext<AuthState | null>(null);
 
+/** Language and look follow the signed-in user, then the company, then this phone. */
+export function applyUserSettings(me: Me) {
+  setAppearance(me.preferences?.theme, me.preferences?.accent ?? me.tenant.branding?.accent);
+  return setLanguage(me.preferences?.locale ?? me.tenant.default_locale ?? deviceLanguage());
+}
+
 async function fetchMe() {
   if (!hasToken()) return null;
   const me = await api<Me>('/auth/me');
   setTenantLocale(me.tenant.currency, me.tenant.timezone);
+  applyUserSettings(me);
   return me;
 }
 
@@ -30,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    loadSession().then(() => setLoaded(true));
+    Promise.all([loadSession(), storedLanguage().then((l) => setLanguage(l ?? deviceLanguage()))]).then(() => setLoaded(true));
     setUnauthorizedHandler(() => {
       qc.clear();
       qc.setQueryData(['me'], null);
@@ -41,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthState = {
     ready: loaded && !isLoading,
     me: me ?? null,
-    signIn: async (t) => {
-      await setToken(t);
+    signIn: async (token) => {
+      await setToken(token);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
       qc.setQueryData(['me'], await fetchMe());
     },

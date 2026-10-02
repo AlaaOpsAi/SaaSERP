@@ -1,4 +1,5 @@
 import type { Status } from './api';
+import { intlLocale, t } from '../i18n';
 
 let currency = 'KWD';
 let timeZone: string | undefined;
@@ -23,7 +24,7 @@ export function money(v: number | null | undefined, compact = false): string {
     const s = a >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : a >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : v.toFixed(0);
     return s.replace('.0', '');
   }
-  return v.toLocaleString(undefined, { minimumFractionDigits: decimals(), maximumFractionDigits: decimals() });
+  return v.toLocaleString(intlLocale(), { minimumFractionDigits: decimals(), maximumFractionDigits: decimals() });
 }
 
 export const currencyCode = () => currency;
@@ -52,13 +53,13 @@ export function addDays(day: string, n: number): string {
 export function date(v: string | null | undefined): string {
   if (!v) return '—';
   const d = v.length === 10 ? new Date(`${v}T12:00:00Z`) : new Date(v);
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: v.length === 10 ? 'UTC' : timeZone });
+  return d.toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short', year: 'numeric', timeZone: v.length === 10 ? 'UTC' : timeZone });
 }
 export function time(v: string): string {
-  return new Date(v).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone });
+  return new Date(v).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit', timeZone });
 }
 export function dateTime(v: string): string {
-  return new Date(v).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone });
+  return new Date(v).toLocaleString(intlLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone });
 }
 /** Workspace wall-clock time -> ISO instant (e.g. "tomorrow 10:00" in Kuwait). */
 export function zonedIso(day: string, hhmm: string): string {
@@ -71,12 +72,14 @@ export function zonedIso(day: string, hhmm: string): string {
 }
 export function greeting(): string {
   const h = Number(parts(new Date()).h);
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return t(h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
 }
 
-export const STATUS_LABEL: Record<Status, string> = {
+const STATUS_EN: Record<Status, string> = {
   INQ: 'Inquiry', TEN: 'Tentative', DEF: 'Definite', ACT: 'Actualised', LOS: 'Lost', CXL: 'Cancelled',
 };
+/** Status names in the active language. */
+export const STATUS_LABEL = new Proxy(STATUS_EN, { get: (o, k: string) => t(o[k as Status] ?? k) });
 export const TRANSITIONS: Record<Status, Status[]> = {
   INQ: ['TEN', 'DEF', 'LOS', 'CXL'], TEN: ['INQ', 'DEF', 'LOS', 'CXL'], DEF: ['TEN', 'ACT', 'CXL'],
   ACT: ['DEF'], LOS: ['INQ', 'TEN'], CXL: ['TEN'],

@@ -78,10 +78,13 @@ export interface Me {
   id: string; name: string; email: string; code: string; role: Role; sees_all: boolean; team_ids: string[];
   covering: { id: string; delegator_name: string; access: 'view' | 'act'; ends_on: string | null }[];
   covered_by: { id: string; delegate_name: string; ends_on: string | null }[];
-  tenant: { id: string; slug: string; name: string; currency: string; timezone: string };
+  tenant: { id: string; slug: string; name: string; currency: string; timezone: string; default_locale?: string | null; branding?: { accent?: string | null } | null };
+  preferences?: Preferences | null;
 }
 
-export interface Lookup { id: string; code: string; label: string; is_active: boolean }
+export interface Preferences { locale?: string | null; theme?: 'light' | 'dark' | null; accent?: string | null; density?: string | null; fontScale?: number | null }
+
+export interface Lookup { id: string; code: string; label: string; is_active: boolean; translations?: Record<string, string> | null }
 export interface User { id: string; name: string; code: string | null; is_active: boolean; in_my_team: boolean }
 export interface Venue { id: string; name: string; is_active: boolean; spaces: { id: string; name: string; capacity: number | null }[] }
 

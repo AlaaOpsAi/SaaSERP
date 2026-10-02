@@ -5,6 +5,7 @@ import { Button, Card, ErrorText, Field, H1, Notice, Screen, T } from '../compon
 import { api, ApiError, getServer, setServer } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useColors } from '../lib/theme';
+import { t } from '../i18n';
 
 const INACTIVE: Record<string, string> = {
   pending: 'Your workspace is waiting for approval.',
@@ -38,7 +39,7 @@ export default function Login() {
     } catch (err) {
       if (err instanceof ApiError && err.details?.workspaces) setWorkspaces(err.details.workspaces);
       else if (err instanceof ApiError && err.details?.tenant_status) {
-        setInactive(`${INACTIVE[err.details.tenant_status] ?? 'This workspace is not active.'}${err.details.reason ? ` Reason: ${err.details.reason}` : ''}`);
+        setInactive(`${t(INACTIVE[err.details.tenant_status] ?? 'This workspace is not active.')}${err.details.reason ? ` ${t('Reason: {reason}', { reason: err.details.reason })}` : ''}`);
       } else setError(err);
     } finally {
       setBusy(false);
@@ -53,31 +54,29 @@ export default function Login() {
             <View style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: c.brand, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>SE</Text>
             </View>
-            <H1>Sign in</H1>
-            <T muted>Events & catering sales on the go.</T>
+            <H1>{t("Sign in")}</H1>
+            <T muted>{t("Events & catering sales on the go.")}</T>
           </View>
           {inactive && <Notice>{inactive}</Notice>}
           <ErrorText error={error} />
           <Card style={{ gap: 14 }}>
-            <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email"
+            <Field label={t("Email")} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email"
               keyboardType="email-address" textContentType="username" />
-            <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry textContentType="password" />
+            <Field label={t("Password")} value={password} onChangeText={setPassword} secureTextEntry textContentType="password" />
             {workspaces && (
               <View style={{ gap: 8 }}>
-                <T small muted>This email belongs to several workspaces. Choose one:</T>
+                <T small muted>{t("This email belongs to several workspaces. Choose one:")}</T>
                 {workspaces.map((w) => (
                   <Button key={w.slug} title={`${w.name} (${w.slug})`} kind={workspace === w.slug ? 'primary' : 'default'} onPress={() => setWorkspace(w.slug)} />
                 ))}
               </View>
             )}
-            <Button title={busy ? 'Signing in…' : 'Sign in'} kind="primary" onPress={submit} busy={busy} disabled={!email || !password} />
+            <Button title={busy ? t("Signing in…") : t("Sign in")} kind="primary" onPress={submit} busy={busy} disabled={!email || !password} />
           </Card>
           <Card style={{ gap: 8 }}>
-            <Field label="Server address" value={server} onChangeText={setServerText} autoCapitalize="none" autoCorrect={false}
+            <Field label={t("Server address")} value={server} onChangeText={setServerText} autoCapitalize="none" autoCorrect={false}
               keyboardType="url" placeholder="http://192.168.1.20:4000" />
-            <T small muted>
-              Where SaaSERP runs. On your Mac with Docker, use your Mac's Wi-Fi address, e.g. http://192.168.1.20:4000, and keep the phone on the same Wi-Fi.
-            </T>
+            <T small muted>{t("Where SaaSERP runs. On your Mac with Docker, use your Mac's Wi-Fi address, e.g. http://192.168.1.20:4000, and keep the phone on the same Wi-Fi.")}</T>
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>

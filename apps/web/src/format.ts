@@ -1,4 +1,5 @@
 import type { Status } from './api';
+import { intlLocale, t } from './i18n';
 
 let currency = 'KWD';
 let timeZone: string | undefined;
@@ -28,14 +29,14 @@ const decimals = () => (['KWD', 'BHD', 'OMR', 'JOD'].includes(currency) ? 3 : 2)
 
 export function money(v: number | null | undefined, opts: { compact?: boolean; code?: boolean } = {}): string {
   if (v === null || v === undefined) return '—';
-  const n = new Intl.NumberFormat(undefined, opts.compact
+  const n = new Intl.NumberFormat(intlLocale(), opts.compact
     ? { notation: 'compact', maximumFractionDigits: 1 }
     : { minimumFractionDigits: decimals(), maximumFractionDigits: decimals() }).format(v);
   return opts.code ? `${n} ${currency}` : n;
 }
 
 export function num(v: number | null | undefined): string {
-  return v === null || v === undefined ? '—' : new Intl.NumberFormat().format(v);
+  return v === null || v === undefined ? '—' : new Intl.NumberFormat(intlLocale()).format(v);
 }
 
 export function pct(v: number | null | undefined, digits = 1): string {
@@ -45,16 +46,16 @@ export function pct(v: number | null | undefined, digits = 1): string {
 export function date(v: string | null | undefined): string {
   if (!v) return '—';
   const d = new Date(v.length === 10 ? `${v}T00:00:00` : v);
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(intlLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export function dateTime(v: string | null | undefined): string {
   if (!v) return '—';
-  return new Date(v).toLocaleString(undefined, { timeZone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(v).toLocaleString(intlLocale(), { timeZone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export function time(v: string): string {
-  return new Date(v).toLocaleTimeString(undefined, { timeZone, hour: '2-digit', minute: '2-digit' });
+  return new Date(v).toLocaleTimeString(intlLocale(), { timeZone, hour: '2-digit', minute: '2-digit' });
 }
 
 /** Calendar day (YYYY-MM-DD) of an instant in the workspace time zone. */
@@ -84,6 +85,7 @@ export function fromLocalInput(local: string): string {
   return new Date(guess - offset).toISOString();
 }
 
+/** English status names (also the translation keys); use statusLabel() for display. */
 export const STATUS_LABEL: Record<Status, string> = {
   INQ: 'Inquiry', TEN: 'Tentative', DEF: 'Definite', ACT: 'Actualised', LOS: 'Lost', CXL: 'Cancelled',
 };
@@ -97,14 +99,20 @@ export const TRANSITIONS: Record<Status, Status[]> = {
   CXL: ['TEN'],
 };
 
-export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export const statusLabel = (s: Status) => t(STATUS_LABEL[s]);
+
+/** Short month names in the active language. */
+export function monthNames(): string[] {
+  const f = new Intl.DateTimeFormat(intlLocale(), { month: 'short', timeZone: 'UTC' });
+  return Array.from({ length: 12 }, (_, i) => f.format(new Date(Date.UTC(2026, i, 15))));
+}
 
 /** "Good morning" etc. by the workspace clock. */
 export function greeting(): string {
   const h = Number(new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return h < 12 ? t('Good morning') : h < 18 ? t('Good afternoon') : t('Good evening');
 }
 
 export function longToday(): string {
-  return new Date().toLocaleDateString(undefined, { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date().toLocaleDateString(intlLocale(), { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }

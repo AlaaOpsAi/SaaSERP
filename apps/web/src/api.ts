@@ -79,7 +79,8 @@ export async function download(path: string, filename: string) {
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoking straight away can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // ---- shared types ------------------------------------------------------
@@ -94,6 +95,7 @@ export interface Me {
   code: string;
   data_scope: 'all' | 'team';
   manager_id: string | null;
+  preferences: import('./appearance').Preferences;
   /** True when this user sees the whole workspace. */
   sees_all: boolean;
   /** This user and everyone who reports to them. */
@@ -106,10 +108,11 @@ export interface Me {
   tenant: {
     id: string; slug: string; name: string; plan: string; currency: string; timezone: string;
     fixed_cost_pct: number; credit_facility_pct: number;
+    default_locale: string; branding: { accent?: string | null };
   };
 }
 
-export interface Lookup { id: string; type: string; code: string; label: string; is_active: boolean; sort_order: number }
+export interface Lookup { id: string; type: string; code: string; label: string; is_active: boolean; sort_order: number; translations?: Record<string, string> }
 export interface User {
   id: string; name: string; email: string | null; code: string | null; role: Role; is_active: boolean; last_login_at: string | null;
   manager_id: string | null; data_scope: 'all' | 'team';

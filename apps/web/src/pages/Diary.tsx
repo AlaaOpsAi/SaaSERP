@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Status } from '../api';
-import { dayOf, STATUS_LABEL, time, today } from '../format';
+import { dayOf, statusLabel, time, today } from '../format';
 import { useVenues } from '../hooks';
+import { t } from '../i18n';
 
 interface DiaryData {
   spaces: { id: string; name: string; capacity: number | null; venue_id: string; venue_name: string }[];
@@ -41,46 +42,46 @@ export function Diary() {
     const k = `${e.function_space_id}|${dayOf(e.start_at)}`;
     byCell.set(k, [...(byCell.get(k) ?? []), e]);
   }
-  const t = today();
+  const todayIso = today();
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Function diary</h1>
-          <p>Space availability across venues. Red outline = overlapping holds on an exclusive room.</p>
+          <h1>{t("Function diary")}</h1>
+          <p>{t("Space availability across venues. Red outline = overlapping holds on an exclusive room.")}</p>
         </div>
       </div>
       <div className="filters">
         <button onClick={() => setFrom(addDays(from, -span))}>←</button>
-        <button onClick={() => setFrom(startOfWeek(today()))}>Today</button>
+        <button onClick={() => setFrom(startOfWeek(today()))}>{t("Today")}</button>
         <button onClick={() => setFrom(addDays(from, span))}>→</button>
-        <input type="date" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} aria-label="From" />
-        <select value={span} onChange={(e) => setSpan(Number(e.target.value))} aria-label="Range">
-          <option value={7}>1 week</option><option value={14}>2 weeks</option><option value={28}>4 weeks</option>
+        <input type="date" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} aria-label={t("From")} />
+        <select value={span} onChange={(e) => setSpan(Number(e.target.value))} aria-label={t("Range")}>
+          <option value={7}>{t("1 week")}</option><option value={14}>{t("2 weeks")}</option><option value={28}>{t("4 weeks")}</option>
         </select>
-        <select value={venueId} onChange={(e) => setVenueId(e.target.value)} aria-label="Venue">
-          <option value="">All venues</option>
+        <select value={venueId} onChange={(e) => setVenueId(e.target.value)} aria-label={t("Venue")}>
+          <option value="">{t("All venues")}</option>
           {venues?.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
         </select>
-        <label className="check"><input type="checkbox" checked={inUse} onChange={(e) => setInUse(e.target.checked)} />Only rooms in use</label>
-        <label className="check"><input type="checkbox" checked={showLost} onChange={(e) => setShowLost(e.target.checked)} />Show lost & cancelled</label>
+        <label className="check"><input type="checkbox" checked={inUse} onChange={(e) => setInUse(e.target.checked)} />{t("Only rooms in use")}</label>
+        <label className="check"><input type="checkbox" checked={showLost} onChange={(e) => setShowLost(e.target.checked)} />{t("Show lost & cancelled")}</label>
       </div>
       <div className="legend" style={{ marginBottom: 12 }}>
         {(['TEN', 'DEF', 'ACT'] as Status[]).map((s) => (
-          <span key={s}><i style={{ background: `var(--${s === 'TEN' ? 'status-warning' : s === 'DEF' ? 'status-good' : 'series-1'})` }} />{STATUS_LABEL[s]}</span>
+          <span key={s}><i style={{ background: `var(--${s === 'TEN' ? 'status-warning' : s === 'DEF' ? 'status-good' : 'series-1'})` }} />{statusLabel(s)}</span>
         ))}
       </div>
 
       {data && data.spaces.length === 0 ? (
-        <div className="card empty">No function spaces yet. Add venues and rooms under <Link to="/settings">Settings</Link>.</div>
+        <div className="card empty">{t("No function spaces yet. Add venues and rooms under")}{' '}<Link to="/settings">{t("Settings")}</Link>.</div>
       ) : (
         <div className="diary" style={{ gridTemplateColumns: `180px repeat(${span}, minmax(${span > 14 ? 90 : 120}px, 1fr))` }}>
-          <div className="diary-cell diary-head diary-space">Space</div>
+          <div className="diary-cell diary-head diary-space">{t("Space")}</div>
           {days.map((d) => {
             const dt = new Date(`${d}T00:00:00`);
             return (
-              <div key={d} className={`diary-cell diary-head ${d === t ? 'today' : ''}`}>
+              <div key={d} className={`diary-cell diary-head ${d === todayIso ? 'today' : ''}`}>
                 {dt.toLocaleDateString(undefined, { weekday: 'short' })}<br />{dt.getDate()} {dt.toLocaleDateString(undefined, { month: 'short' })}
               </div>
             );
@@ -104,13 +105,12 @@ function Row({ space, days, byCell }: { space: DiaryData['spaces'][number]; days
       {days.map((d) => (
         <div key={d} className="diary-cell">
           {(byCell.get(`${space.id}|${d}`) ?? []).map((e) => !e.booking_id ? (
-            <span key={e.id} className={`diary-ev other ${e.overlaps ? 'clash' : ''}`} title="Booked by another team">
-              <strong>{time(e.start_at)}</strong> Booked
-              <div className="muted">Another team · {STATUS_LABEL[e.status]}</div>
+            <span key={e.id} className={`diary-ev other ${e.overlaps ? 'clash' : ''}`} title={t("Booked by another team")}>
+              <strong>{time(e.start_at)}</strong>{' '}{t("Booked")}<div className="muted">{t("Another team ·")}{' '}{statusLabel(e.status)}</div>
             </span>
           ) : (
             <Link key={e.id} to={`/bookings/${e.booking_id}`} className={`diary-ev ${e.status} ${e.overlaps ? 'clash' : ''}`}
-              title={`${e.booking_no} · ${e.booking_name} · ${STATUS_LABEL[e.status]}${e.overlaps ? ' · CLASH' : ''}`}>
+              title={`${e.booking_no} · ${e.booking_name} · ${statusLabel(e.status)}${e.overlaps ? ' · CLASH' : ''}`}>
               <strong>{time(e.start_at)}</strong> {e.booking_no}
               <div className="muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {e.booking_name}{e.expected_pax ? ` · ${e.expected_pax} pax` : ''}

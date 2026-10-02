@@ -18,6 +18,9 @@ Oracle OPERA Cloud Sales & Event Management and on the team's existing *daily re
 | **Cover & transfer** | Time-boxed cover for colleagues on leave (view & act, or view only), with follow-up hand-over, an "on behalf of" audit trail, manager notifications (bell) and no money actions for the person covering. Transfer moves a leaver's work to a colleague and deactivates them. |
 | **Approvals** | New companies request a workspace; a platform operator approves (choosing plan and user limit), rejects with a reason, suspends or reactivates it in the operator console at `/platform`. Optional Slack/Teams webhook on each sign-up. |
 | **Mobile app** | iOS & Android app (Expo): home KPIs, bookings with search, one-tap call/WhatsApp, status changes, follow-ups, quick new enquiry, room diary and notifications. See [docs/MOBILE.md](docs/MOBILE.md). |
+| **Languages** | English and Arabic (full right-to-left layout, Arabic dates), on web and mobile; more can be added without code changes to the screens. Each user picks a language; admins set the company default and translate pick-lists. See [docs/I18N.md](docs/I18N.md). |
+| **Look & feel** | Per-user theme (light / dark / device), accent colour, density and text size, saved to the account; a company brand colour as everyone's default. |
+| **Data export** | Admins download the whole workspace — bookings with finance, events, payments, commissions, activities, history and audit log, clients, venues, pick-lists with translations, users, reporting lines, cover and a permissions matrix — as Excel (one sheet per table) or JSON. |
 | **SaaS** | Self-service workspace requests, roles (owner/admin/manager/sales/finance/viewer), plan user limits, per-tenant currency, time zone and profit percentages. |
 
 ## Quick start (local)
@@ -56,7 +59,7 @@ open http://localhost:4000          # create your workspace, then Settings → I
 - Logs: `docker compose logs -f app`
 - Stop: `docker compose down`. Your data stays in the `pgdata` volume.
 - Update: `git pull && docker compose up -d --build`. Migrations run automatically on start.
-- Back up: `docker compose exec db pg_dump -U postgres saaserp > backup.sql`
+- Backups: the `backup` service takes a nightly backup into `./backups` (14 days kept). Back up now with `./scripts/backup.sh`; restore with `./scripts/restore.sh backups/<file>.dump`. To connect a database tool (read-only login `saaserp_readonly` on `127.0.0.1:5433`), see [docs/OPERATIONS.md](docs/OPERATIONS.md).
 - Wipe everything: `docker compose down -v`. This deletes all data.
 
 The image runs migrations on start and serves the web app and the API from one process.
@@ -79,4 +82,7 @@ the status workflow, diary conflicts, roles and plan limits, reports and the wor
 - [Team hierarchy, cover & transfer](docs/HIERARCHY.md): who sees which records.
 - [Mobile app](docs/MOBILE.md): run it on your phone, build for the stores.
 - [Workspace approval](docs/APPROVALS.md): the sign-up review workflow and operator console.
+- [Database reference](docs/DATABASE.md): ER diagrams and every table, column, view, function, policy and role, with its purpose (generated: `npm run docs:db -w apps/api`).
+- [Operations](docs/OPERATIONS.md): connect to the database, automatic and manual backups, restore.
+- [Languages, look & feel](docs/I18N.md): how translation works, adding a language, themes.
 - [Roadmap](docs/ROADMAP.md): OPERA S&E capabilities still to build.

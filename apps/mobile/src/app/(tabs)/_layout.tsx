@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/js-tabs';
 import type { IconName } from '../../components/ui';
 import { useColors } from '../../lib/theme';
+import { t } from '../../i18n';
 
 const TABS: [name: string, title: string, icon: IconName][] = [
   ['index', 'Home', 'home-outline'],
@@ -21,7 +22,7 @@ export default function TabLayout() {
     }}>
       {TABS.map(([name, title, icon]) => (
         <Tabs.Screen key={name} name={name} options={{
-          title, headerShown: name !== 'index',
+          title: t(title), headerShown: name !== 'index',
           tabBarIcon: ({ color, size }) => <Ionicons name={icon} color={color} size={size} />,
         }} />
       ))}

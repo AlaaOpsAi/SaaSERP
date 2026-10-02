@@ -5,8 +5,9 @@ import { api, type BookingDetail, type BookingEvent, type Conflict, type Item, t
 import { useAuth } from '../auth';
 import { BookingForm, bookingPayload } from '../components/BookingForm';
 import { Empty, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
-import { date, dateTime, fromLocalInput, money, num, pct, STATUS_LABEL, time, today, toLocalInput, TRANSITIONS } from '../format';
+import { date, dateTime, fromLocalInput, money, num, pct, statusLabel, time, today, toLocalInput, TRANSITIONS } from '../format';
 import { useLabel, useLookups, useSave, useUsers, useVenues } from '../hooks';
+import { t } from '../i18n';
 
 type Tab = 'overview' | 'events' | 'lines' | 'activities' | 'money' | 'history';
 
@@ -17,17 +18,17 @@ export function BookingDetailPage() {
   const [tab, setTab] = useState<Tab>('overview');
   const [editing, setEditing] = useState(false);
 
-  if (isLoading) return <div className="empty">Loading…</div>;
-  if (error || !b) return <ErrorNote error={error ?? new Error('Booking not found')} />;
+  if (isLoading) return <div className="empty">{t("Loading…")}</div>;
+  if (error || !b) return <ErrorNote error={error ?? new Error(t('Booking not found'))} />;
 
   return (
     <>
       <div className="page-head">
         <div>
-          <div className="small muted"><Link to="/bookings">Bookings</Link> / {b.booking_no}</div>
+          <div className="small muted"><Link to="/bookings">{t("Bookings")}</Link> / {b.booking_no}</div>
           <h1 className="row" style={{ marginTop: 4 }}>{b.name} <StatusBadge status={b.status} /></h1>
           <p>
-            {b.booking_no} · {b.contact_name ?? 'No client'}{b.contact_phone ? ` · ${b.contact_phone}` : ''} · {date(b.event_date)}
+            {b.booking_no} · {b.contact_name ?? t("No client")}{b.contact_phone ? ` · ${b.contact_phone}` : ''} · {date(b.event_date)}
             {b.venue_name ? ` · ${b.venue_name}` : ''}{b.space_name ? ` / ${b.space_name}` : ''}
           </p>
         </div>
@@ -35,12 +36,11 @@ export function BookingDetailPage() {
       </div>
 
       {b.conflicts.length > 0 && (
-        <div className="alert" style={{ marginBottom: 16 }}>
-          Space clash with {b.conflicts.map((c) => !c.booking_id ? (
-            <span key={c.event_id} style={{ marginRight: 8 }}>{c.booking_name} ({STATUS_LABEL[c.status]}, {c.space_name} {time(c.start_at)}–{time(c.end_at)})</span>
+        <div className="alert" style={{ marginBottom: 16 }}>{t("Space clash with")}{' '}{b.conflicts.map((c) => !c.booking_id ? (
+            <span key={c.event_id} style={{ marginInlineEnd: 8 }}>{c.booking_name} ({statusLabel(c.status)}, {c.space_name} {time(c.start_at)}–{time(c.end_at)})</span>
           ) : (
-            <Link key={c.event_id} to={`/bookings/${c.booking_id}`} style={{ marginRight: 8 }}>
-              {c.booking_no} ({STATUS_LABEL[c.status]}, {c.space_name} {time(c.start_at)}–{time(c.end_at)})
+            <Link key={c.event_id} to={`/bookings/${c.booking_id}`} style={{ marginInlineEnd: 8 }}>
+              {c.booking_no} ({statusLabel(c.status)}, {c.space_name} {time(c.start_at)}–{time(c.end_at)})
             </Link>
           ))}
         </div>
@@ -55,8 +55,8 @@ export function BookingDetailPage() {
             value={tab}
             onChange={setTab}
             tabs={[
-              ['overview', 'Overview'], ['events', `Events (${b.events.length})`], ['lines', `Revenue & cost (${b.items.length})`],
-              ['activities', `Activities (${b.activities.length})`], ['money', 'Payments & payouts'], ['history', 'History'],
+              ['overview', 'Overview'], ['events', `${t('Events')} (${b.events.length})`], ['lines', `${t('Revenue & cost')} (${b.items.length})`],
+              ['activities', `${t('Activities')} (${b.activities.length})`], ['money', 'Payments & payouts'], ['history', 'History'],
             ]}
           />
           {tab === 'overview' && <Overview b={b} onEdit={() => setEditing(true)} />}
@@ -97,8 +97,8 @@ function CoverNote({ b }: { b: BookingDetail }) {
   return (
     <div className="alert info" style={{ marginBottom: 12 }}>
       {b.can_edit
-        ? <>You are covering for <strong>{b.owner_name}</strong>. Changes you make are recorded as made on their behalf.</>
-        : <>You can view <strong>{b.owner_name}</strong>'s booking while covering, but not change it.</>}
+        ? <>{t("You are covering for")}{' '}<strong>{b.owner_name}</strong>{t(". Changes you make are recorded as made on their behalf.")}</>
+        : <>{t("You can view")}{' '}<strong>{b.owner_name}</strong>{t("'s booking while covering, but not change it.")}</>}
     </div>
   );
 }
@@ -110,10 +110,10 @@ function Pipeline({ status }: { status: Status }) {
     <div className="pipeline" style={{ marginBottom: 16 }}>
       {steps.map((s, i) => (
         <span key={s} className={`pill-step ${s === status ? 'current' : idx > i ? 'done' : ''}`}>
-          {idx > i ? '✓ ' : ''}{STATUS_LABEL[s]}
+          {idx > i ? '✓ ' : ''}{statusLabel(s)}
         </span>
       ))}
-      {(status === 'LOS' || status === 'CXL') && <span className="pill-step current" style={{ background: 'var(--status-critical)', borderColor: 'var(--status-critical)' }}>{STATUS_LABEL[status]}</span>}
+      {(status === 'LOS' || status === 'CXL') && <span className="pill-step current" style={{ background: 'var(--status-critical)', borderColor: 'var(--status-critical)' }}>{statusLabel(status)}</span>}
     </div>
   );
 }
@@ -149,31 +149,31 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
         {TRANSITIONS[booking.status].map((s) => (
           <button key={s} className={s === 'DEF' ? 'primary' : needsReason(s) ? 'danger' : ''} disabled={change.isPending}
             onClick={() => go(s)}>
-            {labels[s]}
+            {t(labels[s] ?? s)}
           </button>
         ))}
       </div>
       {change.error && !target && (
         <div className="stack" style={{ gap: 6, alignItems: 'flex-end' }}>
           <ErrorNote error={change.error} />
-          {conflicts && can('manage') && <button className="sm danger" onClick={() => go('DEF', true)}>Override clash & confirm</button>}
+          {conflicts && can('manage') && <button className="sm danger" onClick={() => go('DEF', true)}>{t("Override clash & confirm")}</button>}
         </div>
       )}
       {target && (
         <Modal
-          title={target === 'LOS' ? 'Why was this booking lost?' : 'Why is this booking cancelled?'}
+          title={target === 'LOS' ? t("Why was this booking lost?") : t("Why is this booking cancelled?")}
           onClose={() => setTarget(null)}
           footer={<>
-            <button onClick={() => setTarget(null)}>Back</button>
-            <button className="primary" disabled={!reason || change.isPending} onClick={() => go(target)}>Save</button>
+            <button onClick={() => setTarget(null)}>{t("Back")}</button>
+            <button className="primary" disabled={!reason || change.isPending} onClick={() => go(target)}>{t("Save")}</button>
           </>}
         >
           <div className="stack">
             <ErrorNote error={change.error} />
             {target === 'LOS' ? (
-              <Field label="Lost reason"><LookupSelect options={lookups?.lost_reason} value={reason} onChange={setReason} placeholder="Choose a reason…" /></Field>
+              <Field label={t("Lost reason")}><LookupSelect options={lookups?.lost_reason} value={reason} onChange={setReason} placeholder={t("Choose a reason…")} /></Field>
             ) : (
-              <Field label="Cancellation reason"><textarea value={reason ?? ''} onChange={(e) => setReason(e.target.value || null)} /></Field>
+              <Field label={t("Cancellation reason")}><textarea value={reason ?? ''} onChange={(e) => setReason(e.target.value || null)} /></Field>
             )}
           </div>
         </Modal>
@@ -186,20 +186,20 @@ function ProfitCard({ b }: { b: BookingDetail }) {
   const { me } = useAuth();
   const rows: [string, number | null, string?][] = [
     ['Revenue', b.revenue], ['Cost', b.cost], ['Gross margin', b.gross_margin, pct(b.margin_pct)],
-    [`Fixed cost (${pct(me?.tenant.fixed_cost_pct, 0)})`, b.fixed_cost],
-    [`Credit facility (${b.credit_facility ? pct(me?.tenant.credit_facility_pct, 0) : 'none'})`, b.cf_cost],
+    [`${t('Fixed cost')} (${pct(me?.tenant.fixed_cost_pct, 0)})`, b.fixed_cost],
+    [`${t('Credit facility')} (${b.credit_facility ? pct(me?.tenant.credit_facility_pct, 0) : t('none')})`, b.cf_cost],
     ['Net profit', b.net_profit], ['Commission', b.commission], ['Partner shares', b.shares],
   ];
   return (
     <div className="stack">
       <div className="card">
-        <div className="card-head"><h2>Profitability</h2><span className="tag">{b.currency}</span></div>
+        <div className="card-head"><h2>{t("Profitability")}</h2><span className="tag">{b.currency}</span></div>
         <table>
           <tbody>
             {rows.map(([label, v, extra]) => (
               <tr key={label}>
                 <td className={label === 'Net profit' || label === 'Gross margin' ? '' : 'secondary'} style={{ padding: '6px 0' }}>
-                  {label === 'Net profit' || label === 'Gross margin' ? <strong>{label}</strong> : label}
+                  {label === 'Net profit' || label === 'Gross margin' ? <strong>{t(label)}</strong> : t(label)}
                   {extra && <span className="muted small"> · {extra}</span>}
                 </td>
                 <td className="num" style={{ padding: '6px 0' }}>{money(v)}</td>
@@ -209,14 +209,14 @@ function ProfitCard({ b }: { b: BookingDetail }) {
         </table>
       </div>
       <div className="card">
-        <div className="card-head"><h2>Client account</h2></div>
+        <div className="card-head"><h2>{t("Client account")}</h2></div>
         <dl className="kv" style={{ gridTemplateColumns: '1fr auto' }}>
-          <dt>Contract value</dt><dd className="num">{money(b.contract_value ?? b.revenue)}</dd>
-          {b.diff !== null && <><dt>Diff (revenue − contract)</dt><dd className="num">{money(b.diff)}</dd></>}
-          <dt>Paid</dt><dd className="num">{money(b.paid)}</dd>
-          <dt><strong>Outstanding</strong></dt><dd className="num"><strong>{money(b.outstanding)}</strong></dd>
-          <dt>Aging</dt><dd className="num">{b.aging_days ? `${b.aging_days} days` : '—'}</dd>
-          <dt>Fully paid</dt><dd className="num">{date(b.fully_paid_date)}</dd>
+          <dt>{t("Contract value")}</dt><dd className="num">{money(b.contract_value ?? b.revenue)}</dd>
+          {b.diff !== null && <><dt>{t("Diff (revenue − contract)")}</dt><dd className="num">{money(b.diff)}</dd></>}
+          <dt>{t("Paid")}</dt><dd className="num">{money(b.paid)}</dd>
+          <dt><strong>{t("Outstanding")}</strong></dt><dd className="num"><strong>{money(b.outstanding)}</strong></dd>
+          <dt>{t("Aging")}</dt><dd className="num">{b.aging_days ? `${b.aging_days} days` : '—'}</dd>
+          <dt>{t("Fully paid")}</dt><dd className="num">{date(b.fully_paid_date)}</dd>
         </dl>
       </div>
     </div>
@@ -231,28 +231,28 @@ function Overview({ b, onEdit }: { b: BookingDetail; onEdit: () => void }) {
   return (
     <div className="stack">
       <div className="spread">
-        <h3>Booking details</h3>
-        {can('sell') && <button className="sm" onClick={onEdit}>Edit</button>}
+        <h3>{t("Booking details")}</h3>
+        {can('sell') && <button className="sm" onClick={onEdit}>{t("Edit")}</button>}
       </div>
       <dl className="kv">
-        <dt>Event type</dt><dd>{eventLabel(b.event_type)}</dd>
-        <dt>Source</dt><dd>{sourceLabel(b.source)}</dd>
-        <dt>Account manager</dt><dd>{b.owner_name ?? '—'} {b.owner_code && <span className="tag">{b.owner_code}</span>}</dd>
-        <dt>Client</dt><dd>{b.contact_name ?? '—'}{b.contact_phone ? ` · ${b.contact_phone}` : ''}{b.contact_email ? ` · ${b.contact_email}` : ''}</dd>
-        {b.account_name && <><dt>Company</dt><dd>{b.account_name}</dd></>}
-        <dt>Event date</dt><dd>{date(b.event_date)}</dd>
-        <dt>Venue</dt><dd>{b.venue_name ?? '—'}{b.space_name ? ` / ${b.space_name}` : b.hall_text ? ` / ${b.hall_text}` : ''}</dd>
-        <dt>Pax / rate / term</dt><dd>{num(b.pax)} pax · {money(b.rate)} rate · {num(b.term_days)} days</dd>
-        <dt>Enquiry date</dt><dd>{date(b.inquiry_date)}</dd>
-        <dt>Decision due</dt><dd>{date(b.decision_due_date)}</dd>
-        <dt>Last follow-up</dt><dd>{date(b.last_followup_date)}</dd>
-        <dt>Next follow-up</dt><dd>{date(b.next_followup_date)}</dd>
-        {b.lost_reason && <><dt>Lost reason</dt><dd>{lostLabel(b.lost_reason)}</dd></>}
-        {b.cancel_reason && <><dt>Cancel reason</dt><dd>{b.cancel_reason}</dd></>}
-        <dt>Credit facility</dt><dd>{b.credit_facility ? 'Yes' : 'No'}</dd>
+        <dt>{t("Event type")}</dt><dd>{eventLabel(b.event_type)}</dd>
+        <dt>{t("Source")}</dt><dd>{sourceLabel(b.source)}</dd>
+        <dt>{t("Account manager")}</dt><dd>{b.owner_name ?? '—'} {b.owner_code && <span className="tag">{b.owner_code}</span>}</dd>
+        <dt>{t("Client")}</dt><dd>{b.contact_name ?? '—'}{b.contact_phone ? ` · ${b.contact_phone}` : ''}{b.contact_email ? ` · ${b.contact_email}` : ''}</dd>
+        {b.account_name && <><dt>{t("Company")}</dt><dd>{b.account_name}</dd></>}
+        <dt>{t("Event date")}</dt><dd>{date(b.event_date)}</dd>
+        <dt>{t("Venue")}</dt><dd>{b.venue_name ?? '—'}{b.space_name ? ` / ${b.space_name}` : b.hall_text ? ` / ${b.hall_text}` : ''}</dd>
+        <dt>{t("Pax / rate / term")}</dt><dd>{num(b.pax)}{' '}{t("pax ·")}{' '}{money(b.rate)}{' '}{t("rate ·")}{' '}{num(b.term_days)}{' '}{t("days")}</dd>
+        <dt>{t("Enquiry date")}</dt><dd>{date(b.inquiry_date)}</dd>
+        <dt>{t("Decision due")}</dt><dd>{date(b.decision_due_date)}</dd>
+        <dt>{t("Last follow-up")}</dt><dd>{date(b.last_followup_date)}</dd>
+        <dt>{t("Next follow-up")}</dt><dd>{date(b.next_followup_date)}</dd>
+        {b.lost_reason && <><dt>{t("Lost reason")}</dt><dd>{lostLabel(b.lost_reason)}</dd></>}
+        {b.cancel_reason && <><dt>{t("Cancel reason")}</dt><dd>{b.cancel_reason}</dd></>}
+        <dt>{t("Credit facility")}</dt><dd>{b.credit_facility ? t("Yes") : t("No")}</dd>
       </dl>
-      {b.description && <div><h3 style={{ marginBottom: 4 }}>Request & notes</h3><p className="secondary" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{b.description}</p></div>}
-      {b.followup_notes && <div><h3 style={{ marginBottom: 4 }}>Client feedback</h3><p className="secondary" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{b.followup_notes}</p></div>}
+      {b.description && <div><h3 style={{ marginBottom: 4 }}>{t("Request & notes")}</h3><p className="secondary" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{b.description}</p></div>}
+      {b.followup_notes && <div><h3 style={{ marginBottom: 4 }}>{t("Client feedback")}</h3><p className="secondary" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{b.followup_notes}</p></div>}
     </div>
   );
 }
@@ -264,17 +264,17 @@ function EditBooking({ b, onClose }: { b: BookingDetail; onClose: () => void }) 
   const del = useSave(() => api(`/bookings/${b.id}`, { method: 'DELETE' }), [['bookings'], ['dashboard']]);
   return (
     <Modal
-      title={`Edit ${b.booking_no}`}
+      title={t('Edit {no}', { no: b.booking_no })}
       onClose={onClose}
       footer={<>
         {can('manage') && (
-          <button className="danger" style={{ marginRight: 'auto' }}
-            onClick={() => confirm('Delete this booking and everything in it?') && del.mutate(undefined, { onSuccess: () => navigate('/bookings') })}>
-            Delete
+          <button className="danger" style={{ marginInlineEnd: 'auto' }}
+            onClick={() => confirm(t('Delete this booking and everything in it?')) && del.mutate(undefined, { onSuccess: () => navigate('/bookings') })}>
+            {t("Delete")}
           </button>
         )}
-        <button onClick={onClose}>Cancel</button>
-        <button className="primary" form="edit-booking" disabled={save.isPending}>Save</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
+        <button className="primary" form="edit-booking" disabled={save.isPending}>{t("Save")}</button>
       </>}
     >
       <ErrorNote error={save.error ?? del.error} />
@@ -295,13 +295,13 @@ function Events({ b }: { b: BookingDetail }) {
   return (
     <div className="stack">
       <div className="spread">
-        <p className="secondary" style={{ margin: 0 }}>Functions placed on the diary. Definite bookings cannot overlap another definite booking in the same room.</p>
-        {can('sell') && <button className="sm primary" onClick={() => setEditing({})}>Add event</button>}
+        <p className="secondary" style={{ margin: 0 }}>{t("Functions placed on the diary. Definite bookings cannot overlap another definite booking in the same room.")}</p>
+        {can('sell') && <button className="sm primary" onClick={() => setEditing({})}>{t("Add event")}</button>}
       </div>
-      {b.events.length === 0 ? <Empty>No events yet.</Empty> : (
+      {b.events.length === 0 ? <Empty>{t("No events yet.")}</Empty> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Event</th><th>When</th><th>Space</th><th>Setup</th><th className="num">Pax</th><th /></tr></thead>
+            <thead><tr><th>{t("Event")}</th><th>{t("When")}</th><th>{t("Space")}</th><th>{t("Setup")}</th><th className="num">{t("Pax")}</th><th /></tr></thead>
             <tbody>
               {b.events.map((e) => (
                 <tr key={e.id}>
@@ -312,8 +312,8 @@ function Events({ b }: { b: BookingDetail }) {
                   <td className="num">{num(e.guaranteed_pax ?? e.expected_pax)}</td>
                   <td className="num">
                     {can('sell') && <>
-                      <button className="sm ghost" onClick={() => setEditing(e)}>Edit</button>
-                      <button className="sm ghost danger" onClick={() => confirm('Remove this event?') && del.mutate(e.id)}>Remove</button>
+                      <button className="sm ghost" onClick={() => setEditing(e)}>{t("Edit")}</button>
+                      <button className="sm ghost danger" onClick={() => confirm(t('Remove this event?')) && del.mutate(e.id)}>{t("Remove")}</button>
                     </>}
                   </td>
                 </tr>
@@ -355,17 +355,17 @@ function EventModal({ b, event, onClose }: { b: BookingDetail; event: Partial<Bo
   const clash = (save.error as { details?: { conflicts?: Conflict[] } } | null)?.details?.conflicts;
 
   return (
-    <Modal title={event.id ? 'Edit event' : 'Add event'} onClose={onClose} footer={<>
-      <button onClick={onClose}>Cancel</button>
-      {clash && can('manage') && <button className="danger" onClick={() => save.mutate(true, { onSuccess: onClose })}>Override clash</button>}
-      <button className="primary" form="event-form">Save</button>
+    <Modal title={event.id ? t("Edit event") : t("Add event")} onClose={onClose} footer={<>
+      <button onClick={onClose}>{t("Cancel")}</button>
+      {clash && can('manage') && <button className="danger" onClick={() => save.mutate(true, { onSuccess: onClose })}>{t("Override clash")}</button>}
+      <button className="primary" form="event-form">{t("Save")}</button>
     </>}>
       <form id="event-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(false, { onSuccess: onClose }); }}>
         <ErrorNote error={save.error} />
-        {clash && <div className="small secondary">Clashes with {clash.map((c) => `${c.booking_id ? c.booking_no : c.booking_name} ${time(c.start_at)}–${time(c.end_at)}`).join(', ')}</div>}
+        {clash && <div className="small secondary">{t("Clashes with")}{' '}{clash.map((c) => `${c.booking_id ? c.booking_no : c.booking_name} ${time(c.start_at)}–${time(c.end_at)}`).join(', ')}</div>}
         <div className="form-grid">
-          <Field label="Name"><input required {...bind('name')} /></Field>
-          <Field label="Function space">
+          <Field label={t("Name")}><input required {...bind('name')} /></Field>
+          <Field label={t("Function space")}>
             <select {...bind('function_space_id')}>
               <option value="">—</option>
               {venues?.map((v) => (
@@ -375,12 +375,12 @@ function EventModal({ b, event, onClose }: { b: BookingDetail; event: Partial<Bo
               ))}
             </select>
           </Field>
-          <Field label="Setup style"><LookupSelect options={lookups?.setup_style} value={form.setup_style} onChange={set('setup_style')} /></Field>
-          <Field label="Start"><input type="datetime-local" required value={form.start} onChange={(e) => set('start')(e.target.value)} /></Field>
-          <Field label="End"><input type="datetime-local" required value={form.end} onChange={(e) => set('end')(e.target.value)} /></Field>
-          <Field label="Expected pax"><input {...bindNum('expected_pax')} /></Field>
-          <Field label="Guaranteed pax"><input {...bindNum('guaranteed_pax')} /></Field>
-          <Field label="Notes" className="span-all"><textarea {...bind('notes')} /></Field>
+          <Field label={t("Setup style")}><LookupSelect options={lookups?.setup_style} value={form.setup_style} onChange={set('setup_style')} /></Field>
+          <Field label={t("Start")}><input type="datetime-local" required value={form.start} onChange={(e) => set('start')(e.target.value)} /></Field>
+          <Field label={t("End")}><input type="datetime-local" required value={form.end} onChange={(e) => set('end')(e.target.value)} /></Field>
+          <Field label={t("Expected pax")}><input {...bindNum('expected_pax')} /></Field>
+          <Field label={t("Guaranteed pax")}><input {...bindNum('guaranteed_pax')} /></Field>
+          <Field label={t("Notes")} className="span-all"><textarea {...bind('notes')} /></Field>
         </div>
       </form>
     </Modal>
@@ -401,14 +401,12 @@ function Lines({ b }: { b: BookingDetail }) {
 
   return (
     <div className="stack">
-      <p className="secondary" style={{ margin: 0 }}>
-        Priced lines drive revenue and cost. With no lines, the manual revenue and cost on the booking are used.
-      </p>
+      <p className="secondary" style={{ margin: 0 }}>{t("Priced lines drive revenue and cost. With no lines, the manual revenue and cost on the booking are used.")}</p>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Category</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Unit cost</th><th className="num">Revenue</th><th className="num">Margin</th><th /></tr></thead>
+          <thead><tr><th>{t("Category")}</th><th>{t("Description")}</th><th className="num">{t("Qty")}</th><th className="num">{t("Unit price")}</th><th className="num">{t("Unit cost")}</th><th className="num">{t("Revenue")}</th><th className="num">{t("Margin")}</th><th /></tr></thead>
           <tbody>
-            {b.items.length === 0 && <tr><td colSpan={8} className="empty">No lines yet{b.manual_revenue ? ` — using manual revenue ${money(b.manual_revenue)}` : ''}.</td></tr>}
+            {b.items.length === 0 && <tr><td colSpan={8} className="empty">{t("No lines yet")}{b.manual_revenue ? ` — using manual revenue ${money(b.manual_revenue)}` : ''}.</td></tr>}
             {b.items.map((i) => (
               <tr key={i.id}>
                 <td><span className="tag">{categoryLabel(i.category)}</span></td>
@@ -423,18 +421,18 @@ function Lines({ b }: { b: BookingDetail }) {
             ))}
           </tbody>
           {b.items.length > 0 && (
-            <tfoot><tr><td colSpan={5}>Total</td><td className="num">{money(b.revenue)}</td><td className="num">{money(b.gross_margin)}</td><td /></tr></tfoot>
+            <tfoot><tr><td colSpan={5}>{t("Total")}</td><td className="num">{money(b.revenue)}</td><td className="num">{money(b.gross_margin)}</td><td /></tr></tfoot>
           )}
         </table>
       </div>
       {can('sell') && (
         <form className="form-grid" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => setForm(blank) }); }}>
-          <Field label="Category"><LookupSelect options={lookups?.item_category} value={form.category} onChange={(v) => set('category')(v ?? 'OTHER')} /></Field>
-          <Field label="Description" className="span-2"><input required {...bind('description')} placeholder="e.g. Buffet dinner" /></Field>
-          <Field label="Quantity"><input required {...bindNum('quantity')} /></Field>
-          <Field label="Unit price"><input required {...bindNum('unit_price')} /></Field>
-          <Field label="Unit cost"><input required {...bindNum('unit_cost')} /></Field>
-          <div style={{ alignSelf: 'end' }}><button className="primary" disabled={add.isPending}>Add line</button></div>
+          <Field label={t("Category")}><LookupSelect options={lookups?.item_category} value={form.category} onChange={(v) => set('category')(v ?? 'OTHER')} /></Field>
+          <Field label={t("Description")} className="span-2"><input required {...bind('description')} placeholder={t("e.g. Buffet dinner")} /></Field>
+          <Field label={t("Quantity")}><input required {...bindNum('quantity')} /></Field>
+          <Field label={t("Unit price")}><input required {...bindNum('unit_price')} /></Field>
+          <Field label={t("Unit cost")}><input required {...bindNum('unit_cost')} /></Field>
+          <div style={{ alignSelf: 'end' }}><button className="primary" disabled={add.isPending}>{t("Add line")}</button></div>
           <div className="span-all"><ErrorNote error={add.error} /></div>
         </form>
       )}
@@ -463,22 +461,22 @@ export function ActivityForm({ bookingId, onDone }: { bookingId?: string; onDone
       e.preventDefault();
       save.mutate(undefined, { onSuccess: () => { setForm((f) => ({ ...f, subject: '', notes: null, location: null })); onDone?.(); } });
     }}>
-      <Field label="Type">
+      <Field label={t("Type")}>
         <select {...bind('type')}>
-          <option value="followup">Follow-up</option><option value="call">Call</option><option value="meeting">Meeting</option>
-          <option value="site_visit">Site visit</option><option value="email">Email</option><option value="task">Task</option>
+          <option value="followup">{t("Follow-up")}</option><option value="call">{t("Call")}</option><option value="meeting">{t("Meeting")}</option>
+          <option value="site_visit">{t("Site visit")}</option><option value="email">{t("Email")}</option><option value="task">{t("Task")}</option>
         </select>
       </Field>
-      <Field label="Subject" className="span-2"><input required {...bind('subject')} placeholder="e.g. Send revised quote" /></Field>
-      <Field label="Due"><input type="datetime-local" required value={form.due} onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))} /></Field>
-      <Field label="Owner">
+      <Field label={t("Subject")} className="span-2"><input required {...bind('subject')} placeholder={t("e.g. Send revised quote")} /></Field>
+      <Field label={t("Due")}><input type="datetime-local" required value={form.due} onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))} /></Field>
+      <Field label={t("Owner")}>
         <select {...bind('owner_id')}>
           {users?.filter((u) => u.is_active || u.id === form.owner_id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
       </Field>
-      <Field label="Location"><input {...bind('location')} /></Field>
-      <Field label="Notes" className="span-2"><input {...bind('notes')} /></Field>
-      <div style={{ alignSelf: 'end' }}><button className="primary" disabled={save.isPending}>Schedule</button></div>
+      <Field label={t("Location")}><input {...bind('location')} /></Field>
+      <Field label={t("Notes")} className="span-2"><input {...bind('notes')} /></Field>
+      <div style={{ alignSelf: 'end' }}><button className="primary" disabled={save.isPending}>{t("Schedule")}</button></div>
       <div className="span-all"><ErrorNote error={save.error} /></div>
     </form>
   );
@@ -490,10 +488,10 @@ function BookingActivities({ b }: { b: BookingDetail }) {
     api(`/activities/${v.id}/complete`, { body: { outcome: v.outcome } }), [['booking', b.id], ['activities']]);
   return (
     <div className="stack">
-      {b.activities.length === 0 ? <Empty>No meetings or follow-ups yet.</Empty> : (
+      {b.activities.length === 0 ? <Empty>{t("No meetings or follow-ups yet.")}</Empty> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>When</th><th>Activity</th><th>Owner</th><th>Outcome</th><th /></tr></thead>
+            <thead><tr><th>{t("When")}</th><th>{t("Activity")}</th><th>{t("Owner")}</th><th>{t("Outcome")}</th><th /></tr></thead>
             <tbody>
               {b.activities.map((a) => (
                 <tr key={a.id}>
@@ -501,10 +499,10 @@ function BookingActivities({ b }: { b: BookingDetail }) {
                   <td><span className="tag">{a.type.replace('_', ' ')}</span> {a.subject}
                     {(a.location || a.notes) && <div className="small secondary">{[a.location, a.notes].filter(Boolean).join(' · ')}</div>}</td>
                   <td>{a.owner_name ?? '—'}</td>
-                  <td>{a.completed_at ? <>✓ {a.outcome ?? 'Done'}</> : <span className="muted">Open</span>}</td>
+                  <td>{a.completed_at ? <>✓ {a.outcome ?? t("Done")}</> : <span className="muted">{t("Open")}</span>}</td>
                   <td className="num">
                     {!a.completed_at && can('sell') && (
-                      <button className="sm" onClick={() => complete.mutate({ id: a.id, outcome: prompt('Outcome / client feedback (optional)') })}>Complete</button>
+                      <button className="sm" onClick={() => complete.mutate({ id: a.id, outcome: prompt(t('Outcome / client feedback (optional)')) })}>{t("Complete")}</button>
                     )}
                   </td>
                 </tr>
@@ -513,7 +511,7 @@ function BookingActivities({ b }: { b: BookingDetail }) {
           </table>
         </div>
       )}
-      {can('sell') && <><h3>Schedule an activity</h3><ActivityForm bookingId={b.id} /></>}
+      {can('sell') && <><h3>{t("Schedule an activity")}</h3><ActivityForm bookingId={b.id} /></>}
     </div>
   );
 }
@@ -538,50 +536,50 @@ function Money({ b }: { b: BookingDetail }) {
   const { covering } = useAccess(b);
   return (
     <div className="stack">
-      {covering && <div className="alert info">You are covering for this booking's owner: payments and commissions stay with finance and their managers.</div>}
-      <h3>Client payments</h3>
+      {covering && <div className="alert info">{t("You are covering for this booking's owner: payments and commissions stay with finance and their managers.")}</div>}
+      <h3>{t("Client payments")}</h3>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th className="num">Amount</th><th /></tr></thead>
+          <thead><tr><th>{t("Date")}</th><th>{t("Method")}</th><th>{t("Reference")}</th><th className="num">{t("Amount")}</th><th /></tr></thead>
           <tbody>
-            {b.payments.length === 0 && <tr><td colSpan={5} className="empty">No payments received.</td></tr>}
+            {b.payments.length === 0 && <tr><td colSpan={5} className="empty">{t("No payments received.")}</td></tr>}
             {b.payments.map((p) => (
               <tr key={p.id}>
                 <td>{date(p.paid_on)}</td><td>{p.method}{p.bank_account ? ` · ${p.bank_account}` : ''}</td><td>{p.reference ?? '—'}</td>
                 <td className="num">{money(p.amount)}</td>
-                <td className="num">{can('finance') && <button className="sm ghost danger" onClick={() => confirm('Delete payment?') && delPayment.mutate(p.id)}>✕</button>}</td>
+                <td className="num">{can('finance') && <button className="sm ghost danger" onClick={() => confirm(t('Delete payment?')) && delPayment.mutate(p.id)}>✕</button>}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot><tr><td colSpan={3}>Paid · outstanding {money(b.outstanding)}</td><td className="num">{money(b.paid)}</td><td /></tr></tfoot>
+          <tfoot><tr><td colSpan={3}>{t("Paid · outstanding")}{' '}{money(b.outstanding)}</td><td className="num">{money(b.paid)}</td><td /></tr></tfoot>
         </table>
       </div>
       {can('finance') && (
         <form className="form-grid" onSubmit={(e) => { e.preventDefault(); addPayment.mutate(undefined, { onSuccess: () => pay.setForm((f) => ({ ...f, amount: null, reference: null })) }); }}>
-          <Field label="Date"><input type="date" required {...pay.bind('paid_on')} /></Field>
-          <Field label="Amount"><input required {...pay.bindNum('amount')} /></Field>
-          <Field label="Method"><LookupSelect options={lookups?.payment_method} value={pay.form.method} onChange={(v) => pay.set('method')(v ?? 'BANK')} /></Field>
-          <Field label="Bank account"><LookupSelect options={lookups?.bank_account} value={pay.form.bank_account} onChange={pay.set('bank_account')} /></Field>
-          <Field label="Reference"><input {...pay.bind('reference')} /></Field>
-          <div style={{ alignSelf: 'end' }}><button className="primary" disabled={addPayment.isPending}>Record payment</button></div>
+          <Field label={t("Date")}><input type="date" required {...pay.bind('paid_on')} /></Field>
+          <Field label={t("Amount")}><input required {...pay.bindNum('amount')} /></Field>
+          <Field label={t("Method")}><LookupSelect options={lookups?.payment_method} value={pay.form.method} onChange={(v) => pay.set('method')(v ?? 'BANK')} /></Field>
+          <Field label={t("Bank account")}><LookupSelect options={lookups?.bank_account} value={pay.form.bank_account} onChange={pay.set('bank_account')} /></Field>
+          <Field label={t("Reference")}><input {...pay.bind('reference')} /></Field>
+          <div style={{ alignSelf: 'end' }}><button className="primary" disabled={addPayment.isPending}>{t("Record payment")}</button></div>
           <div className="span-all"><ErrorNote error={addPayment.error} /></div>
         </form>
       )}
 
-      <h3 style={{ marginTop: 8 }}>Commission & partner shares</h3>
-      <p className="secondary small" style={{ margin: 0 }}>Commission is a % of net profit; shares are a % of what remains after commission.</p>
+      <h3 style={{ marginTop: 8 }}>{t("Commission & partner shares")}</h3>
+      <p className="secondary small" style={{ margin: 0 }}>{t("Commission is a % of net profit; shares are a % of what remains after commission.")}</p>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Type</th><th>Payee</th><th className="num">%</th><th className="num">Amount</th><th>Status</th><th /></tr></thead>
+          <thead><tr><th>{t("Type")}</th><th>{t("Payee")}</th><th className="num">%</th><th className="num">{t("Amount")}</th><th>{t("Status")}</th><th /></tr></thead>
           <tbody>
-            {b.payouts.length === 0 && <tr><td colSpan={6} className="empty">No commission or shares set.</td></tr>}
+            {b.payouts.length === 0 && <tr><td colSpan={6} className="empty">{t("No commission or shares set.")}</td></tr>}
             {b.payouts.map((p) => (
               <tr key={p.id}>
-                <td>{p.kind === 'commission' ? 'Commission' : 'Share'}</td><td>{p.payee_name}</td>
+                <td>{p.kind === 'commission' ? t("Commission") : t("Share")}</td><td>{p.payee_name}</td>
                 <td className="num">{pct(p.pct, 0)}</td><td className="num">{money(p.amount)}</td>
-                <td>{p.status === 'paid' ? `✓ Paid ${date(p.paid_on)}` : 'To pay'}</td>
+                <td>{p.status === 'paid' ? `✓ ${t('Paid')} ${date(p.paid_on)}` : t("To pay")}</td>
                 <td className="num">{can('finance') && <>
-                  {p.status === 'pending' && <button className="sm" onClick={() => markPaid.mutate(p.id)}>Mark paid</button>}
+                  {p.status === 'pending' && <button className="sm" onClick={() => markPaid.mutate(p.id)}>{t("Mark paid")}</button>}
                   <button className="sm ghost danger" onClick={() => delPayout.mutate(p.id)}>✕</button>
                 </>}</td>
               </tr>
@@ -591,18 +589,18 @@ function Money({ b }: { b: BookingDetail }) {
       </div>
       {can('finance') && (
         <form className="form-grid" onSubmit={(e) => { e.preventDefault(); addPayout.mutate(undefined, { onSuccess: () => po.setForm((f) => ({ ...f, payee_name: '' })) }); }}>
-          <Field label="Type">
-            <select {...po.bind('kind')}><option value="commission">Commission</option><option value="share">Partner share</option></select>
+          <Field label={t("Type")}>
+            <select {...po.bind('kind')}><option value="commission">{t("Commission")}</option><option value="share">{t("Partner share")}</option></select>
           </Field>
-          <Field label="Team member">
+          <Field label={t("Team member")}>
             <select {...po.bind('user_id')}>
-              <option value="">— external —</option>
+              <option value="">{t("— external —")}</option>
               {users?.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </Field>
-          <Field label="Payee name"><input {...po.bind('payee_name')} placeholder="If external" /></Field>
-          <Field label="% of base"><input required min={0} max={100} {...po.bindNum('pct')} /></Field>
-          <div style={{ alignSelf: 'end' }}><button className="primary" disabled={addPayout.isPending || (!po.form.payee_name && !po.form.user_id)}>Add</button></div>
+          <Field label={t("Payee name")}><input {...po.bind('payee_name')} placeholder={t("If external")} /></Field>
+          <Field label={t("% of base")}><input required min={0} max={100} {...po.bindNum('pct')} /></Field>
+          <div style={{ alignSelf: 'end' }}><button className="primary" disabled={addPayout.isPending || (!po.form.payee_name && !po.form.user_id)}>{t("Add")}</button></div>
           <div className="span-all"><ErrorNote error={addPayout.error} /></div>
         </form>
       )}
@@ -616,7 +614,7 @@ function History({ b }: { b: BookingDetail }) {
   const entries: Entry[] = [
     ...b.history.map((h) => ({
       at: h.changed_at, who: h.changed_by_name, behalf: h.on_behalf_of_name,
-      what: <>{h.from_status ? <><StatusBadge status={h.from_status} /> → </> : 'Created as '}<StatusBadge status={h.to_status} />
+      what: <>{h.from_status ? <><StatusBadge status={h.from_status} /> → </> : t("Created as ")}<StatusBadge status={h.to_status} />
         {h.reason && <span className="secondary"> · {h.to_status === 'LOS' ? lostLabel(h.reason) : h.reason}</span>}</>,
     })),
     ...b.log.map((l) => ({
@@ -626,13 +624,13 @@ function History({ b }: { b: BookingDetail }) {
   ].sort((x, y) => x.at.localeCompare(y.at));
   return (
     <table>
-      <thead><tr><th>When</th><th>What</th><th>By</th></tr></thead>
+      <thead><tr><th>{t("When")}</th><th>{t("What")}</th><th>{t("By")}</th></tr></thead>
       <tbody>
         {entries.map((e, i) => (
           <tr key={i}>
             <td style={{ whiteSpace: 'nowrap' }}>{dateTime(e.at)}</td>
             <td>{e.what}</td>
-            <td>{e.who ?? '—'}{e.behalf && <div className="small muted">on behalf of {e.behalf}</div>}</td>
+            <td>{e.who ?? '—'}{e.behalf && <div className="small muted">{t("on behalf of")}{' '}{e.behalf}</div>}</td>
           </tr>
         ))}
       </tbody>

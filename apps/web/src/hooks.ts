@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type BusinessUnit, type Lookup, type User, type Venue } from './api';
+import { lookupLabel } from './i18n';
 
 export function useLookups() {
   return useQuery({ queryKey: ['lookups'], queryFn: () => api<Record<string, Lookup[]>>('/lookups'), staleTime: 60_000 });
@@ -17,7 +18,7 @@ export function useBusinessUnits() {
 /** Label for a lookup code, falling back to the raw code. */
 export function useLabel(type: string) {
   const { data } = useLookups();
-  return (code: string | null | undefined) => (code ? data?.[type]?.find((l) => l.code === code)?.label ?? code : '—');
+  return (code: string | null | undefined) => (code ? lookupLabel(data?.[type]?.find((l) => l.code === code), code) : '—');
 }
 
 /** A mutation that invalidates the given query keys when it succeeds. */

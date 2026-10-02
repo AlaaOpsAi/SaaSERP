@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { lookupLabel } from '../i18n';
 import { api, type Lookup, type User, type Venue } from './api';
 
 export const useLookups = () =>
@@ -8,5 +9,9 @@ export const useVenues = () => useQuery({ queryKey: ['venues'], queryFn: () => a
 
 export function useLabel(type: string) {
   const { data } = useLookups();
-  return (code: string | null | undefined) => (code ? data?.[type]?.find((l) => l.code === code)?.label ?? code : '—');
+  return (code: string | null | undefined) => {
+    if (!code) return '—';
+    const l = data?.[type]?.find((x) => x.code === code);
+    return l ? lookupLabel(l) : code;
+  };
 }

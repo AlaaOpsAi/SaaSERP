@@ -5,6 +5,7 @@ import { ActivityRow } from '../../components/rows';
 import { Chips, Empty, ErrorText, Screen } from '../../components/ui';
 import { api, type Activity } from '../../lib/api';
 import { useColors } from '../../lib/theme';
+import { t } from '../../i18n';
 
 type State = 'today' | 'overdue' | 'open' | 'done';
 
@@ -28,7 +29,7 @@ export default function Activities() {
         renderItem={({ item }) => <ActivityRow a={item} />}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} />}
         ListEmptyComponent={q.isLoading ? <ActivityIndicator style={{ margin: 30 }} />
-          : <Empty icon="checkmark-done-outline">{state === 'done' ? 'Nothing completed yet.' : 'All clear.'}</Empty>}
+          : <Empty icon="checkmark-done-outline">{t(state === 'done' ? 'Nothing completed yet.' : 'All clear.')}</Empty>}
       />
     </Screen>
   );

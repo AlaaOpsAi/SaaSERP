@@ -7,3 +7,4 @@ coverage/
 # Customer workbooks can contain personal data: never commit them.
 *.xlsx
 *.tsbuildinfo
+backups/

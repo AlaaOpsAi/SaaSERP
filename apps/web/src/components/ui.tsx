@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Lookup, Status } from '../api';
-import { STATUS_LABEL } from '../format';
+import { statusLabel } from '../format';
+import { lookupLabel, t } from '../i18n';
 
 export function StatusBadge({ status }: { status: Status }) {
   return (
     <span className={`badge ${status}`}>
       <span className="dot" aria-hidden />
-      {STATUS_LABEL[status]}
+      {statusLabel(status)}
     </span>
   );
 }
@@ -41,7 +42,7 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
-          <button className="ghost" onClick={onClose} aria-label="Close">✕</button>
+          <button className="ghost" onClick={onClose} aria-label={t("Close")}>✕</button>
         </header>
         <div className="body">{children}</div>
         {footer && <footer>{footer}</footer>}
@@ -64,7 +65,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: [T, st
     <div className="tabs" role="tablist">
       {tabs.map(([key, label]) => (
         <button key={key} role="tab" aria-selected={value === key} className={value === key ? 'active' : ''} onClick={() => onChange(key)}>
-          {label}
+          {t(label)}
         </button>
       ))}
     </div>
@@ -80,7 +81,7 @@ export function LookupSelect({ options, value, onChange, placeholder = '—' }: 
     <select value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
       <option value="">{placeholder}</option>
       {value && !known && <option value={value}>{value}</option>}
-      {active.map((o) => <option key={o.id} value={o.code}>{o.label}</option>)}
+      {active.map((o) => <option key={o.id} value={o.code}>{lookupLabel(o)}</option>)}
     </select>
   );
 }

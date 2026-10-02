@@ -1,14 +1,17 @@
-# Local stack: Postgres + the app on http://localhost:4000
+# Local stack: Postgres + the app on http://localhost:4000, with daily backups.
+# Optional database console: docker compose --profile tools up -d pgadmin  ->  http://localhost:5050
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: saaserp
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./deploy/init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    # Reachable from this computer only (database tools), on 5433 so it never clashes with another Postgres.
+    ports: ["127.0.0.1:${DB_PORT:-5433}:5432"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -30,5 +33,30 @@ services:
       SIGNUP_WEBHOOK_URL: ${SIGNUP_WEBHOOK_URL:-}
     ports: ["${APP_PORT:-4000}:4000"]
     restart: unless-stopped
+  # Full database dump every 24 h into ./backups, keeping BACKUP_KEEP_DAYS days.
+  backup:
+    image: postgres:16
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./backups:/backups
+      - ./deploy/backup-loop.sh:/backup-loop.sh:ro
+    entrypoint: ["sh", "/backup-loop.sh"]
+    restart: unless-stopped
+  pgadmin:
+    image: dpage/pgadmin4
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-change-me}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - ./deploy/pgadmin-servers.json:/pgadmin4/servers.json:ro
+    ports: ["127.0.0.1:5050:80"]
+    depends_on: [db]
 volumes:
   pgdata:

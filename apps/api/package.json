@@ -12,7 +12,8 @@
     "seed": "tsx scripts/seed.ts",
     "import:xlsx": "tsx scripts/import-xlsx.ts",
     "test": "vitest run",
-    "platform:admin": "tsx scripts/create-platform-admin.ts"
+    "platform:admin": "tsx scripts/create-platform-admin.ts",
+    "docs:db": "tsx scripts/db-docs.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

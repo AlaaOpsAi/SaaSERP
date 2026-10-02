@@ -20,6 +20,16 @@ const signupSchema = z.object({
   note: z.string().trim().max(1000).optional(),
 });
 
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a colour like #2a78d6');
+export const localeCode = z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'Use a language code like en or ar');
+const preferencesSchema = z.object({
+  locale: localeCode.nullable(),
+  theme: z.enum(['system', 'light', 'dark']).nullable(),
+  accent: hex.nullable(),
+  density: z.enum(['comfortable', 'compact']).nullable(),
+  fontScale: z.number().min(0.85).max(1.3).nullable(),
+}).partial();
+
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
@@ -132,15 +142,28 @@ export async function authRoutes(app: FastifyInstance) {
     return { token };
   });
 
+  // Personal look & language. Only the keys sent are changed; null removes a key.
+  app.patch('/me/preferences', { preHandler: authed }, (req) =>
+    tx(req, async (db) => {
+      const body = preferencesSchema.parse(req.body);
+      const { rows } = await db.query(
+        `UPDATE users SET preferences = jsonb_strip_nulls(preferences || $2::jsonb) WHERE id = $1 RETURNING preferences`,
+        [req.user.sub, JSON.stringify(body)],
+      );
+      return rows[0].preferences;
+    }),
+  );
+
   app.get('/auth/me', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const { rows } = await db.query(
-        `SELECT u.id, u.email, u.name, u.code, u.role, u.data_scope, u.manager_id,
+        `SELECT u.id, u.email, u.name, u.code, u.role, u.data_scope, u.manager_id, u.preferences,
                 app_sees_all() AS sees_all, app_team_ids() AS team_ids,
                 json_build_object('id', t.id, 'slug', t.slug, 'name', t.name, 'plan', t.plan,
                                   'currency', t.currency, 'timezone', t.timezone,
                                   'fixed_cost_pct', t.fixed_cost_pct,
-                                  'credit_facility_pct', t.credit_facility_pct) AS tenant
+                                  'credit_facility_pct', t.credit_facility_pct,
+                                  'default_locale', t.default_locale, 'branding', t.branding) AS tenant
          FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE u.id = $1 AND u.is_active`,
         [req.user.sub],
       );
