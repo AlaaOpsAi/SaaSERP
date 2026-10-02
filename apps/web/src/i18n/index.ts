@@ -68,3 +68,25 @@ export function storeLanguage(code: string) {
     /* ignore */
   }
 }
+
+/**
+ * A language picked on the sign-in or sign-up page is an explicit choice: it is
+ * saved to the account on sign-in, so it wins over the company default.
+ */
+const PICKED = 'saaserp.lang.picked';
+export function markPicked(code: string) {
+  try {
+    sessionStorage.setItem(PICKED, code);
+  } catch {
+    /* ignore */
+  }
+}
+export function takePicked(): string | null {
+  try {
+    const code = sessionStorage.getItem(PICKED);
+    sessionStorage.removeItem(PICKED);
+    return code;
+  } catch {
+    return null;
+  }
+}

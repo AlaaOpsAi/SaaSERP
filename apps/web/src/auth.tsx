@@ -3,7 +3,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { api, getToken, setToken, type Me, type Role } from './api';
 import { applyAppearance } from './appearance';
 import { setTenantLocale } from './format';
-import { setLanguage, storedLanguage, storeLanguage } from './i18n';
+import { setLanguage, storedLanguage, storeLanguage, takePicked } from './i18n';
 
 interface AuthState {
   me: Me | null;
@@ -52,6 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
       const me = await api<Me>('/auth/me');
       setTenantLocale(me.tenant.currency, me.tenant.timezone);
+      // Language picked on the sign-in page: keep it, and remember it on the account.
+      const picked = takePicked();
+      if (picked && picked !== me.preferences?.locale) {
+        me.preferences = { ...me.preferences, locale: picked };
+        await api('/me/preferences', { method: 'PATCH', body: { locale: picked } }).catch(() => undefined);
+      }
       qc.setQueryData(['me'], me);
     },
     signOut: () => {

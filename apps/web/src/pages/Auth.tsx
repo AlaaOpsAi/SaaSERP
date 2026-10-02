@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { ErrorNote, Field } from '../components/ui';
-import { LANGUAGES, lang, setLanguage, storeLanguage } from '../i18n';
+import { LANGUAGES, lang, markPicked, setLanguage, storeLanguage } from '../i18n';
 import { t } from '../i18n';
 
 /** Language picker shown before sign-in. */
@@ -12,7 +12,7 @@ export function LanguageSwitch({ onChange }: { onChange?: (code: string) => void
     <div className="lang-switch" role="group" aria-label="Language">
       {LANGUAGES.map((l) => (
         <button key={l.code} type="button" lang={l.code} className={`sm ${lang().code === l.code ? 'on' : ''}`}
-          onClick={() => { setLanguage(l.code); storeLanguage(l.code); onChange?.(l.code); }}>{l.name}</button>
+          onClick={() => { setLanguage(l.code); storeLanguage(l.code); markPicked(l.code); onChange?.(l.code); }}>{l.name}</button>
       ))}
     </div>
   );
