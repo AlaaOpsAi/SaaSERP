@@ -44,6 +44,8 @@ The repository is private, so `git clone` asks you to sign in. Use your GitHub u
 
 > **Hostinger firewall:** if you've turned on the firewall in hPanel (**VPS → Security → Firewall**), add rules there that allow TCP 80 and 443. Otherwise the HTTPS certificate can't be issued.
 
+> **Shortcut, all at once:** `deploy/hostinger-post-install.sh` runs steps 3 and 4 unattended. Set `DOMAIN` and `ACME_EMAIL` at its top, add it in hPanel under **VPS → Settings → Post-install scripts**, then pick it when you set up or reinstall the VPS. Progress is logged to `/post_install.log`. After that, only the operator account (end of step 4) is left to do.
+
 ## 4. Configure and start
 
 Create `.env` in the `SaaSERP` folder. Each secret is generated randomly:
