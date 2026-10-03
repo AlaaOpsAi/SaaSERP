@@ -356,39 +356,52 @@ def placeholder_audio(n, text):
     return dst
 
 
+def still_pip(dur):
+    """Instructor photo with a slow 'breathing' zoom, `dur` seconds long."""
+    _, _, pw, ph = PIP_BOX
+    still = BUILD / "pip_still.jpg"
+    if not still.exists():
+        im = Image.open(WORK / "src" / "instructor.jpg").convert("RGB")
+        iw, ih = im.size
+        ch = int(iw * 4 / 3)
+        top = max(0, min(ih - ch, int(ih * 0.10)))     # same crop as the lip-sync start frame
+        im.crop((0, top, iw, top + ch)).resize((pw * 3, ph * 3),
+                                               Image.LANCZOS).save(still, quality=95)
+    frames = int(dur * FPS) + 1
+    # oversampled input avoids zoompan jitter
+    return ["-loop", "1", "-i", str(still)], (
+        f"zoompan=z='1.04+0.025*sin(2*PI*on/{FPS * 6})':"
+        f"x='iw/2-(iw/zoom/2)':y='ih*0.42-(ih/zoom/2)':"
+        f"d={frames}:s={pw}x{ph}:fps={FPS}"), frames
+
+
 def pip_source(n, dur):
-    """Concatenate lip-sync clips for slide n, or animate the still photo."""
-    clips = sorted((WORK / "pip").glob(f"slide{n:02d}_part*.mp4"))
+    """Animated photo for the whole segment, with any lip-sync clips for
+    slide n laid over it from the start of the narration (blended in/out)."""
     dst = BUILD / "pip" / f"slide{n:02d}.mp4"
     dst.parent.mkdir(parents=True, exist_ok=True)
     _, _, pw, ph = PIP_BOX
-    if clips:
-        lst = BUILD / "pip" / f"slide{n:02d}.txt"
-        lst.write_text("".join(f"file '{c}'\n" for c in clips))
-        run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-             "-i", str(lst), "-an", "-vf",
-             f"fps={FPS},scale={pw}:{ph}:force_original_aspect_ratio=increase,"
-             f"crop={pw}:{ph},tpad=start_duration={LEAD}:start_mode=clone:"
-             f"stop_duration=30:stop_mode=clone",
-             "-t", f"{dur:.3f}", "-c:v", "libx264", "-crf", "16", "-preset",
-             "veryfast", "-pix_fmt", "yuv420p", str(dst)])
-    else:
-        still = BUILD / "pip_still.jpg"
-        if not still.exists():
-            ph_im = Image.open(WORK / "src" / "instructor.jpg").convert("RGB")
-            iw, ih = ph_im.size
-            ch = int(iw * 4 / 3)
-            top = max(0, int(ih * 0.10))
-            ph_im.crop((0, top, iw, top + ch)).resize((pw * 3, ph * 3),
-                                                      Image.LANCZOS).save(still, quality=95)
-        frames = int(dur * FPS) + 1
-        # slow breathing zoom; oversampled input avoids zoompan jitter
-        run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", str(still),
-             "-vf", f"zoompan=z='1.04+0.025*sin(2*PI*on/{FPS * 6})':"
-                    f"x='iw/2-(iw/zoom/2)':y='ih*0.42-(ih/zoom/2)':"
-                    f"d={frames}:s={pw}x{ph}:fps={FPS}",
+    inputs, zoom, frames = still_pip(dur)
+    clips = sorted((WORK / "pip").glob(f"slide{n:02d}_part*.mp4"))
+    if not clips:
+        run(["ffmpeg", "-y", "-loglevel", "error", *inputs, "-vf", zoom,
              "-frames:v", str(frames), "-c:v", "libx264", "-crf", "16",
              "-preset", "veryfast", "-pix_fmt", "yuv420p", str(dst)])
+        return dst
+    lst = BUILD / "pip" / f"slide{n:02d}.txt"
+    lst.write_text("".join(f"file '{c}'\n" for c in clips))
+    clip_len = sum(probe_duration(c) for c in clips)
+    fade = 0.35
+    run(["ffmpeg", "-y", "-loglevel", "error", *inputs,
+         "-f", "concat", "-safe", "0", "-i", str(lst), "-filter_complex",
+         f"[0:v]{zoom}[bg];"
+         f"[1:v]fps={FPS},scale={pw}:{ph}:force_original_aspect_ratio=increase,"
+         f"crop={pw}:{ph},format=yuva420p,fade=t=in:st=0:d={fade}:alpha=1,"
+         f"fade=t=out:st={clip_len - fade:.3f}:d={fade}:alpha=1,"
+         f"setpts=PTS-STARTPTS+{LEAD}/TB[lip];"
+         f"[bg][lip]overlay=eof_action=pass,format=yuv420p[v]",
+         "-map", "[v]", "-an", "-frames:v", str(frames), "-c:v", "libx264",
+         "-crf", "16", "-preset", "veryfast", str(dst)])
     return dst
 
 

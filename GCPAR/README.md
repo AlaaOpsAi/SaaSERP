@@ -26,7 +26,10 @@ bottom-left corner.
 | `narration/narration_ar.json` | Arabic narration script: one entry per slide (section title and spoken text), plus the course, intro and outro strings |
 | `scripts/01_prepare_assets.sh` | Extracts the slides from the .pptx, cleans the voice sample, crops the instructor photo and fetches the fonts |
 | `scripts/extract_slides.py` | Exports each slide's full-bleed picture, in presentation order |
-| `scripts/split_audio_chunks.py` | Cuts each slide's narration at natural pauses into chunks of 14.5 s or less, sized for the lip-sync model |
+| `scripts/make_tts_chunks.py` | Splits the narration into sentence-aligned chunks of 150 characters or less (12 s or less of speech), each driving one lip-sync clip |
+| `narration/tts_chunks.json` | The 50 chunks that were narrated |
+| `scripts/assemble_audio.py` | Joins the narrated chunks into one track per slide, keeping lip-synced chunks aligned with their clips |
+| `scripts/split_audio_chunks.py` | Alternative for whole-slide audio: cuts it at pauses into chunks of 14.5 s or less |
 | `scripts/put_upload.sh` | PUTs a file to a presigned Higgsfield upload URL |
 | `scripts/build_video.py` | The compositor: layout, subtitles, waveform, instructor window, intro and outro cards, crossfades |
 | `work/` *(git-ignored)* | Intermediate assets (slides, audio, clips, build files) |
@@ -38,28 +41,37 @@ bottom-left corner.
    ```bash
    scripts/01_prepare_assets.sh deck.pptx voice.m4a instructor.jpg
    ```
-2. **Voice clone and narration** (Higgsfield MCP tools)
-   - Upload `work/src/voice_sample_clean.mp3` with `media_upload` and
-     `scripts/put_upload.sh`, then call `media_confirm`.
-   - Create the voice with `create_voice_from_confirmed_audio`.
-   - For each slide, generate speech with `generate_audio`
-     (`elevenlabs_v4_turbo`, the cloned voice with `voice_type: element`).
-     Save the results as `work/audio/slideNN.mp3`.
-3. **Lip-synced instructor**
+2. **Voice clone** (Higgsfield MCP tools): upload `work/src/voice_sample_clean.mp3`
+   (`media_upload` + `scripts/put_upload.sh` + `media_confirm`), then
+   `create_voice_from_confirmed_audio`. The resulting voice is used with
+   `voice_type: element`.
+3. **Narration**
    ```bash
-   python3 scripts/split_audio_chunks.py   # -> work/audio_chunks/*.mp3 + manifest.json
+   python3 scripts/make_tts_chunks.py   # -> narration/tts_chunks.json (50 sentence-aligned chunks)
    ```
-   For each chunk, call `generate_video` with `wan2_7` at 720p and 3:4. Pass
-   `work/src/instructor_3x4.jpg` as `start_image` and the chunk as
-   `audio_references`. Save the clips as `work/pip/slideNN_partK.mp4`.
-4. **Render**
+   Each chunk is spoken with `generate_audio_batch` (`elevenlabs_v4_turbo`, the
+   cloned voice, a `dialogue` with one turn). Download the chunks to
+   `work/tts/sNN_pK.mp3` and record them in `work/tts_manifest.json`. Keep the
+   batches small (3–4 requests), because larger batches hit the provider's rate
+   limit (HTTP 429). Any chunk longer than 15 s gets split at a pause.
+   ```bash
+   python3 scripts/assemble_audio.py    # -> work/audio/slideNN.wav
+   ```
+4. **Lip-sync (optional)**: for a chunk, call `generate_video` with `wan2_7`
+   at 720p and 3:4, passing `instructor_3x4.jpg` as `start_image` and the
+   chunk's TTS job as `audio_references`. Set the duration to the chunk length
+   rounded up. Save the clip as `work/pip/slideNN_partK.mp4`. This costs about
+   1.5 credits per second. This render lip-syncs only the opening sentence;
+   for the rest of the video the instructor window shows the photo with a
+   slow "breathing" zoom. Every additional clip you add is picked up
+   automatically, and `assemble_audio.py` pads that chunk to the clip's
+   length so the mouth stays in sync.
+5. **Render**
    ```bash
    python3 scripts/build_video.py              # -> output/GCP_Compute_Engine_AR.mp4
    python3 scripts/build_video.py --preview    # placeholder voice, to check layout and timing
    python3 scripts/build_video.py --only 3     # re-render a single slide segment
    ```
-   If a slide has no lip-sync clips, the instructor window shows the photo
-   with a slow "breathing" zoom instead, so the video always renders.
 
 ## Requirements
 
