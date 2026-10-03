@@ -28,11 +28,10 @@ The database is published on **this computer only** (`127.0.0.1`, port **5433**,
 > docker compose restart app   # re-runs migrations, which grant it read access
 > ```
 
-**Change the default passwords** before putting the stack on a server:
+**On a server, don't use the default passwords.** Set `POSTGRES_PASSWORD`, `DB_OWNER_PASSWORD`, `DB_APP_PASSWORD` and `DB_READONLY_PASSWORD` in `.env` **before the first start**; they're applied when the database is created (see [DEPLOY-HOSTINGER.md](DEPLOY-HOSTINGER.md)). To change one on an existing database, change it in the database first, then put the same value in `.env` and run `docker compose up -d`:
 ```bash
 docker compose exec db psql -U postgres -c "ALTER ROLE saaserp_readonly PASSWORD 'something-long';"
 ```
-For `saaserp_owner` and `saaserp_app`, also update `DATABASE_URL` and `MIGRATION_DATABASE_URL` in `docker-compose.yml` to match.
 
 ### Tools
 

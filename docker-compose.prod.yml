@@ -1,0 +1,28 @@
+# Server overlay (e.g. a Hostinger VPS): adds HTTPS on your domain with Caddy
+# (free Let's Encrypt certificates, renewed automatically) and keeps the app
+# itself off the public internet.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Needs DOMAIN, JWT_SECRET and POSTGRES_PASSWORD in .env (see docs/DEPLOY-HOSTINGER.md).
+services:
+  app:
+    environment:
+      CORS_ORIGIN: https://${DOMAIN:?set DOMAIN in .env}
+    # Only Caddy talks to the app; nothing is published on the server's public IP.
+    ports: !override ["127.0.0.1:${APP_PORT:-4000}:4000"]
+  caddy:
+    image: caddy:2
+    depends_on: [app]
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

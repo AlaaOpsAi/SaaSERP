@@ -83,6 +83,7 @@ the status workflow, diary conflicts, roles and plan limits, reports and the wor
 - [Mobile app](docs/MOBILE.md): run it on your phone, build for the stores.
 - [Workspace approval](docs/APPROVALS.md): the sign-up review workflow and operator console.
 - [Database reference](docs/DATABASE.md): ER diagrams and every table, column, view, function, policy and role, with its purpose (generated: `npm run docs:db -w apps/api`).
+- [Deploy on Hostinger (or any VPS)](docs/DEPLOY-HOSTINGER.md): domain, HTTPS, firewall, secrets, updates and off-server backups.
 - [Operations](docs/OPERATIONS.md): connect to the database, automatic and manual backups, restore.
 - [Languages, look & feel](docs/I18N.md): how translation works, adding a language, themes.
 - [Roadmap](docs/ROADMAP.md): OPERA S&E capabilities still to build.

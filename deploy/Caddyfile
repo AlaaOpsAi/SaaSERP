@@ -1,0 +1,15 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# HTTPS for the whole app (web, API, operator console). http:// redirects to https:// automatically.
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	reverse_proxy app:4000
+}

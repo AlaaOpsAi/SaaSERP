@@ -7,9 +7,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: saaserp
+      # Passwords of the app's own logins (set them in .env on a server; letters and digits only).
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:-saaserp_owner}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-saaserp_app}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-saaserp_readonly}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./deploy/init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+      - ./deploy/init-roles.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
     # Reachable from this computer only (database tools), on 5433 so it never clashes with another Postgres.
     ports: ["127.0.0.1:${DB_PORT:-5433}:5432"]
     restart: unless-stopped
@@ -22,8 +26,8 @@ services:
     depends_on:
       db: { condition: service_healthy }
     environment:
-      DATABASE_URL: postgres://saaserp_app:saaserp_app@db:5432/saaserp
-      MIGRATION_DATABASE_URL: postgres://saaserp_owner:saaserp_owner@db:5432/saaserp
+      DATABASE_URL: postgres://saaserp_app:${DB_APP_PASSWORD:-saaserp_app}@db:5432/saaserp
+      MIGRATION_DATABASE_URL: postgres://saaserp_owner:${DB_OWNER_PASSWORD:-saaserp_owner}@db:5432/saaserp
       # Set JWT_SECRET in a .env file next to this one (see README).
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       CORS_ORIGIN: http://localhost:4000
