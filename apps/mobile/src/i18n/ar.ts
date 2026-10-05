@@ -146,7 +146,7 @@ const ar: Record<string, string> = {
   "What did the client ask for?": "ماذا طلب العميل؟",
   "What is it?": "ما نوعها؟",
   "WhatsApp": "واتساب",
-  "Where SaaSERP runs. On your Mac with Docker, use your Mac's Wi-Fi address, e.g. http://192.168.1.20:4000, and keep the phone on the same Wi-Fi.": "مكان تشغيل SaaSERP. إذا كان على جهاز Mac عبر Docker فاستخدم عنوان Wi-Fi للجهاز، مثل http://192.168.1.20:4000، وأبقِ الهاتف على شبكة Wi-Fi نفسها.",
+  "Where SaaSERP runs. Normally leave this as it is. To test against SaaSERP on your Mac, use the Mac's Wi-Fi address, e.g. http://192.168.1.20:4000, with the phone on the same Wi-Fi.": "مكان تشغيل SaaSERP. اتركه عادةً كما هو. لتجربة SaaSERP على جهاز Mac، استخدم عنوان Wi-Fi للجهاز، مثل http://192.168.1.20:4000، مع إبقاء الهاتف على شبكة Wi-Fi نفسها.",
   "Why is it cancelled?": "لماذا أُلغي؟",
   "Why was it lost?": "لماذا خُسر؟",
   "You are covering for {names}. Their bookings and follow-ups are in your lists.": "أنت تغطي عن {names}. حجوزاتهم ومتابعاتهم ضمن قوائمك.",

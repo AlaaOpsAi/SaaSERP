@@ -26,7 +26,7 @@ The app follows the phone's light or dark mode. The sign-in token is kept in the
    npx expo start
    ```
 3. Scan the QR code. On iPhone use the Camera app; on Android use Expo Go.
-4. On the sign-in screen, set **Server address** to your Mac's Wi-Fi address, e.g. `http://192.168.1.20:4000`. Find it under System Settings → Wi-Fi → Details → IP address. The phone must be on the same Wi-Fi.
+4. The app connects to `https://app.opsaibridge.eu` by default. To test against your Mac instead, set **Server address** on the sign-in screen to the Mac's Wi-Fi address, e.g. `http://192.168.1.20:4000`. Find it under System Settings → Wi-Fi → Details → IP address. The phone must be on the same Wi-Fi.
 5. Sign in with your normal SaaSERP email and password.
 
 ## Real apps for your team (App Store / Google Play)
@@ -51,7 +51,7 @@ npx eas-cli@latest submit -p android
 Before publishing:
 - Change `ios.bundleIdentifier` and `android.package` in `app.json` (currently `com.saaserp.sales`) to your own, e.g. `com.yourcompany.sales`.
 - Replace the icons in `assets/`.
-- Put the API behind **HTTPS** on a public domain, and set `extra.defaultServer` in `app.json` to it, so users don't type an address. Store apps should not talk to plain-HTTP servers.
+- `extra.defaultServer` in `app.json` is the live server, `https://app.opsaibridge.eu`, so users don't type an address. If the server moves, change it there. Store apps should only talk to HTTPS servers.
 
 ## Developing
 
