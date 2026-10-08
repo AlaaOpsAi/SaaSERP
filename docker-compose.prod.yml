@@ -20,6 +20,9 @@ services:
     ports: ["80:80", "443:443", "443:443/udp"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Extra site blocks (see deploy/Caddyfile) and the static files they serve.
+      - ./deploy/sites:/etc/caddy/sites:ro
+      - /var/www:/srv/www:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
