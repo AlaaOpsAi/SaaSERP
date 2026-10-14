@@ -13,3 +13,8 @@
 	}
 	reverse_proxy app:4000
 }
+
+# Extra sites served by this same Caddy (e.g. static apps on other subdomains).
+# Drop one site block per file into deploy/sites/<name>.caddy and reload Caddy:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+import sites/*.caddy

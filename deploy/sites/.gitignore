@@ -1,0 +1,2 @@
+# Site blocks are server-specific; keep them out of the repo.
+*.caddy
