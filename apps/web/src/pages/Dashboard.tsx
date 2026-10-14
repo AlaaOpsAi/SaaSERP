@@ -255,7 +255,7 @@ export function Dashboard() {
             </div>
             <div className="stack">
               <div className="card">
-                <div className="card-head"><h2>{t("Coming up")}</h2><Link to="/diary" className="small">{t("Function diary →")}</Link></div>
+                <div className="card-head"><h2>{t("Coming up")}</h2><Link to="/diary" className="small">{t("Event calendar →")}</Link></div>
                 {data.upcoming.length === 0 ? <div className="empty">{t("No events in the next 30 days.")}</div> : (
                   <ol className="timeline">
                     {data.upcoming.map((u) => (

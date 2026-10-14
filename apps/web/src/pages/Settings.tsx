@@ -1,22 +1,22 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api, download, type Role, type User } from '../api';
+import { api, download, type ContractField, type Role, type User } from '../api';
 import { useAuth } from '../auth';
 import { ErrorNote, Field, Modal, Tabs, useForm } from '../components/ui';
 import { dateTime } from '../format';
 import { useBusinessUnits, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { LANGUAGES, t } from '../i18n';
 
-type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'import' | 'export';
+type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'fields' | 'import' | 'export';
 
 export function Settings() {
   const { can } = useAuth();
   const [tab, setTab] = useState<Tab>('company');
   const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
-  if (can('admin')) tabs.push(['import', 'Import from Excel'], ['export', 'Export']);
+  if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ['export', 'Export']);
   return (
     <>
-      <div className="page-head"><div><h1>{t("Settings")}</h1><p>{t("Configure your workspace, team and sales pick-lists.")}</p></div></div>
+      <div className="page-head"><div><h1>{t("Admin")}</h1><p>{t("Configure your workspace, team and sales pick-lists.")}</p></div></div>
       {!can('admin') && <div className="alert info" style={{ marginBottom: 16 }}>{t("Only owners and admins can change most settings.")}</div>}
       <Tabs value={tab} onChange={setTab} tabs={tabs} />
       {tab === 'company' && <Company />}
@@ -24,6 +24,7 @@ export function Settings() {
       {tab === 'venues' && <Venues />}
       {tab === 'units' && <Units />}
       {tab === 'lists' && <Lists />}
+      {tab === 'fields' && <ContractFields />}
       {tab === 'import' && <Import />}
       {tab === 'export' && <Export />}
     </>
@@ -432,7 +433,7 @@ function Units() {
 }
 
 const LIST_TYPES: [string, string][] = [
-  ['event_type', 'Event types'], ['source', 'Lead sources'], ['lost_reason', 'Lost reasons'], ['item_category', 'Line categories'],
+  ['branch', 'Branches'], ['event_type', 'Event types'], ['design', 'Designs'], ['source', 'Lead sources'], ['lost_reason', 'Lost reasons'], ['item_category', 'Line categories'],
   ['setup_style', 'Setup styles'], ['payment_method', 'Payment methods'], ['bank_account', 'Bank accounts'], ['business_type', 'Business types'],
 ];
 
@@ -572,3 +573,65 @@ function Import() {
     </div>
   );
 }
+
+/** Which contract fields each role sees. Hidden fields are removed by the server, not just on screen. */
+const FIELD_GROUPS: [ContractField, string, string][] = [
+  ['finance', 'Finance figures', 'Revenue, cost, margin, fixed and CF cost, net profit, commission, shares, outstanding, aging'],
+  ['contract_value', 'Total contract value', ''],
+  ['money_received', 'Money received (DP)', 'Down payments and receipts'],
+  ['source', 'Source', ''],
+  ['owner', 'Account manager', ''],
+  ['business_unit', 'Company', ''],
+  ['branch', 'Branch', ''],
+  ['design', 'Design', ''],
+  ['event_type', 'Event type', ''],
+  ['pax', 'Pax / units', ''],
+  ['rate', 'Rate and term days', ''],
+  ['credit_facility', 'Credit facility', ''],
+];
+const FIELD_ROLES = ['manager', 'sales', 'finance', 'viewer'] as const;
+
+function ContractFields() {
+  const { me } = useAuth();
+  const [vis, setVis] = useState<Partial<Record<Role, ContractField[]>>>(me!.tenant.field_visibility ?? {});
+  const save = useSave(() => api('/tenant', { method: 'PATCH', body: { field_visibility: vis } }), [['me'], ['bookings'], ['booking']]);
+  const isHidden = (role: Role, f: ContractField) => (vis[role] ?? []).includes(f);
+  const toggle = (role: Role, f: ContractField) => setVis((v) => {
+    const list = v[role] ?? [];
+    return { ...v, [role]: list.includes(f) ? list.filter((x) => x !== f) : [...list, f] };
+  });
+  return (
+    <form className="card stack" style={{ maxWidth: 860 }} onSubmit={(e) => { e.preventDefault(); save.mutate(undefined); }}>
+      <div>
+        <h3 style={{ margin: 0 }}>{t('Who sees which contract fields')}</h3>
+        <p className="secondary small" style={{ margin: '4px 0 0' }}>
+          {t('Untick a field to hide it from a role on screens, lists, exports and the API. Owners and admins always see everything.')}
+        </p>
+      </div>
+      <ErrorNote error={save.error} />
+      <div className="table-wrap">
+        <table className="field-matrix">
+          <thead><tr><th>{t('Field')}</th>{FIELD_ROLES.map((r) => <th key={r} className="num">{ROLE_LABEL[r]}</th>)}</tr></thead>
+          <tbody>
+            {FIELD_GROUPS.map(([f, label, hint]) => (
+              <tr key={f}>
+                <td>{t(label)}{hint && <div className="small muted">{t(hint)}</div>}</td>
+                {FIELD_ROLES.map((r) => (
+                  <td key={r} className="num">
+                    <input type="checkbox" checked={!isHidden(r, f)} onChange={() => toggle(r, f)}
+                      aria-label={t('{role} sees {field}', { role: ROLE_LABEL[r], field: t(label) })} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="row">
+        <button className="primary" disabled={save.isPending}>{t('Save')}</button>
+        {save.isSuccess && <span className="small good">{t('Saved.')}</span>}
+      </div>
+    </form>
+  );
+}
+

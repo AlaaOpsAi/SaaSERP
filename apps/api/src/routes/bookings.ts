@@ -1,9 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { assertCanAssign, authed, can, hasRole, requireRole, tx } from '../auth.js';
+import { assertCanAssign, authed, can, hasRole, hiddenFields, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { assertTransition, BLOCKING, findConflicts, nextBookingNo, type BookingStatus } from '../lib/booking.js';
-import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
+import { contactName } from '../lib/contact.js';
+import { redactBooking, stripHidden } from '../lib/fields.js';
 import { bookingOf, logChange, writable } from '../lib/guard.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
@@ -13,18 +15,22 @@ const money = z.number().finite();
 const status = z.enum(['INQ', 'TEN', 'DEF', 'ACT', 'LOS', 'CXL']);
 
 const inlineContact = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).optional(),
+  first_name: z.string().trim().nullish(),
+  family_name: z.string().trim().nullish(),
   phone: z.string().trim().nullish(),
   email: z.string().trim().toLowerCase().email().nullish().or(z.literal('').transform(() => null)),
   nationality: z.string().nullish(),
   address: z.string().nullish(),
   social_handle: z.string().nullish(),
-});
+}).refine((c) => c.name || c.first_name, { message: 'Client name is required', path: ['first_name'] });
 
 const bookingFields = z.object({
   name: z.string().trim().min(1).max(200),
   business_unit_id: z.string().uuid(),
   event_type: z.string().nullish(),
+  branch: z.string().nullish(),
+  design: z.string().nullish(),
   source: z.string().nullish(),
   owner_id: z.string().uuid().nullish(),
   account_id: z.string().uuid().nullish(),
@@ -140,10 +146,14 @@ const BOOKING_SELECT = `
   SELECT b.*, bu.code AS business_unit_code,
          u.name AS owner_name, u.code AS owner_code,
          c.name AS contact_name, c.phone AS contact_phone, c.email AS contact_email,
+         c.first_name AS contact_first_name, c.family_name AS contact_family_name,
+         c.nationality AS contact_nationality, c.address AS contact_address, c.social_handle AS contact_social_handle,
          a.name AS account_name,
          v.name AS venue_name, s.name AS space_name,
          f.revenue, f.cost, f.gross_margin, f.margin_pct, f.diff, f.fixed_cost, f.cf_cost,
-         f.net_profit, f.commission, f.shares, f.paid, f.outstanding, f.aging_days
+         f.net_profit, f.commission, f.shares, f.paid, f.outstanding, f.aging_days,
+         -- DIFF CTRL of the daily report: money received less the contract value, for confirmed bookings.
+         CASE WHEN b.status IN ('DEF', 'ACT') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl
   FROM bookings b
   JOIN business_units bu ON bu.id = b.business_unit_id
   JOIN booking_finance f ON f.booking_id = b.id
@@ -209,7 +219,7 @@ async function findOrCreateContact(db: Db, c: z.infer<typeof inlineContact>): Pr
     const { rows } = await db.query('SELECT id FROM contacts WHERE phone = $1 LIMIT 1', [c.phone]);
     if (rows[0]) return rows[0].id;
   }
-  const row = await insertRow<{ id: string }>(db, 'contacts', c);
+  const row = await insertRow<{ id: string }>(db, 'contacts', { ...c, name: contactName(c) });
   return row.id;
 }
 
@@ -273,17 +283,20 @@ export async function bookingRoutes(app: FastifyInstance) {
           baseParams,
         )
       ).rows[0];
-      return { rows, totals };
+      const hidden = hiddenFields(req);
+      if (hidden.includes('finance')) Object.assign(totals, { revenue: null, gross_margin: null, net_profit: null, outstanding: null });
+      return { rows: rows.map((r) => redactBooking(r, hidden)), totals };
     }),
   );
 
   app.get('/bookings/:id', { preHandler: authed }, (req) =>
-    tx(req, (db) => bookingDetail(db, id.parse(req.params).id)),
+    tx(req, async (db) => redactBooking(await bookingDetail(db, id.parse(req.params).id), hiddenFields(req))),
   );
 
   app.post('/bookings', sell, (req, reply) =>
     tx(req, async (db) => {
-      const { contact, force, status: initialStatus, ...body } = bookingCreate.parse(req.body);
+      const { contact, force, status: initialStatus, ...parsed } = bookingCreate.parse(req.body);
+      const body = stripHidden(parsed, hiddenFields(req));
 
       let businessUnitId = body.business_unit_id;
       if (!businessUnitId) {
@@ -337,14 +350,14 @@ export async function bookingRoutes(app: FastifyInstance) {
         }
       }
       reply.code(201);
-      return bookingDetail(db, booking.id);
+      return redactBooking(await bookingDetail(db, booking.id), hiddenFields(req));
     }),
   );
 
   app.patch('/bookings/:id', sell, (req) =>
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
-      const body = bookingPatch.parse(req.body);
+      const body = stripHidden(bookingPatch.parse(req.body), hiddenFields(req));
       const ctx = await writable(db, req, bookingId);
       assertCanAssign(req, body.owner_id);
       if (body.function_space_id && body.venue_id === undefined) {
@@ -355,7 +368,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       await updateRow(db, 'bookings', bookingId, body, 'Booking');
       const changed = Object.keys(body).filter((k) => String(before[k] ?? '') !== String((body as Record<string, unknown>)[k] ?? ''));
       if (changed.length) await logChange(db, req, ctx, 'updated', { fields: changed });
-      return bookingDetail(db, bookingId);
+      return redactBooking(await bookingDetail(db, bookingId), hiddenFields(req));
     }),
   );
 
@@ -366,7 +379,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       const ctx = await writable(db, req, bookingId);
       const from = await bookingStatus(db, bookingId);
       assertTransition(from, to);
-      if (from === to) return bookingDetail(db, bookingId);
+      if (from === to) return redactBooking(await bookingDetail(db, bookingId), hiddenFields(req));
       if ((to === 'LOS' || to === 'CXL') && !reason) {
         throw badRequest(to === 'LOS' ? 'A lost reason is required' : 'A cancellation reason is required');
       }
@@ -391,7 +404,7 @@ export async function bookingRoutes(app: FastifyInstance) {
          VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6)`,
         [bookingId, from, to, reason ?? null, req.user.sub, ctx.onBehalfOf],
       );
-      return bookingDetail(db, bookingId);
+      return redactBooking(await bookingDetail(db, bookingId), hiddenFields(req));
     }),
   );
 
@@ -498,6 +511,21 @@ export async function bookingRoutes(app: FastifyInstance) {
   );
 
   // ---- payments (never by a delegate) ---------------------------------------
+
+  // MONEY RECEIVED (DP): the salesperson records the client's down payment on their own contract.
+  app.post('/bookings/:id/down-payment', sell, (req) =>
+    tx(req, async (db) => {
+      const bookingId = id.parse(req.params).id;
+      if (hiddenFields(req).includes('money_received')) throw forbidden('Money received is not available to your role');
+      const body = paymentSchema.pick({ paid_on: true, amount: true, method: true, reference: true, notes: true }).parse(req.body);
+      if (body.amount <= 0) throw badRequest('A down payment must be more than zero');
+      const ctx = await writable(db, req, bookingId, { money: true });
+      const payment = await insertRow(db, 'payments', { ...body, kind: 'deposit', booking_id: bookingId, created_by: req.user.sub });
+      await syncFullyPaid(db, bookingId);
+      await logChange(db, req, ctx, 'down payment recorded', { amount: body.amount, paid_on: body.paid_on });
+      return payment;
+    }),
+  );
 
   app.post('/bookings/:id/payments', finance, (req) =>
     tx(req, async (db) => {

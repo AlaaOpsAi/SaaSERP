@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ModuleGrid } from '../../components/modules';
 import { ActivityRow } from '../../components/rows';
 import { Button, Card, Empty, H1, H2, Kpi, Notice, Screen, StatusBadge, T } from '../../components/ui';
 import { api, type Activity, type Status } from '../../lib/api';
@@ -63,6 +64,8 @@ export default function Home() {
           <Notice icon="people-outline">{t('You are covering for {names}. Their bookings and follow-ups are in your lists.', { names: me!.covering.map((x) => x.delegator_name).join(', ') })}</Notice>
         )}
         {(me?.covered_by ?? []).length > 0 && <Notice icon="airplane-outline">{t('{names} is covering for you.', { names: me!.covered_by.map((x) => x.delegate_name).join(', ') })}</Notice>}
+
+        <ModuleGrid badges={{ activities: todo.data?.length }} />
 
         {can('sell') && <Button title={t("New enquiry")} icon="add-circle-outline" kind="primary" onPress={() => router.push('/booking/new')} />}
 

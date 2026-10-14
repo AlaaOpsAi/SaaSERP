@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { FIELD_KEYS, type ContractField } from '../lib/fields.js';
 import { authed, can, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { badRequest, conflict, forbidden } from '../lib/errors.js';
@@ -18,6 +19,10 @@ const tenantPatch = z.object({
   timezone: z.string().min(3),
   fixed_cost_pct: pct,
   credit_facility_pct: pct,
+  /** Contract fields hidden per role, e.g. {"sales": ["finance"]}. Owners and admins always see all. */
+  field_visibility: z.partialRecord(z.enum(['manager', 'sales', 'finance', 'viewer']), z.array(z.enum(FIELD_KEYS as [ContractField, ...ContractField[]]))),
+  /** Home-screen icon order (module keys). */
+  home_order: z.array(z.string().regex(/^[a-z_]+$/)).max(40).nullable(),
 }).partial();
 
 const roles = z.enum(['owner', 'admin', 'manager', 'sales', 'finance', 'viewer']);
@@ -124,8 +129,12 @@ export async function settingsRoutes(app: FastifyInstance) {
   // ---- tenant ------------------------------------------------------------
   app.patch('/tenant', admin, (req) =>
     tx(req, (db) => {
-      const { branding, ...rest } = tenantPatch.parse(req.body);
-      return updateRow(db, 'tenants', req.user.tid, { ...rest, branding: branding ? JSON.stringify(branding) : undefined }, 'Tenant');
+      const { branding, field_visibility, ...rest } = tenantPatch.parse(req.body);
+      return updateRow(db, 'tenants', req.user.tid, {
+        ...rest,
+        branding: branding ? JSON.stringify(branding) : undefined,
+        field_visibility: field_visibility ? JSON.stringify(field_visibility) : undefined,
+      }, 'Tenant');
     }),
   );
 

@@ -14,6 +14,7 @@ import { Diary } from './pages/Diary';
 import { Finance } from './pages/Finance';
 import { Login, Signup } from './pages/Auth';
 import { PlatformConsole, PlatformLogin } from './pages/Platform';
+import { Home } from './pages/Home';
 import { Preferences } from './pages/Preferences';
 import { Settings } from './pages/Settings';
 import { lang, t } from './i18n';
@@ -22,19 +23,21 @@ const ROLE_NAMES: Record<string, string> = {
   owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', finance: 'Finance', viewer: 'Viewer',
 };
 
+// Menu names follow the customer's module plan (Contracts, Event calendar, CRM, Admin).
 const NAV = [
-  ['/', 'Dashboard', Icon.dashboard],
-  ['/bookings', 'Bookings', Icon.bookings],
-  ['/diary', 'Function diary', Icon.diary],
-  ['/activities', 'Activities', Icon.activities],
-  ['/clients', 'Clients', Icon.clients],
-  ['/delegations', 'Cover & delegation', Icon.cover],
-  ['/finance', 'Finance', Icon.finance],
-  ['/settings', 'Settings', Icon.settings],
+  ['/', 'Home', Icon.home, 'all'],
+  ['/dashboard', 'Dashboard', Icon.dashboard, 'all'],
+  ['/bookings', 'Contracts', Icon.bookings, 'all'],
+  ['/diary', 'Event calendar', Icon.diary, 'all'],
+  ['/activities', 'Activities', Icon.activities, 'all'],
+  ['/clients', 'CRM', Icon.clients, 'all'],
+  ['/delegations', 'Cover & delegation', Icon.cover, 'all'],
+  ['/finance', 'Finance', Icon.finance, 'finance'],
+  ['/settings', 'Admin', Icon.settings, 'manage'],
 ] as const;
 
 export function App() {
-  const { me, loading, signOut } = useAuth();
+  const { me, loading, signOut, can } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   // Re-render everything when the language changes (before sign-in it is chosen on the login page).
@@ -74,7 +77,7 @@ export function App() {
           </div>
           <Bell />
         </div>
-        {NAV.map(([to, label, icon]) => (
+        {NAV.filter(([, , , area]) => area === 'all' || can(area)).map(([to, label, icon]) => (
           <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             {icon}
             {t(label)}
@@ -105,7 +108,8 @@ export function App() {
           </div>
         )}
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/bookings" element={<Bookings />} />
           <Route path="/bookings/:id" element={<BookingDetailPage />} />
           <Route path="/diary" element={<Diary />} />

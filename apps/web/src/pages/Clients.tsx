@@ -27,7 +27,7 @@ export function Clients() {
   return (
     <>
       <div className="page-head">
-        <div><h1>{t("Clients")}</h1><p>{t("Individuals and companies you sell to, with their booking history.")}</p></div>
+        <div><h1>{t("CRM")}</h1><p>{t("Individuals and companies you sell to, with their booking history.")}</p></div>
         {can('sell') && <button className="primary" onClick={() => setOpen({ kind: tab })}>{t("New")}{' '}{tab === 'contacts' ? t("contact") : t("company")}</button>}
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[['contacts', 'Contacts'], ['accounts', 'Companies']]} />

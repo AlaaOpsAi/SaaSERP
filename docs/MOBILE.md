@@ -2,6 +2,7 @@
 
 `apps/mobile` is an **Expo / React Native** app (Expo SDK 57, Expo Router). One TypeScript codebase builds the iPhone and Android apps. It talks to the same API as the web app, so the same users, roles, team visibility and cover rules apply.
 
+
 ## What's in it
 
 | Tab | For |
@@ -15,6 +16,16 @@
 | **More** | profile and what you can see, notifications, cover in force, open the full web app, sign out |
 
 The app follows the phone's light or dark mode. The sign-in token is kept in the iOS Keychain or Android Keystore. Settings, imports, approvals and cover set-up stay in the web app.
+
+## Home screen and Phase 1
+
+- **Module icons:** the Home tab starts with the same icons as the web home screen, in the company's order.
+  - Contracts, Event calendar and Activities open in the app.
+  - Dashboard, CRM, Finance and Admin open the web app.
+  - Planned modules say "coming soon".
+- **Meetings:** a meeting or site visit asks for its **outcome** before it can be marked done. The outcome feeds the manager's daily activity report.
+- **Contracts:** each contract shows the contract value, money received and difference, and has **Record down payment**.
+- **Hidden fields:** fields an admin hides from a role (e.g. finance figures for sales) are hidden here too.
 
 ## Try it on your phone in 5 minutes (Expo Go)
 

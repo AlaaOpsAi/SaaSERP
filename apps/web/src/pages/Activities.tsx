@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Activity } from '../api';
 import { useAuth } from '../auth';
-import { StatusBadge } from '../components/ui';
+import { StatusBadge, Tabs } from '../components/ui';
+import { DailyReport } from './DailyReport';
 import { dateTime } from '../format';
-import { useSave } from '../hooks';
+import { activityType, CompleteButton } from '../components/CompleteActivity';
 import { ActivityForm } from './BookingDetail';
 import { t } from '../i18n';
 
@@ -14,20 +15,21 @@ export function Activities() {
   const [scope, setScope] = useState<'mine' | 'all'>('mine');
   const [state, setState] = useState('open');
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<'list' | 'report'>('list');
   const { data, isLoading } = useQuery({
     queryKey: ['activities', scope, state],
     queryFn: () => api<Activity[]>(`/activities?scope=${scope}&state=${state}`),
   });
-  const complete = useSave((v: { id: string; outcome: string | null }) =>
-    api(`/activities/${v.id}/complete`, { body: { outcome: v.outcome } }), [['activities'], ['dashboard']]);
   const now = Date.now();
 
   return (
     <>
       <div className="page-head">
-        <div><h1>{t("Activities")}</h1><p>{t("Meetings, calls and follow-ups. Completing one updates the booking's last follow-up.")}</p></div>
-        {can('sell') && <button className="primary" onClick={() => setAdding((a) => !a)}>{adding ? t("Close") : t("New activity")}</button>}
+        <div><h1>{t("Activities")}</h1><p>{t("Daily activity, follow-ups and meeting outcomes for each salesperson.")}</p></div>
+        {can('sell') && view === 'list' && <button className="primary" onClick={() => setAdding((a) => !a)}>{adding ? t("Close") : t("New activity")}</button>}
       </div>
+      <Tabs value={view} onChange={setView} tabs={[['list', 'Follow-ups'], ['report', 'Daily report']]} />
+      {view === 'report' ? <DailyReport /> : <>
       {adding && <div className="card" style={{ marginBottom: 16 }}><ActivityForm onDone={() => setAdding(false)} /></div>}
       <div className="filters">
         <select value={scope} onChange={(e) => setScope(e.target.value as 'mine' | 'all')} aria-label={t("Scope")}>
@@ -50,7 +52,7 @@ export function Activities() {
                 return (
                   <tr key={a.id}>
                     <td style={{ color: overdue ? 'var(--danger)' : undefined }}>{overdue && '⚠ '}{dateTime(a.due_at)}</td>
-                    <td><span className="tag">{a.type.replace('_', ' ')}</span> {a.subject}
+                    <td><span className="tag">{activityType(a.type)}</span> {a.subject}
                       {a.not_mine && scope === 'mine' && <span className="tag cover-tag">{t("covering ·")}{' '}{a.owner_name}</span>}
                       {(a.location || a.notes) && <div className="small secondary">{[a.location, a.notes].filter(Boolean).join(' · ')}</div>}
                       {a.outcome && <div className="small secondary">✓ {a.outcome}</div>}
@@ -58,9 +60,7 @@ export function Activities() {
                     <td>{a.booking_id ? <><Link to={`/bookings/${a.booking_id}`}>{a.booking_no}</Link> {a.booking_status && <StatusBadge status={a.booking_status} />}<div className="small secondary">{a.booking_name}</div></> : '—'}</td>
                     <td>{a.contact_name ?? '—'}<div className="small secondary">{a.contact_phone}</div></td>
                     <td>{a.owner_name ?? '—'}</td>
-                    <td className="num">{!a.completed_at && can('sell') && (
-                      <button className="sm" onClick={() => complete.mutate({ id: a.id, outcome: prompt(t('Outcome / client feedback (optional)')) })}>{t("Complete")}</button>
-                    )}</td>
+                    <td className="num">{!a.completed_at && can('sell') && <CompleteButton activity={a} invalidate={[]} />}</td>
                   </tr>
                 );
               })}
@@ -68,6 +68,7 @@ export function Activities() {
           </table>
         </div>
       </div>
+      </>}
     </>
   );
 }

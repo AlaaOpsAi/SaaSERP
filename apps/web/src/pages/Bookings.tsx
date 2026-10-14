@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, download, type Booking, type Conflict } from '../api';
-import { useAuth } from '../auth';
-import { BookingForm, bookingPayload, type BookingFormValues } from '../components/BookingForm';
+import { useAuth, useHidden } from '../auth';
+import { BookingForm, bookingPayload, clientPayload, type BookingFormValues } from '../components/BookingForm';
 import { ErrorNote, Modal, StatusBadge } from '../components/ui';
 import { date, money, monthNames, num, STATUS_LABEL, statusLabel } from '../format';
 import { useLabel, useLookups, useSave, useUsers } from '../hooks';
@@ -11,6 +11,7 @@ import { lookupLabel, t } from '../i18n';
 
 export function Bookings() {
   const { can, me } = useAuth();
+  const fin = !useHidden()('finance');
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
@@ -36,12 +37,12 @@ export function Bookings() {
     <>
       <div className="page-head">
         <div>
-          <h1>{t("Bookings")}</h1>
+          <h1>{t("Contracts")}</h1>
           <p>{t("Every enquiry, from first contact to a paid event.")}</p>
         </div>
         <div className="row">
           <button onClick={() => download(`/reports/contracts.xlsx?year=${filter('year') || year}`, `contracts-${filter('year') || year}.xlsx`)}>{t("Export Excel")}</button>
-          {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t("New booking")}</button>}
+          {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t("New contract")}</button>}
         </div>
       </div>
 
@@ -97,7 +98,10 @@ export function Bookings() {
             <thead>
               <tr>
                 <th>{t("No.")}</th><th>{t("Booking / client")}</th><th>{t("Status")}</th><th>{t("Event")}</th><th>{t("Venue")}</th><th className="num">{t("Pax")}</th>
-                <th>{t("AM")}</th><th className="num">{t("Revenue")}</th><th className="num">{t("Margin")}</th><th className="num">{t("Outstanding")}</th><th>{t("Next follow-up")}</th>
+                <th>{t("AM")}</th>
+                {fin ? <><th className="num">{t("Revenue")}</th><th className="num">{t("Margin")}</th><th className="num">{t("Outstanding")}</th></>
+                  : <><th className="num">{t("Contract value")}</th><th className="num">{t("Received")}</th><th className="num">{t("Difference")}</th></>}
+                <th>{t("Next follow-up")}</th>
               </tr>
             </thead>
             <tbody>
@@ -115,9 +119,15 @@ export function Bookings() {
                   <td>{b.venue_name ?? '—'}<div className="small secondary">{b.space_name ?? b.hall_text ?? ''}</div></td>
                   <td className="num">{num(b.pax)}</td>
                   <td>{b.owner_code ?? '—'}</td>
-                  <td className="num">{b.revenue ? money(b.revenue) : '—'}</td>
-                  <td className="num">{b.revenue ? money(b.gross_margin) : '—'}</td>
-                  <td className="num">{b.outstanding ? money(b.outstanding) : '—'}</td>
+                  {fin ? <>
+                    <td className="num">{b.revenue ? money(b.revenue) : '—'}</td>
+                    <td className="num">{b.revenue ? money(b.gross_margin) : '—'}</td>
+                    <td className="num">{b.outstanding ? money(b.outstanding) : '—'}</td>
+                  </> : <>
+                    <td className="num">{b.contract_value ? money(b.contract_value) : '—'}</td>
+                    <td className="num">{b.paid ? money(b.paid) : '—'}</td>
+                    <td className="num">{b.diff_ctrl ? money(b.diff_ctrl) : '—'}</td>
+                  </>}
                   <td>{b.status === 'INQ' || b.status === 'TEN' ? date(b.next_followup_date) : ''}</td>
                 </tr>
               ))}
@@ -126,9 +136,9 @@ export function Bookings() {
               <tfoot>
                 <tr>
                   <td colSpan={7}>{data.totals.count}{' '}{t("bookings ·")}{' '}{data.totals.definite}{' '}{t("definite")}</td>
-                  <td className="num">{money(data.totals.revenue)}</td>
-                  <td className="num">{money(data.totals.gross_margin)}</td>
-                  <td className="num">{money(data.totals.outstanding)}</td>
+                  <td className="num">{fin ? money(data.totals.revenue) : ''}</td>
+                  <td className="num">{fin ? money(data.totals.gross_margin) : ''}</td>
+                  <td className="num">{fin ? money(data.totals.outstanding) : ''}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -146,7 +156,8 @@ function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (i
   const { can } = useAuth();
   const [pending, setPending] = useState<BookingFormValues | null>(null);
   const save = useSave((v: { values: BookingFormValues; force?: boolean }) =>
-    api<Booking>('/bookings', { body: { ...bookingPayload(v.values), force: v.force } }), [['bookings'], ['dashboard']]);
+    api<Booking>('/bookings', { body: { ...bookingPayload(v.values), contact: clientPayload(v.values.contact), force: v.force } }),
+    [['bookings'], ['dashboard']]);
   const conflicts: Conflict[] | undefined = (save.error as { details?: { conflicts?: Conflict[] } } | null)?.details?.conflicts;
 
   const submit = (values: BookingFormValues, force = false) => {
@@ -156,7 +167,7 @@ function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (i
 
   return (
     <Modal
-      title={t("New booking")}
+      title={t("New contract")}
       onClose={onClose}
       footer={
         <>
@@ -164,7 +175,7 @@ function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (i
           {conflicts && can('manage') && pending && (
             <button type="button" className="danger" onClick={() => submit(pending, true)}>{t("Override & book")}</button>
           )}
-          <button className="primary" form="new-booking" disabled={save.isPending}>{t("Create booking")}</button>
+          <button className="primary" form="new-booking" disabled={save.isPending}>{t("Create contract")}</button>
         </>
       }
     >

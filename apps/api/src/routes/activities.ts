@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authed, can, onBehalfOf, requireRole, tx } from '../auth.js';
+import { badRequest } from '../lib/errors.js';
 import { logChange, writable } from '../lib/guard.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
+export const MEETING_TYPES = ['meeting', 'site_visit'];
 
 const activitySchema = z.object({
   booking_id: z.string().uuid().nullish(),
@@ -26,7 +28,10 @@ const listQuery = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   booking_id: z.string().uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(500).default(200),
+  owner_id: z.string().uuid().optional(),
+  /** Comma separated, e.g. "meeting,site_visit" for the meetings calendar. */
+  type: z.string().regex(/^[a-z_,]+$/).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).default(200),
 });
 
 export async function activityRoutes(app: FastifyInstance) {
@@ -47,6 +52,8 @@ export async function activityRoutes(app: FastifyInstance) {
         where.push(`(a.owner_id = ${p(req.user.sub)} OR (a.completed_at IS NULL AND a.owner_id = ANY(${p(handover)}::uuid[])))`);
       }
       if (q.booking_id) where.push(`a.booking_id = ${p(q.booking_id)}`);
+      if (q.owner_id) where.push(`a.owner_id = ${p(q.owner_id)}`);
+      if (q.type) where.push(`a.type = ANY(${p(q.type.split(',').filter(Boolean))})`);
       if (q.state === 'open') where.push('a.completed_at IS NULL');
       if (q.state === 'done') where.push('a.completed_at IS NOT NULL');
       if (q.state === 'overdue') where.push('a.completed_at IS NULL AND a.due_at < now()');
@@ -56,7 +63,7 @@ export async function activityRoutes(app: FastifyInstance) {
       if (q.from) where.push(`a.due_at >= ${p(q.from)}`);
       if (q.to) where.push(`a.due_at < ${p(q.to)}`);
       const { rows } = await db.query(
-        `SELECT a.*, u.name AS owner_name, cb.name AS completed_by_name, cob.name AS completed_on_behalf_of_name,
+        `SELECT a.*, u.name AS owner_name, u.code AS owner_code, cb.name AS completed_by_name, cob.name AS completed_on_behalf_of_name,
                 (a.owner_id <> ${p(req.user.sub)}) AS not_mine, b.booking_no, b.name AS booking_name, b.status AS booking_status,
                 c.name AS contact_name, c.phone AS contact_phone, ac.name AS account_name
          FROM activities a
@@ -103,8 +110,12 @@ export async function activityRoutes(app: FastifyInstance) {
   app.post('/activities/:id/complete', sell, (req) =>
     tx(req, async (db) => {
       const { outcome } = z.object({ outcome: z.string().nullish() }).parse(req.body ?? {});
-      const current = await getRow<{ booking_id: string | null; owner_id: string | null; subject: string }>(
+      const current = await getRow<{ booking_id: string | null; owner_id: string | null; subject: string; type: string }>(
         db, 'activities', id.parse(req.params).id, 'Activity');
+      // The meeting outcome feeds the daily activity report, so it cannot be skipped.
+      if (MEETING_TYPES.includes(current.type) && !outcome?.trim()) {
+        throw badRequest('Write the outcome of the meeting before marking it done');
+      }
       const ctx = current.booking_id ? await writable(db, req, current.booking_id) : null;
       // Completing someone else's follow-up while covering for them is recorded as such.
       const behalf = current.owner_id && current.owner_id !== req.user.sub ? onBehalfOf(req, current.owner_id) : null;

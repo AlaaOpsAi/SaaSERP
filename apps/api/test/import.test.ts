@@ -98,4 +98,44 @@ describe('workbook import', () => {
     const bus = (await c.get('/business-units')).body.map((b: any) => b.code);
     expect(bus).toContain('X');
   });
+
+  it('reads the newer layout by its headers: branch, hotel, DP, first and family name', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('CONTRACTS');
+    const groups: string[] = [];
+    const heads = ['CONTRACT ID', 'CO', 'BRANCH', 'STATUS', 'Y', 'M', 'D', 'HOTEL LOC', 'HALL AREA', 'PAX UNITS', 'RATE PP | PU',
+      'TERM DAYS RN', 'REV', 'COST', 'GROSS MARGIN', 'P %', 'TOTAL CONTRACT VALUE', 'MONEY RECEIVED DP', 'DIFF CTRL', 'CF',
+      'SOURCE', 'AM', 'REQUEST DESCRIPTION & NOTES', 'Y', 'M', 'D', 'COUNTRY NATIONALITY', 'ALIAS #| INSTA ID',
+      'CLIENT FIRTST NAME / CONTACT', 'CLIENT FAMILY NAME', 'CLIENT PHONE', 'CLIENT EMAIL', 'ADDRESS DETAILS',
+      'Y', 'M', 'D', 'TIME', 'LOC', 'NOTES'];
+    heads.forEach((_, i) => { groups[i] = i >= 4 && i <= 6 ? 'E  V  E  N  T' : i >= 23 && i <= 25 ? 'ENQUIRY DATE' : i >= 33 ? 'MEETING #1' : ''; });
+    ws.addRow(groups);
+    ws.addRow(heads);
+    ws.addRow(['W2026010', 'W', 'RB', 'DEF', 2026, 6, 12, 'RADISSON', 'DASMAN', 150, 12, null, null, null, null, null,
+      1800, 600, null, 'CF', 'INSTA', 'JOU', 'Buffet for 150', 2026, 1, 4, 'KUWAIT', '@latifa', 'Latifa', 'Al Ali', 66232308,
+      'latifa@x.com', 'Salmiya', 2026, 1, 10, '7pm', 'Office', 'Showed samples']);
+    ws.addRow(['end']);
+    const par = wb.addWorksheet('PAR');
+    par.addRow(['Category', 'Currency', 'CO', '', 'BRANCH', '', 'Y', 'M', 'D', 'TYPE', 'PAID BY', 'CONTRACT TYPE xxxxx', '',
+      'SOURCE', 'AM', 'STATUS', 'PAYMENT STATUS', 'Business Type', 'Business Type', 'Credit Facility', 'BANK ACC', 'HOTEL LOC', 'DESIGN']);
+    par.addRow(['IT', 'KWD', 'W', 'WEDX', 'RB', 'Radisson', 2026, 1, 1, 'BANK', 'Melinda', 'W', 'Wedding', 'INSTA', 'JOU',
+      'DEF', 'PAID', 'M', 'Manpower', 'CF', 'NBK-404', 'RADISSON', 'WX1']);
+
+    const c = await newTenant(app);
+    const res = await upload(c.token, Buffer.from(await wb.xlsx.writeBuffer()));
+    expect(res.json()).toMatchObject({ bookings_created: 1, errors: [] });
+    const row = (await c.get('/bookings')).body.rows[0];
+    const b = (await c.get(`/bookings/${row.id}`)).body;
+    expect(b).toMatchObject({
+      booking_no: 'W2026010', branch: 'RB', venue_name: 'RADISSON', space_name: 'DASMAN', pax: 150, rate: 12,
+      contract_value: 1800, paid: 600, diff_ctrl: -1200, credit_facility: true, source: 'INSTA', owner_code: 'JOU',
+      contact_name: 'Latifa Al Ali', contact_first_name: 'Latifa', contact_family_name: 'Al Ali',
+      contact_social_handle: '@latifa', contact_address: 'Salmiya', inquiry_date: '2026-01-04', event_date: '2026-06-12',
+    });
+    expect(b.payments[0]).toMatchObject({ kind: 'deposit', amount: 600 });
+    expect(b.activities[0]).toMatchObject({ subject: 'Meeting #1', location: 'Office', notes: 'Showed samples' });
+    const lookups = (await c.get('/lookups')).body;
+    expect(lookups.branch.map((l: any) => [l.code, l.label])).toEqual([['RB', 'Radisson']]);
+    expect(lookups.design.map((l: any) => l.code)).toEqual(['WX1']);
+  });
 });

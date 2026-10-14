@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { api, type Activity, type Booking } from '../lib/api';
 import { date, dateTime, money } from '../lib/format';
 import { useColors } from '../lib/theme';
+import { NEEDS_OUTCOME, OutcomeSheet } from './outcome';
 import { StatusBadge, T, Tag } from './ui';
 import { t } from '../i18n';
 
@@ -41,10 +43,13 @@ export function ActivityRow({ a, showBooking = true }: { a: Activity; showBookin
     mutationFn: () => api(`/activities/${a.id}/complete`, { body: {} }),
     onSuccess: () => qc.invalidateQueries(),
   });
+  // Meetings ask for their outcome first; other follow-ups are ticked off in one tap.
+  const [asking, setAsking] = useState(false);
+  const tick = () => (NEEDS_OUTCOME.includes(a.type) ? setAsking(true) : complete.mutate());
   return (
     <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 14, backgroundColor: c.surface, borderBottomWidth: 1, borderColor: c.border }}>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Mark ${a.subject} done`}
-        disabled={done || complete.isPending} onPress={() => complete.mutate()} hitSlop={10}>
+        disabled={done || complete.isPending} onPress={tick} hitSlop={10}>
         <Ionicons name={done || complete.isSuccess ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={done ? c.good : c.accent} />
       </Pressable>
       <Pressable style={{ flex: 1, gap: 3 }} disabled={!a.booking_id} onPress={() => a.booking_id && router.push(`/booking/${a.booking_id}`)}>
@@ -54,8 +59,10 @@ export function ActivityRow({ a, showBooking = true }: { a: Activity; showBookin
         </T>
         {showBooking && a.booking_name && <T small muted numberOfLines={1}>{a.booking_no} · {a.booking_name}{a.contact_phone ? ` · ${a.contact_phone}` : ''}</T>}
         {a.not_mine && !done && <Tag accent>{t("covering ·")}{' '}{a.owner_name}</Tag>}
+        {done && a.outcome && <T small style={{ color: c.good }} numberOfLines={3}>✓ {a.outcome}</T>}
         {done && a.completed_on_behalf_of_name && <T small muted>{t("done by")}{' '}{a.completed_by_name}{' '}{t("for")}{' '}{a.completed_on_behalf_of_name}</T>}
       </Pressable>
+      <OutcomeSheet activity={asking ? a : null} onClose={() => setAsking(false)} />
     </View>
   );
 }

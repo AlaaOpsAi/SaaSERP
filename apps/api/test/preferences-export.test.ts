@@ -61,6 +61,8 @@ describe('full workspace export', () => {
     expect(t.bookings[0]).toMatchObject({ name: 'Exported wedding', revenue: 1000 });
     expect(t.role_permissions.find((r: any) => r.action.startsWith('Record payments'))).toMatchObject({ finance: 'yes', sales: '—' });
     expect(t.user_permissions.find((u: any) => u.user === 'Sam Sales')).toMatchObject({ role: 'sales', sees: 'own + team' });
+    expect(t.field_visibility.find((r: any) => r.role === 'sales')).toMatchObject({ finance: 'hidden', source: 'visible' });
+    expect(t.field_visibility.find((r: any) => r.role === 'owner').finance).toBe('visible');
 
     const xlsx = await app.inject({ method: 'GET', url: '/api/export/workspace', headers: { authorization: `Bearer ${ada.token}` } });
     expect(xlsx.statusCode).toBe(200);

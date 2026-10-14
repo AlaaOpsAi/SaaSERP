@@ -78,7 +78,10 @@ export interface Me {
   id: string; name: string; email: string; code: string; role: Role; sees_all: boolean; team_ids: string[];
   covering: { id: string; delegator_name: string; access: 'view' | 'act'; ends_on: string | null }[];
   covered_by: { id: string; delegate_name: string; ends_on: string | null }[];
-  tenant: { id: string; slug: string; name: string; currency: string; timezone: string; default_locale?: string | null; branding?: { accent?: string | null } | null };
+  tenant: { id: string; slug: string; name: string; currency: string; timezone: string; default_locale?: string | null; branding?: { accent?: string | null } | null;
+            home_order?: string[] | null };
+  /** Contract fields hidden from this user's role (set by an admin in the web app). */
+  hidden_fields?: string[];
   preferences?: Preferences | null;
 }
 
@@ -97,6 +100,9 @@ export interface Booking {
   description: string | null; lost_reason: string | null;
   revenue: number; gross_margin: number; margin_pct: number | null; net_profit: number; paid: number; outstanding: number;
   contract_value: number | null;
+  branch?: string | null; design?: string | null; diff_ctrl?: number | null;
+  contact_first_name?: string | null; contact_family_name?: string | null; contact_nationality?: string | null;
+  contact_address?: string | null; contact_social_handle?: string | null;
 }
 
 export interface Activity {

@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { withTenant, type Db } from './db.js';
 import { forbidden, HttpError } from './lib/errors.js';
+import { hiddenFor, type ContractField } from './lib/fields.js';
 
 export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'finance' | 'viewer';
 
@@ -50,7 +51,7 @@ export const authed = requireRole(can.read);
 export function tx<T>(req: FastifyRequest, fn: (db: Db) => Promise<T>): Promise<T> {
   return withTenant(req.user.tid, async (db) => {
     const { rows } = await db.query(
-      `SELECT t.status, u.is_active, u.role, u.data_scope
+      `SELECT t.status, t.field_visibility, u.is_active, u.role, u.data_scope
        FROM tenants t LEFT JOIN users u ON u.id = $1 WHERE t.id = current_tenant_id()`,
       [req.user.sub],
     );
@@ -60,6 +61,7 @@ export function tx<T>(req: FastifyRequest, fn: (db: Db) => Promise<T>): Promise<
     }
     if (!rows[0].is_active) throw new HttpError(401, 'Your account is no longer active');
     req.scope = await applyScope(db, req.user.sub, rows[0].role, rows[0].data_scope);
+    req.scope.hidden = hiddenFor(rows[0].role, rows[0].field_visibility);
     return fn(db);
   });
 }
@@ -81,6 +83,8 @@ export interface Scope {
   covering: Covering[];
   /** Owners the user may change records of: own team + "view & act" delegations. */
   writeIds: string[];
+  /** Contract fields hidden from this user's role (Admin → Contract fields). */
+  hidden: ContractField[];
 }
 
 declare module 'fastify' {
@@ -128,7 +132,7 @@ async function applyScope(db: Db, userId: string, role: Role, dataScope: 'all' |
             set_config('app.team_ids', $3, true), set_config('app.write_ids', $4, true)`,
     [seesAll ? 'on' : 'off', userId, readIds.join(','), writeIds.join(',')],
   );
-  return { seesAll, teamIds, covering, writeIds };
+  return { seesAll, teamIds, covering, writeIds, hidden: [] };
 }
 
 /**
@@ -162,3 +166,6 @@ export function platformUser(req: FastifyRequest): PlatformUser {
 export function hasRole(req: FastifyRequest, roles: Role[]): boolean {
   return roles.includes(req.user.role);
 }
+
+/** Contract fields hidden from the caller (empty outside a request). */
+export const hiddenFields = (req: FastifyRequest): ContractField[] => req.scope?.hidden ?? [];

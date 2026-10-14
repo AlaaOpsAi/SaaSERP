@@ -27,6 +27,8 @@ export default function BookingScreen() {
   const eventLabel = useLabel('event_type');
   const sourceLabel = useLabel('source');
   const lostLabel = useLabel('lost_reason');
+  const branchLabel = useLabel('branch');
+  const designLabel = useLabel('design');
   const [pending, setPending] = useState<Status | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const b = q.data;
@@ -42,6 +44,8 @@ export default function BookingScreen() {
 
   const covering = Boolean(me && !me.sees_all && b.owner_id && !me.team_ids.includes(b.owner_id) && b.created_by !== me.id);
   const editable = can('sell') && b.can_edit;
+  const hiddenList = me?.hidden_fields ?? [];
+  const hidden = (f: string) => hiddenList.includes(f);
   const phone = b.contact_phone?.replace(/[^\d+]/g, '');
 
   return (
@@ -66,6 +70,9 @@ export default function BookingScreen() {
         {(phone || b.contact_email) && (
           <Card style={{ gap: 10 }}>
             <T bold>{b.contact_name ?? t("Client")}</T>
+            {(b.contact_social_handle || b.contact_nationality || b.contact_address) ? (
+              <T small muted>{[b.contact_social_handle, b.contact_nationality, b.contact_address].filter(Boolean).join(' · ')}</T>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {phone && <Contact icon="call-outline" label={t("Call")} onPress={() => Linking.openURL(`tel:${phone}`)} />}
               {phone && <Contact icon="logo-whatsapp" label={t("WhatsApp")} onPress={() => Linking.openURL(`https://wa.me/${phone.replace(/^\+/, '')}`)} />}
@@ -92,8 +99,11 @@ export default function BookingScreen() {
 
         <Card style={{ gap: 8 }}>
           <Row k={t("Event date")} v={date(b.event_date)} />
-          <Row k={t("Venue")} v={[b.venue_name, b.space_name ?? b.hall_text].filter(Boolean).join(' / ') || '—'} />
-          <Row k={t("Guests")} v={b.pax ? String(b.pax) : '—'} />
+          <Row k={t("Hotel / location")} v={b.venue_name ?? '—'} />
+          <Row k={t("Hall / area")} v={b.space_name ?? b.hall_text ?? '—'} />
+          {!hidden('branch') && b.branch ? <Row k={t("Branch")} v={branchLabel(b.branch)} /> : null}
+          {!hidden('design') && b.design ? <Row k={t("Design")} v={designLabel(b.design)} /> : null}
+          {!hidden('pax') && <Row k={t("Guests")} v={b.pax ? String(b.pax) : '—'} />}
           <Row k={t("Enquiry")} v={date(b.inquiry_date)} />
           <Row k={t("Next follow-up")} v={date(b.next_followup_date)} />
           {b.lost_reason && <Row k={t("Lost reason")} v={lostLabel(b.lost_reason)} />}
@@ -101,12 +111,17 @@ export default function BookingScreen() {
         </Card>
 
         <Card style={{ gap: 8 }}>
-          <Row k={t("Revenue")} v={money(b.revenue)} />
-          <Row k={t("Gross margin")} v={`${money(b.gross_margin)}  ·  ${pct(b.margin_pct)}`} />
-          <Row k={t("Net profit")} v={money(b.net_profit)} />
-          <Row k={t("Paid")} v={money(b.paid)} />
-          <Row k={t("Outstanding")} v={money(b.outstanding)} strong />
+          {!hidden('contract_value') && <Row k={t("Total contract value")} v={money(b.contract_value)} />}
+          {!hidden('money_received') && <Row k={t("Money received (DP)")} v={money(b.paid)} />}
+          {!hidden('contract_value') && !hidden('money_received') && b.diff_ctrl !== null && b.diff_ctrl !== undefined && <Row k={t("Difference")} v={money(b.diff_ctrl)} />}
+          {!hidden('finance') && <>
+            <Row k={t("Revenue")} v={money(b.revenue)} />
+            <Row k={t("Gross margin")} v={`${money(b.gross_margin)}  ·  ${pct(b.margin_pct)}`} />
+            <Row k={t("Net profit")} v={money(b.net_profit)} />
+            <Row k={t("Outstanding")} v={money(b.outstanding)} strong />
+          </>}
           {covering && <T small muted>{t("Payments and commissions stay with finance while you cover.")}</T>}
+          {editable && !covering && !hidden('money_received') && <DownPayment bookingId={b.id} />}
         </Card>
 
         <H2>{t("Follow-ups")}</H2>
@@ -218,5 +233,27 @@ function AddFollowUp({ bookingId }: { bookingId: string }) {
       <ErrorText error={add.error} />
       <Button title={t("Add follow-up")} kind="primary" icon="add" disabled={!subject.trim()} busy={add.isPending} onPress={() => add.mutate()} />
     </Card>
+  );
+}
+
+/** MONEY RECEIVED (DP): the salesperson records the client's down payment. */
+function DownPayment({ bookingId }: { bookingId: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState('');
+  const save = useMutation({
+    mutationFn: () => api(`/bookings/${bookingId}/down-payment`, { body: { paid_on: today(), amount: Number(amount), method: 'BANK' } }),
+    onSuccess: () => { setOpen(false); setAmount(''); qc.invalidateQueries(); },
+  });
+  if (!open) return <Button small icon="cash-outline" title={t('Record down payment')} onPress={() => setOpen(true)} />;
+  return (
+    <View style={{ gap: 8 }}>
+      <Field label={t('Amount received today')} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} autoFocus />
+      <ErrorText error={save.error} />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button small title={t('Cancel')} onPress={() => setOpen(false)} style={{ flex: 1 }} />
+        <Button small kind="primary" title={t('Save')} busy={save.isPending} disabled={!(Number(amount) > 0)} onPress={() => save.mutate()} style={{ flex: 1 }} />
+      </View>
+    </View>
   );
 }

@@ -109,8 +109,18 @@ export interface Me {
     id: string; slug: string; name: string; plan: string; currency: string; timezone: string;
     fixed_cost_pct: number; credit_facility_pct: number;
     default_locale: string; branding: { accent?: string | null };
+    /** Home-screen icon order set by an admin (null = default). */
+    home_order: string[] | null;
+    /** Contract fields hidden per role (Admin → Contract fields). */
+    field_visibility: Partial<Record<Role, ContractField[]>>;
   };
+  /** Contract fields hidden from this user's role. */
+  hidden_fields: ContractField[];
 }
+
+/** Contract fields an admin can hide per role (same keys as the API). */
+export type ContractField = 'business_unit' | 'branch' | 'design' | 'event_type' | 'pax' | 'rate' | 'contract_value'
+  | 'money_received' | 'credit_facility' | 'source' | 'owner' | 'finance';
 
 export interface Lookup { id: string; type: string; code: string; label: string; is_active: boolean; sort_order: number; translations?: Record<string, string> }
 export interface User {
@@ -133,6 +143,11 @@ export interface Booking {
   inquiry_date: string; decision_due_date: string | null; last_followup_date: string | null; next_followup_date: string | null;
   followup_notes: string | null; description: string | null; lost_reason: string | null; cancel_reason: string | null;
   manual_revenue: number | null; manual_cost: number | null; contract_value: number | null; credit_facility: boolean;
+  branch: string | null; design: string | null;
+  contact_first_name?: string | null; contact_family_name?: string | null; contact_nationality?: string | null;
+  contact_address?: string | null; contact_social_handle?: string | null;
+  /** DIFF CTRL: money received less the contract value (confirmed bookings). */
+  diff_ctrl: number | null;
   fully_paid_date: string | null; currency: string; created_by: string | null;
   revenue: number; cost: number; gross_margin: number; margin_pct: number | null; diff: number | null;
   fixed_cost: number; cf_cost: number; net_profit: number; commission: number; shares: number;
@@ -146,11 +161,11 @@ export interface BookingEvent {
 export interface Item { id: string; category: string; description: string; quantity: number; unit_price: number; unit_cost: number }
 export interface Activity {
   id: string; type: string; subject: string; due_at: string; location: string | null; notes: string | null; outcome: string | null;
-  completed_at: string | null; owner_id: string | null; owner_name: string | null; booking_id: string | null;
+  completed_at: string | null; owner_id: string | null; owner_name: string | null; owner_code?: string | null; booking_id: string | null;
   booking_no?: string; booking_name?: string; booking_status?: Status; contact_name?: string; contact_phone?: string;
   not_mine?: boolean; completed_by_name?: string | null; completed_on_behalf_of_name?: string | null;
 }
-export interface Payment { id: string; paid_on: string; amount: number; method: string; bank_account: string | null; reference: string | null }
+export interface Payment { id: string; paid_on: string; amount: number; method: string; bank_account: string | null; reference: string | null; kind: 'deposit' | 'payment'; notes: string | null }
 export interface Payout { id: string; kind: 'commission' | 'share'; payee_name: string; pct: number; amount: number; status: 'pending' | 'paid'; paid_on: string | null }
 export interface Conflict { event_id: string; booking_id: string | null; booking_no: string; booking_name: string; status: Status; space_name: string; start_at: string; end_at: string }
 

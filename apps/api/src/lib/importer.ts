@@ -9,15 +9,56 @@ import type { Db } from '../db.js';
  * Re-importing is idempotent: bookings are matched on their contract ID.
  */
 
-// 0-based column positions in the CONTRACTS sheet.
-const C = {
+// 0-based column positions of the first daily-report layout. Newer layouts move
+// columns around, so every column found by its header (row 2, with the group
+// label of row 1 such as "ENQUIRY DATE" or "MEETING #2") overrides these.
+const LEGACY = {
   id: 0, co: 1, cat: 2, status: 3, y: 4, m: 5, d: 6, hall: 7, rev: 8, cost: 9, contract: 12, cf: 14,
   commPct: 18, commStatus: 20, commPaid: 21, sharePct: 22, shareStatus: 24, sharePaid: 25,
   share1Pct: 26, share1Name: 28, share1Paid: 29, paidY: 30, paidM: 31, paidD: 32,
   source: 35, am: 36, desc: 37, loc: 38, pax: 39, rate: 40, term: 41,
   enqY: 42, enqM: 43, enqD: 44, fuY: 45, fuM: 46, fuD: 47, feedback: 48, lost: 49,
   email: 50, country: 51, address: 52, insta: 53, clientName: 54, phone: 55, meetings: 56,
-} as const;
+  // Only in the newer layout.
+  branch: -1, design: -1, familyName: -1, received: -1,
+};
+type Layout = typeof LEGACY;
+
+const norm = (v: Cell) => (text(v) ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** Column positions of this workbook's CONTRACTS sheet, found by header. */
+export function contractLayout(ws: ExcelJS.Worksheet): Layout {
+  const groups = Array.from((ws.getRow(1).values as Cell[]).slice(1), (v) => (typeof plain(v) === 'number' ? '' : norm(v)));
+  const heads = Array.from((ws.getRow(2).values as Cell[]).slice(1), norm);
+  const all = (h: string[], group?: string) =>
+    heads.flatMap((x, i) => (h.includes(x) && (group === undefined ? !groups[i]?.startsWith('MEETING') : groups[i] === group) ? [i] : []));
+  const one = (h: string[], group?: string, nth = 0) => all(h, group)[nth] ?? -1;
+  const found: Partial<Layout> = {
+    id: one(['CONTRACTID']), co: one(['CO']), cat: one(['CAT']), branch: one(['BRANCH']), status: one(['STATUS']),
+    y: one(['Y'], 'EVENT'), m: one(['M'], 'EVENT'), d: one(['D'], 'EVENT'),
+    loc: one(['HOTELLOC', 'LOC']), hall: one(['HALLAREA', 'HALL']), pax: one(['PAXUNITS', 'PAX']),
+    rate: one(['RATEPPPU', 'RATE']), term: one(['TERMDAYSRN', 'TERMDAYS']), rev: one(['REV']), cost: one(['COST']),
+    contract: one(['TOTALCONTRACTVALUE']), received: one(['MONEYRECEIVEDDP']), cf: one(['CF', 'CREDITFACILITY']),
+    commPct: one(['COMM']), commStatus: one(['STATUS'], undefined, 1), commPaid: one(['PAIDDT']),
+    sharePct: one(['SHARE']), shareStatus: one(['STATUS'], undefined, 2), sharePaid: one(['PAIDDT'], undefined, 1),
+    share1Pct: one(['SHARE1']), share1Name: one(['NAME']), share1Paid: one(['PAIDDT'], undefined, 2),
+    paidY: one(['Y'], 'FULLYPAID'), paidM: one(['M'], 'FULLYPAID'), paidD: one(['D'], 'FULLYPAID'),
+    source: one(['SOURCE']), am: one(['AM']), desc: one(['REQUESTDESCRIPTIONNOTES']),
+    enqY: one(['Y'], 'ENQUIRYDATE'), enqM: one(['M'], 'ENQUIRYDATE'), enqD: one(['D'], 'ENQUIRYDATE'),
+    fuY: one(['Y'], 'LASTFOLLOWUP'), fuM: one(['M'], 'LASTFOLLOWUP'), fuD: one(['D'], 'LASTFOLLOWUP'),
+    feedback: one(['FOLLOWUPCLIENTFEEDBACK']), lost: one(['LOSTREASON']), email: one(['CLIENTEMAIL']),
+    country: one(['COUNTRYNATIONALITY', 'COUNTRY']), address: one(['ADDRESSDETAILS', 'CLIENTADDRESSDETAILSAREA', 'CLIENTADDRESS']),
+    insta: one(['ALIASINSTAID', 'SAVEDSERIALINSTAID', 'INSTAID']),
+    clientName: one(['CLIENTFIRTSTNAMECONTACT', 'CLIENTFIRSTNAMECONTACT', 'CLIENTNAMECONTACTPERSON', 'CLIENTNAME']),
+    familyName: one(['CLIENTFAMILYNAME']), phone: one(['CLIENTPHONE']), design: one(['DESIGN']),
+    meetings: one(['Y'], 'MEETING1'),
+  };
+  const layout = { ...LEGACY };
+  for (const [k, v] of Object.entries(found)) if (v !== undefined && v >= 0) (layout as Record<string, number>)[k] = v;
+  // A layout with its own BRANCH column has no CAT column.
+  if (found.branch !== undefined && found.branch >= 0 && found.cat === -1) layout.cat = -1;
+  return layout;
+}
 
 export interface ImportSummary {
   bookings_created: number;
@@ -183,8 +224,8 @@ class Resolver {
     });
   }
 
-  async contact(c: { name: string | null; phone: string | null; email: string | null; country: string | null;
-                     address: string | null; insta: string | null }) {
+  async contact(c: { name: string | null; first_name: string | null; family_name: string | null; phone: string | null;
+                     email: string | null; country: string | null; address: string | null; insta: string | null }) {
     if (!c.name && !c.phone && !c.email) return null;
     const key = c.phone ? `p:${c.phone}` : c.email ? `e:${c.email}` : `n:${c.name}`;
     return this.cached(`contact:${key}`, async () => {
@@ -195,9 +236,9 @@ class Resolver {
           : await this.db.query('SELECT id FROM contacts WHERE name = $1 AND phone IS NULL LIMIT 1', [c.name]);
       if (found.rows[0]) return found.rows[0].id;
       const { rows } = await this.db.query(
-        `INSERT INTO contacts (tenant_id, name, phone, email, nationality, address, social_handle)
-         VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6) RETURNING id`,
-        [c.name ?? `Client ${c.phone ?? c.email}`, c.phone, c.email, c.country, c.address, c.insta],
+        `INSERT INTO contacts (tenant_id, name, first_name, family_name, phone, email, nationality, address, social_handle)
+         VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        [c.name ?? `Client ${c.phone ?? c.email}`, c.first_name, c.family_name, c.phone, c.email, c.country, c.address, c.insta],
       );
       this.summary.contacts_created++;
       return rows[0].id;
@@ -205,32 +246,55 @@ class Resolver {
   }
 }
 
+/** PAR column positions (first layout), overridden by the headers found in row 1. */
+function parLayout(ws: ExcelJS.Worksheet) {
+  // Array.from fills the holes left by empty header cells.
+  const heads = Array.from((ws.getRow(1).values as Cell[]).slice(1), norm);
+  const at = (names: string[], fallback: number) => {
+    const i = heads.findIndex((h) => names.some((n) => h === n || (n.endsWith('*') && h.startsWith(n.slice(0, -1)))));
+    return i >= 0 ? i : fallback;
+  };
+  const known = heads.includes('BRANCH');
+  return {
+    co: at(['CO'], 2), contractType: at(['CONTRACTTYPE*'], 9), source: at(['SOURCE'], 11), am: at(['AM'], 12),
+    businessType: at(['BUSINESSTYPE'], 15), bank: at(['BANKACC'], 18), method: at(['TYPE'], 7),
+    loc: at(['HOTELLOC', 'LOC'], 19), branch: known ? at(['BRANCH'], -1) : -1, design: at(['DESIGN'], -1),
+  };
+}
+
 async function importPar(ws: ExcelJS.Worksheet, r: Resolver) {
+  const P = parLayout(ws);
   const rows: Cell[][] = [];
   ws.eachRow((row, n) => {
     if (n > 1) rows.push((row.values as Cell[]).slice(1));
   });
+  // Code columns are followed by their label (e.g. RB | Radisson, W | Wedding).
+  const cell = (row: Cell[], i: number) => (i >= 0 ? text(row[i]) : null);
   for (const row of rows) {
-    const co = text(row[2]);
-    if (co && /^[A-Z0-9]{1,4}$/i.test(co)) await r.businessUnit(co.toUpperCase(), text(row[3]) ?? co);
-    const evtCode = text(row[9]);
-    if (evtCode) await r.lookup('event_type', evtCode, text(row[10]) ?? evtCode);
-    const src = text(row[11]);
+    const co = cell(row, P.co);
+    if (co && /^[A-Z0-9]{1,4}$/i.test(co)) await r.businessUnit(co.toUpperCase(), cell(row, P.co + 1) ?? co);
+    const evtCode = cell(row, P.contractType);
+    if (evtCode) await r.lookup('event_type', evtCode, cell(row, P.contractType + 1) ?? evtCode);
+    const src = cell(row, P.source);
     if (src) await r.lookup('source', src, src);
-    const am = text(row[12]);
+    const am = cell(row, P.am);
     if (am) await r.user(am);
-    const bt = text(row[15]);
-    if (bt) await r.lookup('business_type', bt, text(row[16]) ?? bt);
-    const bank = text(row[18]);
+    const bt = cell(row, P.businessType);
+    if (bt) await r.lookup('business_type', bt, cell(row, P.businessType + 1) ?? bt);
+    const bank = cell(row, P.bank);
     if (bank) await r.lookup('bank_account', bank, bank);
-    const method = text(row[7]);
+    const method = cell(row, P.method);
     if (method) await r.lookup('payment_method', method, method);
-    const loc = text(row[19]);
+    const loc = cell(row, P.loc);
     if (loc) await r.venue(loc);
+    const branch = cell(row, P.branch);
+    if (branch && /^[A-Z0-9]{1,6}$/i.test(branch)) await r.lookup('branch', branch, cell(row, P.branch + 1) ?? branch);
+    const design = cell(row, P.design);
+    if (design) await r.lookup('design', design, design);
   }
 }
 
-async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: ImportSummary) {
+async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: ImportSummary, C: Layout) {
   const bookingNo = text(row[C.id]);
   const co = text(row[C.co])?.toUpperCase();
   if (!bookingNo || !co) {
@@ -255,8 +319,12 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
   const holdsSpace = status === 'TEN' || status === 'DEF' || status === 'ACT';
   const spaceId = venueId && hall && holdsSpace ? await r.space(venueId, locName!, hall) : null;
   const phone = text(row[C.phone]);
+  const firstName = text(row[C.clientName]);
+  const familyName = text(row[C.familyName]);
   const contactId = await r.contact({
-    name: text(row[C.clientName]),
+    name: [firstName, familyName].filter(Boolean).join(' ') || null,
+    first_name: C.familyName >= 0 ? firstName : null,
+    family_name: familyName,
     phone,
     email: text(row[C.email])?.toLowerCase() ?? null,
     country: text(row[C.country]),
@@ -268,13 +336,18 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
   const cost = num(row[C.cost]);
   const contractValue = num(row[C.contract]);
   const description = text(row[C.desc]);
-  const clientName = text(row[C.clientName]);
+  const clientName = [firstName, familyName].filter(Boolean).join(' ') || null;
+  const branch = text(row[C.branch]);
+  const design = text(row[C.design]);
+  const received = num(row[C.received]);
 
   const fields = {
     business_unit_id: buId,
     name: [clientName, description].filter(Boolean).join(' – ').slice(0, 200) || bookingNo,
     status,
     event_type: cat ? await r.lookup('event_type', cat) : null,
+    branch: branch ? await r.lookup('branch', branch) : null,
+    design: design ? await r.lookup('design', design) : null,
     source: source ? await r.lookup('source', source) : null,
     owner_id: am ? await r.user(am) : null,
     contact_id: contactId,
@@ -332,6 +405,13 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
           [bookingId, fields.fully_paid_date, amount],
         );
       }
+    } else if (received && received > 0) {
+      // MONEY RECEIVED (DP) typed by sales in the sheet becomes the contract's down payment.
+      await db.query(
+        `INSERT INTO payments (tenant_id, booking_id, paid_on, amount, method, reference, kind)
+         VALUES (current_tenant_id(), $1, $2, $3, 'BANK', 'Imported: money received (DP)', 'deposit')`,
+        [bookingId, inquiryDate, received],
+      );
     }
     if (eventDate && spaceId && status !== 'LOS' && status !== 'CXL') {
       await db.query(
@@ -410,6 +490,7 @@ export async function importWorkbook(db: Db, buffer: Buffer | ArrayBuffer): Prom
 
   const ws = wb.getWorksheet('CONTRACTS') ?? wb.worksheets[0];
   if (!ws) throw new Error('The workbook has no CONTRACTS sheet');
+  const layout = contractLayout(ws);
 
   for (let n = 3; n <= ws.rowCount; n++) {
     const row = (ws.getRow(n).values as Cell[]).slice(1);
@@ -418,7 +499,7 @@ export async function importWorkbook(db: Db, buffer: Buffer | ArrayBuffer): Prom
     if (!first) continue;
     await db.query('SAVEPOINT import_row');
     try {
-      await importContractRow(db, r, row, summary);
+      await importContractRow(db, r, row, summary, layout);
       await db.query('RELEASE SAVEPOINT import_row');
     } catch (err) {
       await db.query('ROLLBACK TO SAVEPOINT import_row');

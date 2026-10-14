@@ -18,6 +18,7 @@ import { exportRoutes } from './routes/export.js';
 import { importRoutes } from './routes/import.js';
 import { platformRoutes } from './routes/platform.js';
 import { reportRoutes } from './routes/reports.js';
+import { dailyRoutes } from './routes/daily.js';
 import { settingsRoutes } from './routes/settings.js';
 
 // Postgres error codes -> HTTP.
@@ -79,6 +80,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
       await api.register(activityRoutes);
       await api.register(diaryRoutes);
       await api.register(reportRoutes);
+      await api.register(dailyRoutes);
       await api.register(importRoutes);
       await api.register(platformRoutes);
       await api.register(delegationRoutes);

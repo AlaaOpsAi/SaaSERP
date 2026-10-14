@@ -1,7 +1,8 @@
 import ExcelJS from 'exceljs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { authed, tx } from '../auth.js';
+import { authed, hiddenFields, tx } from '../auth.js';
+import { CONTRACT_FIELDS, type ContractField } from '../lib/fields.js';
 import type { Db } from '../db.js';
 
 const query = z.object({
@@ -10,6 +11,12 @@ const query = z.object({
   owner_id: z.string().uuid().optional(),
 });
 type Query = z.infer<typeof query>;
+
+/** Export column keys that differ from the API field names. */
+const EXPORT_ALIASES: Partial<Record<ContractField, string[]>> = {
+  business_unit: ['bu_code'], owner: ['owner_code'], credit_facility: ['cf'], money_received: ['paid_dp', 'paid'],
+  finance: ['paid', 'payouts'],
+};
 
 // Period basis: the event date, or the enquiry date while no date is set
 // (the Y/M/D columns of the daily report).
@@ -220,7 +227,7 @@ async function payoutsDue(db: Db) {
 }
 
 /** The CONTRACTS sheet, regenerated from live data. */
-async function exportWorkbook(db: Db, q: Query): Promise<Buffer> {
+async function exportWorkbook(db: Db, q: Query, hidden: readonly ContractField[] = []): Promise<Buffer> {
   const { where, params } = scope(q);
   const { rows } = await db.query(
     `SELECT b.*, bu.code AS bu_code, u.code AS owner_code, c.name AS contact_name, c.phone AS contact_phone,
@@ -251,6 +258,7 @@ async function exportWorkbook(db: Db, q: Query): Promise<Buffer> {
   ws.columns = [
     { header: 'CONTRACT ID', key: 'booking_no', width: 12 },
     { header: 'CO', key: 'bu_code', width: 5 },
+    { header: 'BRANCH', key: 'branch', width: 8 },
     { header: 'CAT', key: 'event_type', width: 6 },
     { header: 'STATUS', key: 'status', width: 8 },
     { header: 'EVENT DATE', key: 'event_date', width: 12 },
@@ -260,6 +268,8 @@ async function exportWorkbook(db: Db, q: Query): Promise<Buffer> {
     { header: 'GROSS MARGIN', key: 'gross_margin', width: 12 },
     { header: 'P %', key: 'margin_pct', width: 8 },
     { header: 'TOTAL CONTRACT VALUE', key: 'contract_value', width: 12 },
+    { header: 'MONEY RECEIVED DP', key: 'paid_dp', width: 12 },
+    { header: 'DIFF CTRL', key: 'diff_ctrl', width: 10 },
     { header: 'DIFF', key: 'diff', width: 10 },
     { header: 'CREDIT FACILITY', key: 'cf', width: 8 },
     { header: 'FIX COST', key: 'fixed_cost', width: 10 },
@@ -275,7 +285,8 @@ async function exportWorkbook(db: Db, q: Query): Promise<Buffer> {
     { header: 'SOURCE', key: 'source', width: 10 },
     { header: 'AM', key: 'owner_code', width: 6 },
     { header: 'REQUEST DESCRIPTION & NOTES', key: 'description', width: 40 },
-    { header: 'LOC', key: 'venue_name', width: 16 },
+    { header: 'HOTEL LOC', key: 'venue_name', width: 16 },
+    { header: 'DESIGN', key: 'design', width: 8 },
     { header: 'PAX', key: 'pax', width: 7 },
     { header: 'RATE', key: 'rate', width: 8 },
     { header: 'TERM DAYS', key: 'term_days', width: 7 },
@@ -295,26 +306,34 @@ async function exportWorkbook(db: Db, q: Query): Promise<Buffer> {
       ...r,
       hall: r.space_name ?? r.hall_text,
       cf: r.credit_facility ? 'CF' : '',
+      paid_dp: r.paid,
+      diff_ctrl: (r.status === 'DEF' || r.status === 'ACT') && r.contract_value != null ? Number(r.paid) - Number(r.contract_value) : null,
       payouts: (byBooking.get(r.booking_id) ?? [])
         .map((p) => `${p.payee_name} ${Math.round(p.pct * 100)}% = ${p.amount} (${p.status})`)
         .join('; '),
     });
+  }
+  // Columns hidden from the caller's role are removed from the file, last first so positions stay valid.
+  const hiddenKeys = new Set(hidden.flatMap((f) => [...CONTRACT_FIELDS[f].read, ...(EXPORT_ALIASES[f] ?? [])]));
+  for (let i = ws.columns.length; i >= 1; i--) {
+    if (hiddenKeys.has(String(ws.getColumn(i).key))) ws.spliceColumns(i, 1);
   }
   const header = ws.getRow(1);
   header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A5F' } };
   header.alignment = { wrapText: true, vertical: 'middle' };
   header.height = 32;
-  for (const key of ['revenue', 'cost', 'gross_margin', 'contract_value', 'diff', 'fixed_cost', 'cf_cost',
+  const present = new Set(ws.columns.map((c) => String(c.key)));
+  for (const key of ['revenue', 'cost', 'gross_margin', 'contract_value', 'paid_dp', 'diff_ctrl', 'diff', 'fixed_cost', 'cf_cost',
                      'net_profit', 'commission', 'shares', 'paid', 'outstanding', 'rate']) {
-    ws.getColumn(key).numFmt = '#,##0.000';
+    if (present.has(key)) ws.getColumn(key).numFmt = '#,##0.000';
   }
-  ws.getColumn('margin_pct').numFmt = '0.0%';
+  if (present.has('margin_pct')) ws.getColumn('margin_pct').numFmt = '0.0%';
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columns.length } };
 
   const total = ws.addRow({ booking_no: 'TOTAL DEF/ACT' });
   total.font = { bold: true };
-  for (const key of ['revenue', 'cost', 'gross_margin', 'net_profit', 'commission', 'shares', 'paid', 'outstanding']) {
+  for (const key of ['revenue', 'cost', 'gross_margin', 'net_profit', 'commission', 'shares', 'paid', 'outstanding'].filter((k) => present.has(k))) {
     total.getCell(key).value = rows
       .filter((r) => r.status === 'DEF' || r.status === 'ACT')
       .reduce((s, r) => s + Number(r[key] ?? 0), 0);
@@ -329,7 +348,7 @@ export async function reportRoutes(app: FastifyInstance) {
   app.get('/reports/payouts', { preHandler: authed }, (req) => tx(req, (db) => payoutsDue(db)));
   app.get('/reports/contracts.xlsx', { preHandler: authed }, async (req, reply) => {
     const q = query.parse(req.query);
-    const buf = await tx(req, (db) => exportWorkbook(db, q));
+    const buf = await tx(req, (db) => exportWorkbook(db, q, hiddenFields(req)));
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="contracts-${q.year}.xlsx"`);

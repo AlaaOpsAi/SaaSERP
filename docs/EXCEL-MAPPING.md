@@ -3,6 +3,36 @@
 The importer (`apps/api/src/lib/importer.ts`) reads the `CONTRACTS` sheet (headers in row 2, data from
 row 3 until a row whose first cell is `end`) and, if present, the `PAR` sheet.
 
+It finds each column **by its header**, using the group names of row 1 for the repeated Y / M / D columns (EVENT,
+FULLY PAID, ENQUIRY DATE, LAST FOLLOWUP, MEETING #1…#5). Both layouts below work, and so does a future
+layout that moves columns around. Columns it can't find by header fall back to the positions of the
+original layout.
+
+## Newer layout (2026)
+
+The 2026 workbook moves columns and adds a few. The differences from the original layout:
+
+| Header | Goes to |
+|---|---|
+| BRANCH | `bookings.branch`, the branch pick-list (your own outlet, e.g. RB = Radisson) |
+| HOTEL LOC | venue of the event (was LOC) |
+| HALL AREA | function space / hall (was HALL) |
+| MONEY RECEIVED DP | a down payment (`payments.kind = 'deposit'`) on the enquiry date |
+| DIFF CTRL | **calculated**: money received − total contract value, for confirmed contracts |
+| CF | credit facility (was CREDIT FACILITY) |
+| ALIAS # \| INSTA ID | client's Instagram ID |
+| CLIENT FIRST NAME / CONTACT, CLIENT FAMILY NAME | `contacts.first_name`, `contacts.family_name` (display name = both) |
+| ADDRESS DETAILS | client address |
+| *(CAT removed)* | event type is no longer read from CONTRACTS |
+
+PAR adds **BRANCH** + name (branch pick-list), **HOTEL LOC** (venues) and **DESIGN** (design pick-list,
+WX1…WX150). The sheet itself doesn't use DESIGN; it is a field of the contract page.
+
+The finance columns hidden in the 2026 sheet (REV … AGING DAYS) are imported where they are inputs (REV, COST,
+commission and share percentages, fully-paid date) and otherwise calculated.
+
+## Original layout
+
 ## CONTRACTS
 
 | Column | Header | Goes to |

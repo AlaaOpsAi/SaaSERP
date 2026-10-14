@@ -82,7 +82,7 @@ export function Preferences() {
             </label>
           </div>
           <div className="pref-preview">
-            <button className="primary">{t('New booking')}</button>
+            <button className="primary">{t('New contract')}</button>
             <a href="#preview" onClick={(e) => e.preventDefault()}>{t('A link')}</a>
             <span className="badge"><span className="dot" style={{ background: 'var(--accent)' }} />{t('Highlight')}</span>
             <StatusBadge status="DEF" />

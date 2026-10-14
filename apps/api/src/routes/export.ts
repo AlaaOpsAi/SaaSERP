@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { FIELD_KEYS, hiddenFor } from '../lib/fields.js';
 import { can, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { notify } from '../lib/notify.js';
@@ -16,6 +17,7 @@ interface Sheet { name: string; purpose: string; sql: string }
 const SHEETS: Sheet[] = [
   { name: 'workspace', purpose: 'Company settings: plan, currency, time zone, profit percentages, language, branding.',
     sql: `SELECT id, slug, name, plan, max_users, currency, timezone, fixed_cost_pct, credit_facility_pct, default_locale, branding,
+                 field_visibility, home_order,
                  status, created_at FROM tenants WHERE id = current_tenant_id()` },
   { name: 'users', purpose: 'Everyone in the workspace with role, reporting line and what they can see (no passwords).',
     sql: `SELECT u.id, u.name, u.code, u.email, u.role, u.data_scope, u.is_active, u.manager_id, m.name AS manager_name,
@@ -52,6 +54,7 @@ const SHEETS: Sheet[] = [
 function permissionRows() {
   const actions: [string, keyof typeof can][] = [
     ['View bookings, clients, reports', 'read'], ['Create and edit bookings, events, lines, follow-ups, clients', 'sell'],
+    ['Record the down payment on a contract', 'sell'],
     ['Record payments, commissions and shares', 'finance'], ['Venues, deletes, override room clashes, transfer work', 'manage'],
     ['Settings, users, pick-lists, import, full export', 'admin'],
   ];
@@ -78,6 +81,12 @@ async function collect(db: Db) {
     people_below: below.get(u.id as string) ?? 0,
   }));
   tables.role_permissions = permissionRows();
+  // Contract fields hidden per role (Admin → Contract fields).
+  const visibility = (tables.workspace[0]?.field_visibility ?? {}) as Record<string, string[]>;
+  tables.field_visibility = (['owner', 'admin', 'manager', 'sales', 'finance', 'viewer'] as const).map((role) => {
+    const hidden = hiddenFor(role, visibility);
+    return { role, ...Object.fromEntries(FIELD_KEYS.map((f) => [f, hidden.includes(f) ? 'hidden' : 'visible'])) };
+  });
   return tables;
 }
 
@@ -115,6 +124,7 @@ export async function exportRoutes(app: FastifyInstance) {
     const purposes: Record<string, string> = Object.fromEntries(SHEETS.map((s) => [s.name, s.purpose]));
     purposes.user_permissions = 'Each user: role, manager, and whether they see the whole company or their team.';
     purposes.role_permissions = 'What each role is allowed to do.';
+    purposes.field_visibility = 'Which contract fields each role can see (hidden fields are removed by the server).';
     for (const [name, rows] of Object.entries(tables)) readme.addRow({ sheet: name, rows: rows.length, purpose: purposes[name] });
     readme.addRow({});
     readme.addRow({ sheet: `Exported ${new Date().toISOString()}` });

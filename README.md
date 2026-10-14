@@ -6,11 +6,13 @@ Oracle OPERA Cloud Sales & Event Management and on the team's existing *daily re
 
 | Area | What it does |
 |---|---|
+| **Home screen** | The modules as iPhone-style icons under a welcome line, in an order the admin sets. Planned modules (Operations, Inventory, Marketing, Procurement, HR) show as "Coming soon". See [docs/MODULES.md](docs/MODULES.md). |
+| **Contracts (Bookings)** | One page in the three groups of the daily report: contract & payment (branch, hotel, design, contract value, down payment recorded by sales, difference), follow-up (meetings with outcomes) and client (first and family name, Instagram, nationality, address). Admins choose which fields each role sees, enforced by the server. |
 | **Bookings** | Enquiry → Tentative → Definite → Actualised, or Lost / Cancelled (reason required). Numbers like `W2026001` per business unit and year. Full status history. |
 | **Function diary** | Rooms across venues × days. Definite bookings cannot double-book an exclusive room (managers can override); tentative clashes are flagged. |
 | **Revenue & cost** | Priced lines (F&B, décor, AV, manpower …) or manual figures → gross margin, fixed cost %, credit-facility cost %, net profit — the same formulas as the workbook. |
 | **Money** | Client payments, outstanding balance and aging; commission and partner shares with paid/unpaid tracking. |
-| **Activities** | Meetings, calls, follow-ups and site visits; they keep each booking's last/next follow-up dates up to date. |
+| **Activities** | Meetings, calls, follow-ups and site visits; meetings need an outcome when done. A daily activity report per salesperson (with Excel) and a meetings calendar. |
 | **CRM** | Contacts and companies with booking history. |
 | **Dashboard** | Year / business unit / account-manager filters; KPIs with change vs last year and sparklines; monthly revenue, margin, profit or bookings vs last year (chart or table); pipeline by stage, lead sources, lost reasons, team leaderboard, top deals and upcoming events. Every chart drills down into the matching bookings. |
 | **Excel** | Import the daily-report workbook (idempotent) and export a `CONTRACTS`-style sheet. |
@@ -85,5 +87,6 @@ the status workflow, diary conflicts, roles and plan limits, reports and the wor
 - [Database reference](docs/DATABASE.md): ER diagrams and every table, column, view, function, policy and role, with its purpose (generated: `npm run docs:db -w apps/api`).
 - [Deploy on Hostinger (or any VPS)](docs/DEPLOY-HOSTINGER.md): domain, HTTPS, firewall, secrets, updates and off-server backups.
 - [Operations](docs/OPERATIONS.md): connect to the database, automatic and manual backups, restore.
+- [Modules & Phase 1](docs/MODULES.md): the home screen, contract groups, field visibility, daily report, next phases.
 - [Languages, look & feel](docs/I18N.md): how translation works, adding a language, themes.
 - [Roadmap](docs/ROADMAP.md): OPERA S&E capabilities still to build.

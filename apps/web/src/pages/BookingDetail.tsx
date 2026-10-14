@@ -2,14 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, type BookingDetail, type BookingEvent, type Conflict, type Item, type Status } from '../api';
-import { useAuth } from '../auth';
-import { BookingForm, bookingPayload } from '../components/BookingForm';
+import { useAuth, useHidden } from '../auth';
+import { BookingForm, bookingPayload, clientOf, clientPayload, hasClient } from '../components/BookingForm';
+import { activityType, CompleteButton } from '../components/CompleteActivity';
 import { Empty, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
 import { date, dateTime, fromLocalInput, money, num, pct, statusLabel, time, today, toLocalInput, TRANSITIONS } from '../format';
 import { useLabel, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { t } from '../i18n';
 
-type Tab = 'overview' | 'events' | 'lines' | 'activities' | 'money' | 'history';
+type Tab = 'overview' | 'events' | 'lines' | 'money' | 'history';
 
 export function BookingDetailPage() {
   const { id = '' } = useParams();
@@ -17,6 +18,7 @@ export function BookingDetailPage() {
   const { data: b, isLoading, error } = useQuery({ queryKey: key, queryFn: () => api<BookingDetail>(`/bookings/${id}`) });
   const [tab, setTab] = useState<Tab>('overview');
   const [editing, setEditing] = useState(false);
+  const hidden = useHidden();
 
   if (isLoading) return <div className="empty">{t("Loading…")}</div>;
   if (error || !b) return <ErrorNote error={error ?? new Error(t('Booking not found'))} />;
@@ -25,7 +27,7 @@ export function BookingDetailPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="small muted"><Link to="/bookings">{t("Bookings")}</Link> / {b.booking_no}</div>
+          <div className="small muted"><Link to="/bookings">{t("Contracts")}</Link> / {b.booking_no}</div>
           <h1 className="row" style={{ marginTop: 4 }}>{b.name} <StatusBadge status={b.status} /></h1>
           <p>
             {b.booking_no} · {b.contact_name ?? t("No client")}{b.contact_phone ? ` · ${b.contact_phone}` : ''} · {date(b.event_date)}
@@ -49,24 +51,25 @@ export function BookingDetailPage() {
       <CoverNote b={b} />
       <Pipeline status={b.status} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 16, alignItems: 'start' }} className="detail-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: hidden('finance') ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 300px', gap: 16, alignItems: 'start' }} className="detail-grid">
         <div className="card">
           <Tabs<Tab>
             value={tab}
             onChange={setTab}
             tabs={[
-              ['overview', 'Overview'], ['events', `${t('Events')} (${b.events.length})`], ['lines', `${t('Revenue & cost')} (${b.items.length})`],
-              ['activities', `${t('Activities')} (${b.activities.length})`], ['money', 'Payments & payouts'], ['history', 'History'],
+              ['overview', 'Contract'], ['events', `${t('Events')} (${b.events.length})`],
+              ...(hidden('finance') ? [] : [['lines', `${t('Revenue & cost')} (${b.items.length})`] as [Tab, string]]),
+              ...(hidden('finance') && hidden('money_received') ? [] : [['money', 'Payments & payouts'] as [Tab, string]]),
+              ['history', 'History'],
             ]}
           />
-          {tab === 'overview' && <Overview b={b} onEdit={() => setEditing(true)} />}
+          {tab === 'overview' && <ContractGroups b={b} onEdit={() => setEditing(true)} />}
           {tab === 'events' && <Events b={b} />}
           {tab === 'lines' && <Lines b={b} />}
-          {tab === 'activities' && <BookingActivities b={b} />}
           {tab === 'money' && <Money b={b} />}
           {tab === 'history' && <History b={b} />}
         </div>
-        <ProfitCard b={b} />
+        {!hidden('finance') && <ProfitCard b={b} />}
       </div>
 
       {editing && <EditBooking b={b} onClose={() => setEditing(false)} />}
@@ -223,42 +226,134 @@ function ProfitCard({ b }: { b: BookingDetail }) {
   );
 }
 
-function Overview({ b, onEdit }: { b: BookingDetail; onEdit: () => void }) {
+/**
+ * The contract on one page, in the three groups of the daily report:
+ * contract & payment details, follow-up details, client details.
+ */
+function ContractGroups({ b, onEdit }: { b: BookingDetail; onEdit: () => void }) {
   const { can } = useAccess(b);
-  const eventLabel = useLabel('event_type');
-  const sourceLabel = useLabel('source');
-  const lostLabel = useLabel('lost_reason');
+  const hidden = useHidden();
+  const label = { event: useLabel('event_type'), source: useLabel('source'), lost: useLabel('lost_reason'), branch: useLabel('branch'), design: useLabel('design') };
+  const client = clientOf(b);
+  const show = (f: Parameters<typeof hidden>[0], node: React.ReactNode) => (hidden(f) ? null : node);
   return (
-    <div className="stack">
+    <div className="stack contract-groups">
       <div className="spread">
-        <h3>{t("Booking details")}</h3>
-        {can('sell') && <button className="sm" onClick={onEdit}>{t("Edit")}</button>}
+        <nav className="group-jump" aria-label={t('Sections')}>
+          <a href="#group-contract">{t('Contract & payment')}</a>
+          <a href="#group-followup">{t('Follow-up')}</a>
+          <a href="#group-client">{t('Client')}</a>
+        </nav>
+        {can('sell') && <button className="sm" onClick={onEdit}>{t('Edit')}</button>}
       </div>
-      <dl className="kv">
-        <dt>{t("Event type")}</dt><dd>{eventLabel(b.event_type)}</dd>
-        <dt>{t("Source")}</dt><dd>{sourceLabel(b.source)}</dd>
-        <dt>{t("Account manager")}</dt><dd>{b.owner_name ?? '—'} {b.owner_code && <span className="tag">{b.owner_code}</span>}</dd>
-        <dt>{t("Client")}</dt><dd>{b.contact_name ?? '—'}{b.contact_phone ? ` · ${b.contact_phone}` : ''}{b.contact_email ? ` · ${b.contact_email}` : ''}</dd>
-        {b.account_name && <><dt>{t("Company")}</dt><dd>{b.account_name}</dd></>}
-        <dt>{t("Event date")}</dt><dd>{date(b.event_date)}</dd>
-        <dt>{t("Venue")}</dt><dd>{b.venue_name ?? '—'}{b.space_name ? ` / ${b.space_name}` : b.hall_text ? ` / ${b.hall_text}` : ''}</dd>
-        <dt>{t("Pax / rate / term")}</dt><dd>{num(b.pax)}{' '}{t("pax ·")}{' '}{money(b.rate)}{' '}{t("rate ·")}{' '}{num(b.term_days)}{' '}{t("days")}</dd>
-        <dt>{t("Enquiry date")}</dt><dd>{date(b.inquiry_date)}</dd>
-        <dt>{t("Decision due")}</dt><dd>{date(b.decision_due_date)}</dd>
-        <dt>{t("Last follow-up")}</dt><dd>{date(b.last_followup_date)}</dd>
-        <dt>{t("Next follow-up")}</dt><dd>{date(b.next_followup_date)}</dd>
-        {b.lost_reason && <><dt>{t("Lost reason")}</dt><dd>{lostLabel(b.lost_reason)}</dd></>}
-        {b.cancel_reason && <><dt>{t("Cancel reason")}</dt><dd>{b.cancel_reason}</dd></>}
-        <dt>{t("Credit facility")}</dt><dd>{b.credit_facility ? t("Yes") : t("No")}</dd>
-      </dl>
-      {b.description && <div><h3 style={{ marginBottom: 4 }}>{t("Request & notes")}</h3><p className="secondary" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{b.description}</p></div>}
-      {b.followup_notes && <div><h3 style={{ marginBottom: 4 }}>{t("Client feedback")}</h3><p className="secondary" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{b.followup_notes}</p></div>}
+
+      <section id="group-contract" className="detail-group">
+        <h3><span className="group-no">1</span>{t('Contract & payment details')}</h3>
+        <dl className="kv">
+          <dt>{t('Contract ID')}</dt><dd><strong>{b.booking_no}</strong> <StatusBadge status={b.status} /></dd>
+          {show('business_unit', <><dt>{t('Company')}</dt><dd>{b.business_unit_code}</dd></>)}
+          {show('branch', <><dt>{t('Branch')}</dt><dd>{label.branch(b.branch)}</dd></>)}
+          <dt>{t('Event date')}</dt><dd>{date(b.event_date)}</dd>
+          <dt>{t('Hotel / location')}</dt><dd>{b.venue_name ?? '—'}</dd>
+          <dt>{t('Hall / area')}</dt><dd>{b.space_name ?? b.hall_text ?? '—'}</dd>
+          {show('pax', <><dt>{t('Pax / units')}</dt><dd>{num(b.pax)}</dd></>)}
+          {show('rate', <><dt>{t('Rate / term')}</dt><dd>{money(b.rate)}{b.term_days ? ` · ${t('{n} days', { n: b.term_days })}` : ''}</dd></>)}
+          {show('event_type', <><dt>{t('Event type')}</dt><dd>{label.event(b.event_type)}</dd></>)}
+          {show('design', <><dt>{t('Design')}</dt><dd>{label.design(b.design)}</dd></>)}
+          {show('source', <><dt>{t('Source')}</dt><dd>{label.source(b.source)}</dd></>)}
+          {show('owner', <><dt>{t('Account manager')}</dt><dd>{b.owner_name ?? '—'} {b.owner_code && <span className="tag">{b.owner_code}</span>}</dd></>)}
+          {show('credit_facility', <><dt>{t('Credit facility')}</dt><dd>{b.credit_facility ? t('Yes') : t('No')}</dd></>)}
+        </dl>
+        {!(hidden('contract_value') && hidden('money_received')) && (
+          <div className="money-strip">
+            {show('contract_value', <div><span>{t('Total contract value')}</span><strong>{money(b.contract_value)}</strong></div>)}
+            {show('money_received', <div><span>{t('Money received (DP)')}</span><strong>{money(b.paid)}</strong></div>)}
+            {!hidden('contract_value') && !hidden('money_received') && (
+              <div className={b.diff_ctrl !== null && b.diff_ctrl < 0 ? 'neg' : ''}><span>{t('Difference')}</span><strong>{money(b.diff_ctrl)}</strong></div>
+            )}
+          </div>
+        )}
+        {!hidden('money_received') && <DownPayment b={b} />}
+      </section>
+
+      <section id="group-followup" className="detail-group">
+        <h3><span className="group-no">2</span>{t('Follow-up details')}</h3>
+        <dl className="kv">
+          <dt>{t('Enquiry date')}</dt><dd>{date(b.inquiry_date)}</dd>
+          <dt>{t('Decision due')}</dt><dd>{date(b.decision_due_date)}</dd>
+          <dt>{t('Last follow-up')}</dt><dd>{date(b.last_followup_date)}</dd>
+          <dt>{t('Next follow-up')}</dt><dd>{date(b.next_followup_date)}</dd>
+          {b.lost_reason && <><dt>{t('Lost reason')}</dt><dd>{label.lost(b.lost_reason)}</dd></>}
+          {b.cancel_reason && <><dt>{t('Cancel reason')}</dt><dd>{b.cancel_reason}</dd></>}
+        </dl>
+        {b.description && <div><h4>{t('Request & notes')}</h4><p className="secondary pre">{b.description}</p></div>}
+        {b.followup_notes && <div><h4>{t('Client feedback')}</h4><p className="secondary pre">{b.followup_notes}</p></div>}
+        <h4>{t('Meetings & follow-ups')}</h4>
+        <BookingActivities b={b} />
+      </section>
+
+      <section id="group-client" className="detail-group">
+        <h3><span className="group-no">3</span>{t('Client details')}</h3>
+        {!b.contact_id ? <Empty>{t('No client yet. Add one with Edit.')}</Empty> : (
+          <dl className="kv">
+            <dt>{t('First name / contact')}</dt><dd>{client.first_name ?? '—'}</dd>
+            <dt>{t('Family name')}</dt><dd>{client.family_name ?? '—'}</dd>
+            <dt>{t('Phone')}</dt><dd>{client.phone ? <a href={`tel:${client.phone}`}>{client.phone}</a> : '—'}</dd>
+            <dt>{t('Email')}</dt><dd>{client.email ? <a href={`mailto:${client.email}`}>{client.email}</a> : '—'}</dd>
+            <dt>{t('Country / nationality')}</dt><dd>{client.nationality ?? '—'}</dd>
+            <dt>{t('Instagram ID')}</dt><dd>{client.social_handle ?? '—'}</dd>
+            <dt>{t('Address details')}</dt><dd>{client.address ?? '—'}</dd>
+            {b.account_name && <><dt>{t('Company')}</dt><dd>{b.account_name}</dd></>}
+          </dl>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** MONEY RECEIVED (DP): the salesperson records the client's down payment on the contract. */
+function DownPayment({ b }: { b: BookingDetail }) {
+  const { can, covering } = useAccess(b);
+  const [open, setOpen] = useState(false);
+  const { form, setForm, bind, bindNum } = useForm({ paid_on: today(), amount: null as number | null, reference: null as string | null });
+  const save = useSave(() => api(`/bookings/${b.id}/down-payment`, { body: { ...form, method: 'BANK' } }), [['booking', b.id], ['bookings'], ['receivables']]);
+  const deposits = b.payments.filter((p) => p.kind === 'deposit');
+  if (!can('sell') || covering) {
+    return deposits.length ? <p className="small muted" style={{ margin: 0 }}>{t('{n} down payments recorded.', { n: deposits.length })}</p> : null;
+  }
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {deposits.length > 0 && (
+        <ul className="plain-list small">
+          {deposits.map((p) => <li key={p.id}>{date(p.paid_on)} · <strong>{money(p.amount)}</strong>{p.reference ? ` · ${p.reference}` : ''}</li>)}
+        </ul>
+      )}
+      {open ? (
+        <form className="form-grid" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined, { onSuccess: () => { setOpen(false); setForm((f) => ({ ...f, amount: null, reference: null })); } }); }}>
+          <Field label={t('Date received')}><input type="date" required {...bind('paid_on')} /></Field>
+          <Field label={t('Amount')}><input required min={0.001} {...bindNum('amount')} /></Field>
+          <Field label={t('Reference')}><input {...bind('reference')} placeholder={t('e.g. KNET receipt no.')} /></Field>
+          <div className="row" style={{ alignSelf: 'end' }}>
+            <button type="button" onClick={() => setOpen(false)}>{t('Cancel')}</button>
+            <button className="primary" disabled={save.isPending}>{t('Save')}</button>
+          </div>
+          <div className="span-all"><ErrorNote error={save.error} /></div>
+        </form>
+      ) : (
+        <div><button className="sm" onClick={() => setOpen(true)}>{t('Record down payment')}</button></div>
+      )}
     </div>
   );
 }
 
 function EditBooking({ b, onClose }: { b: BookingDetail; onClose: () => void }) {
-  const save = useSave((v: object) => api(`/bookings/${b.id}`, { method: 'PATCH', body: v }), [['booking', b.id], ['bookings']]);
+  const save = useSave(async (v: { booking: object; client?: ReturnType<typeof clientPayload> }) => {
+    // The client is its own record (CRM): update it, or create it when the contract has none yet.
+    let contactId = b.contact_id;
+    if (v.client && contactId) await api(`/contacts/${contactId}`, { method: 'PATCH', body: v.client });
+    else if (v.client) contactId = (await api<{ id: string }>('/contacts', { body: v.client })).id;
+    return api(`/bookings/${b.id}`, { method: 'PATCH', body: { ...v.booking, ...(contactId !== b.contact_id ? { contact_id: contactId } : {}) } });
+  }, [['booking', b.id], ['bookings'], ['contacts']]);
   const navigate = useNavigate();
   const { can } = useAccess(b);
   const del = useSave(() => api(`/bookings/${b.id}`, { method: 'DELETE' }), [['bookings'], ['dashboard']]);
@@ -279,8 +374,10 @@ function EditBooking({ b, onClose }: { b: BookingDetail; onClose: () => void }) 
     >
       <ErrorNote error={save.error ?? del.error} />
       <BookingForm id="edit-booking" initial={b} onSubmit={(v) => {
-        const { status: _s, contact: _c, business_unit_id: _bu, ...rest } = bookingPayload(v);
-        save.mutate({ ...rest, followup_notes: v.followup_notes }, { onSuccess: onClose });
+        const { status: _s, business_unit_id: _bu, ...rest } = bookingPayload(v);
+        const changed = JSON.stringify(v.contact) !== JSON.stringify(clientOf(b));
+        save.mutate({ booking: { ...rest, followup_notes: v.followup_notes }, client: changed && hasClient(v.contact) ? clientPayload(v.contact) : undefined },
+          { onSuccess: onClose });
       }} />
     </Modal>
   );
@@ -484,8 +581,6 @@ export function ActivityForm({ bookingId, onDone }: { bookingId?: string; onDone
 
 function BookingActivities({ b }: { b: BookingDetail }) {
   const { can } = useAccess(b);
-  const complete = useSave((v: { id: string; outcome: string | null }) =>
-    api(`/activities/${v.id}/complete`, { body: { outcome: v.outcome } }), [['booking', b.id], ['activities']]);
   return (
     <div className="stack">
       {b.activities.length === 0 ? <Empty>{t("No meetings or follow-ups yet.")}</Empty> : (
@@ -496,22 +591,18 @@ function BookingActivities({ b }: { b: BookingDetail }) {
               {b.activities.map((a) => (
                 <tr key={a.id}>
                   <td>{dateTime(a.due_at)}</td>
-                  <td><span className="tag">{a.type.replace('_', ' ')}</span> {a.subject}
+                  <td><span className="tag">{activityType(a.type)}</span> {a.subject}
                     {(a.location || a.notes) && <div className="small secondary">{[a.location, a.notes].filter(Boolean).join(' · ')}</div>}</td>
                   <td>{a.owner_name ?? '—'}</td>
                   <td>{a.completed_at ? <>✓ {a.outcome ?? t("Done")}</> : <span className="muted">{t("Open")}</span>}</td>
-                  <td className="num">
-                    {!a.completed_at && can('sell') && (
-                      <button className="sm" onClick={() => complete.mutate({ id: a.id, outcome: prompt(t('Outcome / client feedback (optional)')) })}>{t("Complete")}</button>
-                    )}
-                  </td>
+                  <td className="num">{!a.completed_at && can('sell') && <CompleteButton activity={a} invalidate={[['booking', b.id]]} />}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {can('sell') && <><h3>{t("Schedule an activity")}</h3><ActivityForm bookingId={b.id} /></>}
+      {can('sell') && <details className="schedule"><summary>{t("Schedule a meeting or follow-up")}</summary><ActivityForm bookingId={b.id} /></details>}
     </div>
   );
 }
@@ -534,6 +625,7 @@ function Money({ b }: { b: BookingDetail }) {
   const delPayout = useSave((id: string) => api(`/booking-payouts/${id}`, { method: 'DELETE' }), inv);
 
   const { covering } = useAccess(b);
+  const hidden = useHidden();
   return (
     <div className="stack">
       {covering && <div className="alert info">{t("You are covering for this booking's owner: payments and commissions stay with finance and their managers.")}</div>}
@@ -545,13 +637,13 @@ function Money({ b }: { b: BookingDetail }) {
             {b.payments.length === 0 && <tr><td colSpan={5} className="empty">{t("No payments received.")}</td></tr>}
             {b.payments.map((p) => (
               <tr key={p.id}>
-                <td>{date(p.paid_on)}</td><td>{p.method}{p.bank_account ? ` · ${p.bank_account}` : ''}</td><td>{p.reference ?? '—'}</td>
+                <td>{date(p.paid_on)}</td><td>{p.method}{p.bank_account ? ` · ${p.bank_account}` : ''}{p.kind === 'deposit' && <> <span className="tag">{t('Down payment')}</span></>}</td><td>{p.reference ?? '—'}</td>
                 <td className="num">{money(p.amount)}</td>
                 <td className="num">{can('finance') && <button className="sm ghost danger" onClick={() => confirm(t('Delete payment?')) && delPayment.mutate(p.id)}>✕</button>}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot><tr><td colSpan={3}>{t("Paid · outstanding")}{' '}{money(b.outstanding)}</td><td className="num">{money(b.paid)}</td><td /></tr></tfoot>
+          <tfoot><tr><td colSpan={3}>{hidden('finance') ? t('Received') : <>{t("Paid · outstanding")}{' '}{money(b.outstanding)}</>}</td><td className="num">{money(b.paid)}</td><td /></tr></tfoot>
         </table>
       </div>
       {can('finance') && (
@@ -566,6 +658,7 @@ function Money({ b }: { b: BookingDetail }) {
         </form>
       )}
 
+      {!hidden('finance') && <>
       <h3 style={{ marginTop: 8 }}>{t("Commission & partner shares")}</h3>
       <p className="secondary small" style={{ margin: 0 }}>{t("Commission is a % of net profit; shares are a % of what remains after commission.")}</p>
       <div className="table-wrap">
@@ -604,6 +697,7 @@ function Money({ b }: { b: BookingDetail }) {
           <div className="span-all"><ErrorNote error={addPayout.error} /></div>
         </form>
       )}
+      </>}
     </div>
   );
 }

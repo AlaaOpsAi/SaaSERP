@@ -163,7 +163,8 @@ export async function authRoutes(app: FastifyInstance) {
                                   'currency', t.currency, 'timezone', t.timezone,
                                   'fixed_cost_pct', t.fixed_cost_pct,
                                   'credit_facility_pct', t.credit_facility_pct,
-                                  'default_locale', t.default_locale, 'branding', t.branding) AS tenant
+                                  'default_locale', t.default_locale, 'branding', t.branding,
+                                  'home_order', t.home_order, 'field_visibility', t.field_visibility) AS tenant
          FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE u.id = $1 AND u.is_active`,
         [req.user.sub],
       );
@@ -182,7 +183,7 @@ export async function authRoutes(app: FastifyInstance) {
            AND (d.ends_on IS NULL OR d.ends_on >= (now() AT TIME ZONE t.timezone)::date)`,
         [req.user.sub],
       )).rows;
-      return { ...rows[0], team_ids: req.scope?.teamIds ?? rows[0].team_ids, covering, covered_by: coveredBy };
+      return { ...rows[0], team_ids: req.scope?.teamIds ?? rows[0].team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
     }),
   );
 }

@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authed, can, requireRole, tx } from '../auth.js';
+import { contactName } from '../lib/contact.js';
+import { badRequest } from '../lib/errors.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
@@ -22,7 +24,9 @@ const accountSchema = z.object({
 });
 
 const contactSchema = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).optional(),
+  first_name: z.string().trim().nullish(),
+  family_name: z.string().trim().nullish(),
   account_id: z.string().uuid().nullish(),
   phone: z.string().nullish(),
   email: z.string().trim().toLowerCase().email().nullish().or(z.literal('').transform(() => null)),
@@ -100,9 +104,26 @@ export async function crmRoutes(app: FastifyInstance) {
       return { ...contact, bookings: bookings.rows };
     }),
   );
-  app.post('/contacts', sell, (req) => tx(req, (db) => insertRow(db, 'contacts', contactSchema.parse(req.body))));
+  app.post('/contacts', sell, (req) =>
+    tx(req, (db) => {
+      const body = contactSchema.parse(req.body);
+      const name = contactName(body);
+      if (!name) throw badRequest('Client name is required');
+      return insertRow(db, 'contacts', { ...body, name });
+    }),
+  );
   app.patch('/contacts/:id', sell, (req) =>
-    tx(req, (db) => updateRow(db, 'contacts', id.parse(req.params).id, contactSchema.partial().parse(req.body), 'Contact')),
+    tx(req, async (db) => {
+      const contactId = id.parse(req.params).id;
+      const body = contactSchema.partial().parse(req.body);
+      // Changing the first or family name keeps the display name in step.
+      if (body.first_name !== undefined || body.family_name !== undefined) {
+        const current = await getRow<{ first_name: string | null; family_name: string | null; name: string }>(db, 'contacts', contactId, 'Contact');
+        const name = contactName({ name: body.name ?? current.name, first_name: body.first_name ?? current.first_name, family_name: body.family_name ?? current.family_name });
+        if (name) body.name = name;
+      }
+      return updateRow(db, 'contacts', contactId, body, 'Contact');
+    }),
   );
   app.delete('/contacts/:id', { preHandler: requireRole(can.manage) }, (req) =>
     tx(req, async (db) => {

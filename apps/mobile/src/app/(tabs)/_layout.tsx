@@ -6,9 +6,9 @@ import { t } from '../../i18n';
 
 const TABS: [name: string, title: string, icon: IconName][] = [
   ['index', 'Home', 'home-outline'],
-  ['bookings', 'Bookings', 'list-outline'],
+  ['bookings', 'Contracts', 'document-text-outline'],
   ['activities', 'Follow-ups', 'checkmark-done-outline'],
-  ['diary', 'Diary', 'calendar-outline'],
+  ['diary', 'Calendar', 'calendar-outline'],
   ['more', 'More', 'person-circle-outline'],
 ];
 
