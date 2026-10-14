@@ -75,8 +75,8 @@ export default function Login() {
           </Card>
           <Card style={{ gap: 8 }}>
             <Field label={t("Server address")} value={server} onChangeText={setServerText} autoCapitalize="none" autoCorrect={false}
-              keyboardType="url" placeholder="http://192.168.1.20:4000" />
-            <T small muted>{t("Where SaaSERP runs. On your Mac with Docker, use your Mac's Wi-Fi address, e.g. http://192.168.1.20:4000, and keep the phone on the same Wi-Fi.")}</T>
+              keyboardType="url" placeholder="https://app.opsaibridge.eu" />
+            <T small muted>{t("Where SaaSERP runs. Normally leave this as it is. To test against SaaSERP on your Mac, use the Mac's Wi-Fi address, e.g. http://192.168.1.20:4000, with the phone on the same Wi-Fi.")}</T>
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>

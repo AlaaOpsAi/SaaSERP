@@ -49,7 +49,7 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
   } catch {
-    throw new ApiError(0, `Cannot reach ${server}. Check the server address and that your phone is on the same network.`);
+    throw new ApiError(0, `Cannot reach ${server}. Check the server address and your internet connection.`);
   }
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
   if (!res.ok) {
