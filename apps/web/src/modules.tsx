@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
  * Built modules open their screen; planned ones show as "Coming soon".
  * Admins can rearrange the icons for the whole company (tenants.home_order).
  */
-export type Area = 'all' | 'sell' | 'finance' | 'manage' | 'admin';
+export type Area = 'all' | 'sell' | 'activity' | 'finance' | 'manage' | 'admin';
 
 export interface Module {
   key: string;
@@ -56,7 +56,7 @@ export const MODULES: Module[] = [
     glyph: g(<><path d="M24 8l14 7v18l-14 7-14-7V15z" /><path d="M10 15l14 7 14-7M24 22v18" /><path d="M17 11.5l14 7" /></>),
   },
   {
-    key: 'admin', label: 'Admin', to: '/settings', area: 'manage', colors: ['#9ca3af', '#4b5563'],
+    key: 'admin', label: 'Admin & IT', to: '/settings', area: 'manage', colors: ['#9ca3af', '#4b5563'],
     glyph: g(<><circle cx="24" cy="24" r="5.5" /><path d="M24 8v5M24 35v5M8 24h5M35 24h5M12.7 12.7l3.6 3.6M31.7 31.7l3.6 3.6M12.7 35.3l3.6-3.6M31.7 16.3l3.6-3.6" /></>),
   },
   {

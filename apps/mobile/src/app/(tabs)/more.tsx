@@ -10,7 +10,7 @@ import { ACCENTS, useColors } from '../../lib/theme';
 import { LANGUAGES, lang, mirrored, t } from '../../i18n';
 
 const ROLE_NAMES: Record<string, string> = {
-  owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', finance: 'Finance', viewer: 'Viewer',
+  owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', marketing: 'Marketing', finance: 'Finance', viewer: 'Viewer',
 };
 const STATE: Record<string, string> = { active: 'Active', upcoming: 'Upcoming', ended: 'Ended', revoked: 'Ended early' };
 

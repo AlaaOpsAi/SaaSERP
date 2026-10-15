@@ -29,7 +29,7 @@ export const CONTRACT_FIELDS = {
 export type ContractField = keyof typeof CONTRACT_FIELDS;
 export const FIELD_KEYS = Object.keys(CONTRACT_FIELDS) as ContractField[];
 
-export const DEFAULT_VISIBILITY: Partial<Record<Role, ContractField[]>> = { sales: ['finance'], viewer: ['finance'] };
+export const DEFAULT_VISIBILITY: Partial<Record<Role, ContractField[]>> = { sales: ['finance'], marketing: ['finance'], viewer: ['finance'] };
 
 /** The fields hidden from a role under the company's settings. */
 export function hiddenFor(role: Role, visibility: Record<string, string[]> | null | undefined): ContractField[] {

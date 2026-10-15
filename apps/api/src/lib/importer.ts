@@ -484,6 +484,8 @@ export async function importWorkbook(db: Db, buffer: Buffer | ArrayBuffer): Prom
     users_created: 0, lookups_created: 0, activities_created: 0, errors: [],
   };
   const r = new Resolver(db, summary);
+  // Re-importing must find deactivated contracts too (matched on contract ID), not create duplicates.
+  await db.query(`SELECT set_config('app.show_deactivated', 'on', true)`);
 
   const par = wb.getWorksheet('PAR');
   if (par) await importPar(par, r);

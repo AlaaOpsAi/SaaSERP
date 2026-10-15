@@ -110,7 +110,7 @@ describe('meetings and the daily activity report', () => {
     const now = new Date();
     const meeting = (await sara.post('/activities', { booking_id: b.id, type: 'meeting', subject: 'Venue tour', due_at: now.toISOString(), location: 'Radisson' })).body;
     const call = (await sara.post('/activities', { booking_id: b.id, type: 'call', subject: 'Price call', due_at: now.toISOString() })).body;
-    await sara.post('/activities', { type: 'followup', subject: 'Old one', due_at: new Date(now.getTime() - 3 * 86400_000).toISOString() });
+    await sara.post('/activities', { booking_id: b.id, type: 'followup', subject: 'Old one', due_at: new Date(now.getTime() - 3 * 86400_000).toISOString() });
 
     expect((await sara.post(`/activities/${meeting.id}/complete`, {})).status).toBe(400);
     expect((await sara.post(`/activities/${meeting.id}/complete`, { outcome: 'Liked the ballroom, sending quote' })).status).toBe(200);

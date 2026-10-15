@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useEffect, useLayoutEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, TextInput, View } from 'react-native';
 import { BookingRow } from '../../components/rows';
-import { Chips, Empty, ErrorText, Screen, T } from '../../components/ui';
+import { Button, Chips, Empty, ErrorText, Screen, T } from '../../components/ui';
 import { api, type Booking } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { money } from '../../lib/format';
@@ -18,7 +18,6 @@ const PAGE = 40;
 export default function Bookings() {
   const c = useColors();
   const { can } = useAuth();
-  const navigation = useNavigation();
   const params = useLocalSearchParams<{ filter?: Filter }>();
   const [filter, setFilter] = useState<Filter>(params.filter ?? 'open');
   const [q, setQ] = useState('');
@@ -28,15 +27,6 @@ export default function Bookings() {
     const timer = setTimeout(() => setQuery(q.trim()), 300);
     return () => clearTimeout(timer);
   }, [q]);
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => can('sell') && (
-        <Pressable onPress={() => router.push('/booking/new')} accessibilityLabel={t("New enquiry")} hitSlop={10} style={{ paddingHorizontal: 14 }}>
-          <Ionicons name="add-circle" size={28} color={c.accent} />
-        </Pressable>
-      ),
-    });
-  }, [navigation, c, can]);
 
   const list = useInfiniteQuery({
     queryKey: ['bookings', filter, query],
@@ -55,6 +45,7 @@ export default function Bookings() {
   return (
     <Screen>
       <View style={{ padding: 12, gap: 10, backgroundColor: c.surface, borderBottomWidth: 1, borderColor: c.border }}>
+        {can('sell') && <Button small kind="primary" icon="add-circle-outline" title={t("New enquiry")} onPress={() => router.push('/booking/new')} />}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.surface2, borderRadius: 10, paddingHorizontal: 10 }}>
           <Ionicons name="search" size={18} color={c.muted} />
           <TextInput value={q} onChangeText={setQ} placeholder={t("Name, client, phone, booking no.")} placeholderTextColor={c.muted}

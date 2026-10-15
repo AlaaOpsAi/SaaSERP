@@ -10,7 +10,10 @@ import { NEEDS_OUTCOME, OutcomeSheet } from './outcome';
 import { StatusBadge, T, Tag } from './ui';
 import { t } from '../i18n';
 
-const ACTIVITY_TYPE: Record<string, string> = { followup: 'Follow-up', call: 'Call', meeting: 'Meeting', email: 'Email', site_visit: 'Site visit', task: 'Task' };
+const ACTIVITY_TYPE: Record<string, string> = {
+  followup: 'Follow-up', call: 'Call', meeting: 'Meeting', email: 'Email', site_visit: 'Site visit', task: 'Task',
+  campaign: 'Campaign', social_post: 'Social media post', exhibition: 'Exhibition / event', advertisement: 'Advertisement', content: 'Content',
+};
 
 export function BookingRow({ b }: { b: Booking }) {
   const c = useColors();

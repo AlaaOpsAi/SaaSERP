@@ -2,6 +2,8 @@
 
 Everything below assumes the Docker set-up (`docker compose up -d`) on your Mac or a server, run from the `SaaSERP` folder.
 
+Admin → IT in the app shows the time and size of the last backup. It warns when there's been none for 36 hours; the app reads `./backups` read-only.
+
 ## 1. Connecting to the database
 
 The database is published on **this computer only** (`127.0.0.1`, port **5433**, so it can't clash with another Postgres). It isn't reachable from the network.

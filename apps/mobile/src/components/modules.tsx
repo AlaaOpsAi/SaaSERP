@@ -12,10 +12,10 @@ import type { IconName } from './ui';
  * the web app). Same list as the web home screen; modules without a phone screen
  * open the web app, planned ones say "coming soon".
  */
-type Area = 'all' | 'sell' | 'finance' | 'manage';
-interface Module { key: string; label: string; icon: IconName; color: string; area: Area; route?: string; web?: string }
+export type Area = 'all' | 'sell' | 'finance' | 'manage';
+export interface Module { key: string; label: string; icon: IconName; color: string; area: Area; route?: string; web?: string }
 
-const MODULES: Module[] = [
+export const MODULES: Module[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'bar-chart', color: '#2563eb', area: 'all', web: '/dashboard' },
   { key: 'contracts', label: 'Contracts', icon: 'document-text', color: '#f97316', area: 'all', route: '/bookings' },
   { key: 'calendar', label: 'Event calendar', icon: 'calendar', color: '#ffffff', area: 'all', route: '/diary' },
@@ -24,27 +24,30 @@ const MODULES: Module[] = [
   { key: 'operations', label: 'Operations', icon: 'restaurant', color: '#64748b', area: 'manage' },
   { key: 'finance', label: 'Finance', icon: 'cash', color: '#16a34a', area: 'finance', web: '/finance' },
   { key: 'inventory', label: 'Inventory', icon: 'cube', color: '#d97706', area: 'manage' },
-  { key: 'admin', label: 'Admin', icon: 'settings', color: '#6b7280', area: 'manage', web: '/settings' },
+  { key: 'admin', label: 'Admin & IT', icon: 'settings', color: '#6b7280', area: 'manage', web: '/settings' },
   { key: 'marketing', label: 'Marketing', icon: 'megaphone', color: '#db2777', area: 'manage' },
   { key: 'procurement', label: 'Procurement', icon: 'cart', color: '#4f46e5', area: 'manage' },
   { key: 'hr', label: 'HR', icon: 'id-card', color: '#0284c7', area: 'manage' },
 ];
 
-function ordered(order: string[] | null | undefined) {
+export function ordered(order: string[] | null | undefined) {
   if (!order?.length) return MODULES;
   const byKey = new Map(MODULES.map((m) => [m.key, m]));
   return [...order.map((k) => byKey.get(k)).filter((m): m is Module => Boolean(m)), ...MODULES.filter((m) => !order.includes(m.key))];
+}
+
+/** Open a module: its phone screen, the web app, or a "coming soon" note. */
+export function openModule(m: Module) {
+  if (m.route) router.push(m.route as never);
+  else if (m.web) Linking.openURL(`${getServer()}${m.web}`);
+  else Alert.alert(t(m.label), t('{name} is planned in a later phase. It will open here once it is built.', { name: t(m.label) }));
 }
 
 export function ModuleGrid({ badges = {} }: { badges?: Record<string, number | undefined> }) {
   const { me, can } = useAuth();
   const c = useColors();
   const list = ordered(me?.tenant.home_order).filter((m) => m.area === 'all' || can(m.area as 'sell' | 'finance' | 'manage'));
-  const open = (m: Module) => {
-    if (m.route) router.push(m.route as never);
-    else if (m.web) Linking.openURL(`${getServer()}${m.web}`);
-    else Alert.alert(t(m.label), t('{name} is planned in a later phase. It will open here once it is built.', { name: t(m.label) }));
-  };
+  const open = openModule;
   const now = new Date();
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 16 }}>

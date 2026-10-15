@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, download, type ContractField, type Role, type User } from '../api';
 import { useAuth } from '../auth';
@@ -7,16 +7,17 @@ import { dateTime } from '../format';
 import { useBusinessUnits, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { LANGUAGES, t } from '../i18n';
 
-type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'fields' | 'import' | 'export';
+type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
 
 export function Settings() {
   const { can } = useAuth();
   const [tab, setTab] = useState<Tab>('company');
   const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
-  if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ['export', 'Export']);
+  if (can('manage')) tabs.push(['deactivated', 'Deactivated records']);
+  if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ['export', 'Export'], ['it', 'IT']);
   return (
     <>
-      <div className="page-head"><div><h1>{t("Admin")}</h1><p>{t("Configure your workspace, team and sales pick-lists.")}</p></div></div>
+      <div className="page-head"><div><h1>{t("Admin & IT")}</h1><p>{t("Configure your workspace, team and sales pick-lists.")}</p></div></div>
       {!can('admin') && <div className="alert info" style={{ marginBottom: 16 }}>{t("Only owners and admins can change most settings.")}</div>}
       <Tabs value={tab} onChange={setTab} tabs={tabs} />
       {tab === 'company' && <Company />}
@@ -25,6 +26,8 @@ export function Settings() {
       {tab === 'units' && <Units />}
       {tab === 'lists' && <Lists />}
       {tab === 'fields' && <ContractFields />}
+      {tab === 'deactivated' && <Deactivated />}
+      {tab === 'it' && <ItStatus />}
       {tab === 'import' && <Import />}
       {tab === 'export' && <Export />}
     </>
@@ -83,7 +86,7 @@ function Company() {
 
 const ROLES: [Role, string][] = [
   ['owner', 'Owner'], ['admin', 'Admin'], ['manager', 'Sales manager'], ['sales', 'Sales / account manager'],
-  ['finance', 'Finance'], ['viewer', 'Viewer'],
+  ['marketing', 'Marketing'], ['finance', 'Finance'], ['viewer', 'Viewer'],
 ];
 
 const ROLE_LABEL = new Proxy(Object.fromEntries(ROLES) as Record<Role, string>, { get: (o, k: string) => t(o[k as Role]) });
@@ -589,7 +592,7 @@ const FIELD_GROUPS: [ContractField, string, string][] = [
   ['rate', 'Rate and term days', ''],
   ['credit_facility', 'Credit facility', ''],
 ];
-const FIELD_ROLES = ['manager', 'sales', 'finance', 'viewer'] as const;
+const FIELD_ROLES = ['manager', 'sales', 'marketing', 'finance', 'viewer'] as const;
 
 function ContractFields() {
   const { me } = useAuth();
@@ -635,3 +638,122 @@ function ContractFields() {
   );
 }
 
+/** Admin → Deactivated records: things entered by mistake. Managers restore; admins delete for good. */
+type DeactivatedRow = { id: string; code: string; name: string; deactivated_at: string; deactivate_reason: string; deactivated_by_name: string | null };
+const DEACTIVATED_KINDS: [string, string][] = [['bookings', 'Contracts'], ['contacts', 'Customers'], ['accounts', 'Companies'], ['activities', 'Activities']];
+
+function Deactivated() {
+  const { can } = useAuth();
+  const { data, isLoading } = useQuery({ queryKey: ['deactivated'], queryFn: () => api<Record<string, DeactivatedRow[]>>('/deactivated') });
+  const inv = [['deactivated'], ['bookings'], ['contacts'], ['accounts'], ['activities'], ['dashboard']];
+  const restore = useSave((v: { kind: string; id: string }) => api(`/${v.kind}/${v.id}/restore`, { body: {} }), inv);
+  const remove = useSave((v: { kind: string; id: string }) => api(`/${v.kind}/${v.id}`, { method: 'DELETE' }), inv);
+  return (
+    <div className="stack" style={{ maxWidth: 960 }}>
+      <p className="secondary" style={{ margin: 0 }}>
+        {t('Records deactivated because they were entered by mistake. They are hidden from every screen, list, report and export. Restore one to bring it back; admins can delete it for good.')}
+      </p>
+      <ErrorNote error={restore.error ?? remove.error} />
+      {isLoading && <div className="empty">{t('Loading…')}</div>}
+      {DEACTIVATED_KINDS.map(([kind, label]) => (
+        <div key={kind} className="card flush">
+          <div className="card-head"><h2>{t(label)} <span className="muted small">({data?.[kind]?.length ?? 0})</span></h2></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>{t('ID')}</th><th>{t('Name')}</th><th>{t('Reason')}</th><th>{t('Deactivated by')}</th><th>{t('When')}</th><th /></tr></thead>
+              <tbody>
+                {!data?.[kind]?.length && <tr><td colSpan={6} className="empty">{t('Nothing deactivated.')}</td></tr>}
+                {data?.[kind]?.map((r) => (
+                  <tr key={r.id}>
+                    <td><strong>{r.code}</strong></td><td>{r.name}</td><td>{r.deactivate_reason}</td>
+                    <td>{r.deactivated_by_name ?? '—'}</td><td>{dateTime(r.deactivated_at)}</td>
+                    <td className="num">
+                      <div className="row" style={{ justifyContent: 'flex-end' }}>
+                        <button className="sm" onClick={() => restore.mutate({ kind, id: r.id })}>{t('Restore')}</button>
+                        {can('admin') && (
+                          <button className="sm danger" onClick={() => confirm(t('Delete {name} for good? This cannot be undone.', { name: r.code ?? r.name })) && remove.mutate({ kind, id: r.id })}>
+                            {t('Delete for good')}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Admin → IT: version, database, backups, and who signed in or exported data. */
+interface ItStatusData {
+  version: string; started_at: string; node: string;
+  database: { size: string; server: string; migration: string };
+  counts: { active_users: number; contracts: number; customers: number; activities: number };
+  backups: { configured: boolean; count: number; last: { file: string; at: string; bytes: number } | null };
+  access_log: { created_at: string; action: string; detail: string | null; ip: string | null; user_name: string | null; role: string | null }[];
+}
+
+function ItStatus() {
+  const { data, isLoading } = useQuery({ queryKey: ['it-status'], queryFn: () => api<ItStatusData>('/it/status') });
+  if (isLoading || !data) return <div className="empty">{t('Loading…')}</div>;
+  const ageHours = data.backups.last ? (Date.now() - new Date(data.backups.last.at).getTime()) / 3_600_000 : null;
+  const stale = ageHours === null || ageHours > 36;
+  return (
+    <div className="stack" style={{ maxWidth: 960 }}>
+      <div className="grid-3">
+        <div className="card stack" style={{ gap: 6 }}>
+          <h3 style={{ margin: 0 }}>{t('System')}</h3>
+          <dl className="kv">
+            <dt>{t('Version')}</dt><dd>{data.version}</dd>
+            <dt>{t('Running since')}</dt><dd>{dateTime(data.started_at)}</dd>
+            <dt>{t('Database')}</dt><dd>{data.database.server} · {data.database.size}</dd>
+            <dt>{t('Schema')}</dt><dd className="small">{data.database.migration}</dd>
+          </dl>
+        </div>
+        <div className={`card stack ${stale ? 'warn-card' : ''}`} style={{ gap: 6 }}>
+          <h3 style={{ margin: 0 }}>{t('Backups')}</h3>
+          {data.backups.last ? (
+            <dl className="kv">
+              <dt>{t('Last backup')}</dt><dd>{dateTime(data.backups.last.at)}</dd>
+              <dt>{t('Size')}</dt><dd>{(data.backups.last.bytes / 1_048_576).toFixed(1)} MB</dd>
+              <dt>{t('Kept')}</dt><dd>{t('{n} backups', { n: data.backups.count })}</dd>
+            </dl>
+          ) : <p className="small" style={{ margin: 0 }}>{data.backups.configured ? t('No backup found yet.') : t('Backups are not visible to the app on this server.')}</p>}
+          {stale && <p className="small" style={{ margin: 0, color: 'var(--danger)' }}>{t('No backup in the last 36 hours. Check the backup service.')}</p>}
+        </div>
+        <div className="card stack" style={{ gap: 6 }}>
+          <h3 style={{ margin: 0 }}>{t('Data')}</h3>
+          <dl className="kv">
+            <dt>{t('Active users')}</dt><dd>{data.counts.active_users}</dd>
+            <dt>{t('Contracts')}</dt><dd>{data.counts.contracts}</dd>
+            <dt>{t('Customers')}</dt><dd>{data.counts.customers}</dd>
+            <dt>{t('Activities')}</dt><dd>{data.counts.activities}</dd>
+          </dl>
+        </div>
+      </div>
+      <div className="card flush">
+        <div className="card-head"><h2>{t('Sign-ins and exports')}</h2></div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>{t('When')}</th><th>{t('Who')}</th><th>{t('What')}</th><th>{t('From')}</th></tr></thead>
+            <tbody>
+              {data.access_log.length === 0 && <tr><td colSpan={4} className="empty">{t('Nothing yet.')}</td></tr>}
+              {data.access_log.map((l, i) => (
+                <tr key={i}>
+                  <td>{dateTime(l.created_at)}</td>
+                  <td>{l.user_name ?? '—'}{l.role && <span className="muted small"> · {ROLE_LABEL[l.role as Role] ?? l.role}</span>}</td>
+                  <td>{l.action === 'sign_in' ? t('Signed in') : <>{t('Exported')}{l.detail ? <span className="muted"> · {l.detail}</span> : null}</>}</td>
+                  <td className="small muted">{l.ip ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

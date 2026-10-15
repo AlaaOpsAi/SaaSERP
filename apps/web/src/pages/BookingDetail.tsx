@@ -4,8 +4,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, type BookingDetail, type BookingEvent, type Conflict, type Item, type Status } from '../api';
 import { useAuth, useHidden } from '../auth';
 import { BookingForm, bookingPayload, clientOf, clientPayload, hasClient } from '../components/BookingForm';
+import { ActivityDialog } from '../components/ActivityForm';
 import { activityType, CompleteButton } from '../components/CompleteActivity';
-import { Empty, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
+import { DeactivateButton, FormActions } from '../components/FormActions';
+import { confirmDiscard, Empty, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
 import { date, dateTime, fromLocalInput, money, num, pct, statusLabel, time, today, toLocalInput, TRANSITIONS } from '../format';
 import { useLabel, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { t } from '../i18n';
@@ -356,24 +358,18 @@ function EditBooking({ b, onClose }: { b: BookingDetail; onClose: () => void }) 
   }, [['booking', b.id], ['bookings'], ['contacts']]);
   const navigate = useNavigate();
   const { can } = useAccess(b);
-  const del = useSave(() => api(`/bookings/${b.id}`, { method: 'DELETE' }), [['bookings'], ['dashboard']]);
+  const [dirty, setDirty] = useState(false);
   return (
     <Modal
       title={t('Edit {no}', { no: b.booking_no })}
       onClose={onClose}
-      footer={<>
-        {can('manage') && (
-          <button className="danger" style={{ marginInlineEnd: 'auto' }}
-            onClick={() => confirm(t('Delete this booking and everything in it?')) && del.mutate(undefined, { onSuccess: () => navigate('/bookings') })}>
-            {t("Delete")}
-          </button>
-        )}
-        <button onClick={onClose}>{t("Cancel")}</button>
-        <button className="primary" form="edit-booking" disabled={save.isPending}>{t("Save")}</button>
-      </>}
+      dirty={dirty}
+      footer={<FormActions formId="edit-booking" saving={save.isPending} onCancel={confirmDiscard(dirty, onClose)}
+        remove={can('sell') && <DeactivateButton kind="bookings" id={b.id} name={b.booking_no} invalidate={[['bookings'], ['booking', b.id]]}
+          onDone={() => navigate('/bookings')} />} />}
     >
-      <ErrorNote error={save.error ?? del.error} />
-      <BookingForm id="edit-booking" initial={b} onSubmit={(v) => {
+      <ErrorNote error={save.error} />
+      <BookingForm id="edit-booking" initial={b} onDirty={setDirty} onSubmit={(v) => {
         const { status: _s, business_unit_id: _bu, ...rest } = bookingPayload(v);
         const changed = JSON.stringify(v.contact) !== JSON.stringify(clientOf(b));
         save.mutate({ booking: { ...rest, followup_notes: v.followup_notes }, client: changed && hasClient(v.contact) ? clientPayload(v.contact) : undefined },
@@ -539,48 +535,9 @@ function Lines({ b }: { b: BookingDetail }) {
 
 // ---- activities ------------------------------------------------------------
 
-export function ActivityForm({ bookingId, onDone }: { bookingId?: string; onDone?: () => void }) {
-  const { data: users } = useUsers();
-  const { me } = useAuth();
-  const { form, setForm, bind } = useForm({
-    type: 'followup', subject: '', due: `${today()}T10:00`, location: null as string | null, notes: null as string | null,
-    owner_id: me?.id ?? null as string | null,
-  });
-  const save = useSave(
-    () => api('/activities', { body: {
-      booking_id: bookingId, type: form.type, subject: form.subject, due_at: fromLocalInput(form.due),
-      location: form.location, notes: form.notes, owner_id: form.owner_id,
-    } }),
-    [['booking', bookingId], ['activities'], ['dashboard']],
-  );
-  return (
-    <form className="form-grid" onSubmit={(e) => {
-      e.preventDefault();
-      save.mutate(undefined, { onSuccess: () => { setForm((f) => ({ ...f, subject: '', notes: null, location: null })); onDone?.(); } });
-    }}>
-      <Field label={t("Type")}>
-        <select {...bind('type')}>
-          <option value="followup">{t("Follow-up")}</option><option value="call">{t("Call")}</option><option value="meeting">{t("Meeting")}</option>
-          <option value="site_visit">{t("Site visit")}</option><option value="email">{t("Email")}</option><option value="task">{t("Task")}</option>
-        </select>
-      </Field>
-      <Field label={t("Subject")} className="span-2"><input required {...bind('subject')} placeholder={t("e.g. Send revised quote")} /></Field>
-      <Field label={t("Due")}><input type="datetime-local" required value={form.due} onChange={(e) => setForm((f) => ({ ...f, due: e.target.value }))} /></Field>
-      <Field label={t("Owner")}>
-        <select {...bind('owner_id')}>
-          {users?.filter((u) => u.is_active || u.id === form.owner_id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-      </Field>
-      <Field label={t("Location")}><input {...bind('location')} /></Field>
-      <Field label={t("Notes")} className="span-2"><input {...bind('notes')} /></Field>
-      <div style={{ alignSelf: 'end' }}><button className="primary" disabled={save.isPending}>{t("Schedule")}</button></div>
-      <div className="span-all"><ErrorNote error={save.error} /></div>
-    </form>
-  );
-}
-
 function BookingActivities({ b }: { b: BookingDetail }) {
   const { can } = useAccess(b);
+  const [dialog, setDialog] = useState<'plan' | 'log' | null>(null);
   return (
     <div className="stack">
       {b.activities.length === 0 ? <Empty>{t("No meetings or follow-ups yet.")}</Empty> : (
@@ -602,7 +559,13 @@ function BookingActivities({ b }: { b: BookingDetail }) {
           </table>
         </div>
       )}
-      {can('sell') && <details className="schedule"><summary>{t("Schedule a meeting or follow-up")}</summary><ActivityForm bookingId={b.id} /></details>}
+      {can('sell') && (
+        <div className="row">
+          <button className="sm" onClick={() => setDialog('plan')}>{t('Plan a meeting or follow-up')}</button>
+          <button className="sm" onClick={() => setDialog('log')}>{t('Log activity')}</button>
+        </div>
+      )}
+      {dialog && <ActivityDialog mode={dialog} bookingId={b.id} onClose={() => setDialog(null)} />}
     </div>
   );
 }

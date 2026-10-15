@@ -3,7 +3,7 @@ import { withTenant, type Db } from './db.js';
 import { forbidden, HttpError } from './lib/errors.js';
 import { hiddenFor, type ContractField } from './lib/fields.js';
 
-export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'finance' | 'viewer';
+export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'marketing' | 'finance' | 'viewer';
 
 export interface AuthUser {
   sub: string; // user id
@@ -27,8 +27,10 @@ declare module '@fastify/jwt' {
 
 /** Who may do what. Owners and admins can do everything. */
 export const can = {
-  read: ['owner', 'admin', 'manager', 'sales', 'finance', 'viewer'],
+  read: ['owner', 'admin', 'manager', 'sales', 'marketing', 'finance', 'viewer'],
   sell: ['owner', 'admin', 'manager', 'sales'],
+  /** Record and plan activities: sales and marketing teams. */
+  activity: ['owner', 'admin', 'manager', 'sales', 'marketing'],
   finance: ['owner', 'admin', 'manager', 'finance'],
   manage: ['owner', 'admin', 'manager'],
   admin: ['owner', 'admin'],

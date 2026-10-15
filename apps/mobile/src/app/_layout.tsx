@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Loading, Screen } from '../components/ui';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { TopButtons } from '../components/topbar';
 import { useColors, useScheme } from '../lib/theme';
 import { t, useLanguage } from '../i18n';
 
@@ -41,6 +42,7 @@ function RootStack() {
     <Stack screenOptions={{
       headerStyle: { backgroundColor: c.surface }, headerTintColor: c.text, headerShadowVisible: false,
       contentStyle: { backgroundColor: c.bg }, headerBackTitle: t('Back'),
+      headerRight: () => (me ? <TopButtons /> : null),
     }}>
       {/* Signed-in screens; everything else falls back to the sign-in screen. */}
       <Stack.Protected guard={Boolean(me)}>

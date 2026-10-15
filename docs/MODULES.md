@@ -73,6 +73,44 @@ The edit dialog uses the same three groups and saves the client record too.
 
 The importer finds columns **by their headers** (row 2, with the group names of row 1: EVENT, ENQUIRY DATE, LAST FOLLOWUP, MEETING #1…). Both the original and the 2026 layouts work, as do future column moves. See [EXCEL-MAPPING.md](EXCEL-MAPPING.md).
 
+## Phase 1b (customer comment 4)
+
+**Home · ☰ Menu · EN | AR on every page.**
+- **Web:** a top bar replaces the left sidebar. The ☰ Menu panel holds every module you may use, Cover & delegation, notifications, Preferences and Sign out. EN | AR switches language at once and is saved to your account.
+- **Phone app:** the same three buttons in the header of every screen, with no bottom tab bar. Switching to or from Arabic asks for one restart (right-to-left layout).
+
+**Admin & IT** is one icon. Admin has two new tabs:
+- **IT:** app version, database and schema version, last backup (size, age, warning after 36 h), and the sign-in and export log (`access_log`).
+- **Deactivated records:** see the last section below.
+
+**New company:** a button on the sign-in page opens the workspace request. The operator still approves every request.
+
+**Customer ID:** every person and company in CRM gets an automatic number (**C-00001**, one series per company). You can search by it in CRM, Contracts and the activity link search.
+
+**Activities:**
+- **Linked:** every client activity (call, meeting, site visit, follow-up, email, task) must be linked to a **Contract ID** or a **Customer ID**. Search by number, name or phone. The API refuses unlinked ones. Older unlinked activities are listed as "not linked" so you can link them.
+- **Marketing:** the new **Marketing** role logs its own work: campaigns, social media posts, exhibitions / events, advertisements and content. These may stand alone. Marketing can't create or change contracts, and doesn't see finance figures by default.
+- **Plan (future):** a week per person, Sunday to Saturday. Each day has **+ Add**. **Move unfinished to the next week** shifts open items by seven days. Managers pick any person in their team.
+- **Log (present):** **Log activity** records something already done, with its outcome. The outcome is required for meetings and site visits.
+- **Report:** **Daily** or **Monthly**, per person or the whole team. **Print** gives a clean page; use Save as PDF in the print dialog. **Download Excel** gives the same report as a workbook. API: `GET /api/reports/daily-activity?from=YYYY-MM-DD&to=YYYY-MM-DD[&owner_id][&format=xlsx]`.
+
+**Save / Cancel / Delete** on every data entry dialog: contracts, clients, companies, activities.
+- Delete sits on one side; Cancel and Save on the other.
+- Closing with unsaved changes asks "Discard your changes?".
+
+**Delete = Deactivate.** Delete asks for a reason, then **deactivates** the record:
+- The database hides it from every screen, list, calendar, report, dashboard and export (policy `hide_deactivated`). It also no longer blocks a room.
+- It's kept with who, when and why, and its number is never reused.
+
+| Who | Contracts | Customers | Activities |
+|---|---|---|---|
+| Sales | own, while Inquiry/Tentative, no payment | only if no contract uses them | own |
+| Marketing | — | — | own |
+| Managers, admins | any | any | any |
+
+- **Managers** restore records under **Admin → Deactivated records**.
+- **Admins** can **delete for good**, but only records that are already deactivated.
+
 ## Next phases
 
 | Phase | Module | Content |

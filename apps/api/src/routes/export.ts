@@ -5,6 +5,7 @@ import { FIELD_KEYS, hiddenFor } from '../lib/fields.js';
 import { can, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { notify } from '../lib/notify.js';
+import { logAccess } from '../lib/access.js';
 
 /**
  * Full workspace export for admins: every table of the workspace (as the admin
@@ -54,11 +55,11 @@ const SHEETS: Sheet[] = [
 function permissionRows() {
   const actions: [string, keyof typeof can][] = [
     ['View bookings, clients, reports', 'read'], ['Create and edit bookings, events, lines, follow-ups, clients', 'sell'],
-    ['Record the down payment on a contract', 'sell'],
+    ['Record the down payment on a contract', 'sell'], ['Plan and log activities (calls, meetings, campaigns)', 'activity'],
     ['Record payments, commissions and shares', 'finance'], ['Venues, deletes, override room clashes, transfer work', 'manage'],
     ['Settings, users, pick-lists, import, full export', 'admin'],
   ];
-  const roles = ['owner', 'admin', 'manager', 'sales', 'finance', 'viewer'] as const;
+  const roles = ['owner', 'admin', 'manager', 'sales', 'marketing', 'finance', 'viewer'] as const;
   return actions.map(([label, key]) => ({
     action: label, ...Object.fromEntries(roles.map((r) => [r, (can[key] as readonly string[]).includes(r) ? 'yes' : '—'])),
   }));
@@ -83,7 +84,7 @@ async function collect(db: Db) {
   tables.role_permissions = permissionRows();
   // Contract fields hidden per role (Admin → Contract fields).
   const visibility = (tables.workspace[0]?.field_visibility ?? {}) as Record<string, string[]>;
-  tables.field_visibility = (['owner', 'admin', 'manager', 'sales', 'finance', 'viewer'] as const).map((role) => {
+  tables.field_visibility = (['owner', 'admin', 'manager', 'sales', 'marketing', 'finance', 'viewer'] as const).map((role) => {
     const hidden = hiddenFor(role, visibility);
     return { role, ...Object.fromEntries(FIELD_KEYS.map((f) => [f, hidden.includes(f) ? 'hidden' : 'visible'])) };
   });
@@ -107,6 +108,7 @@ export async function exportRoutes(app: FastifyInstance) {
     const { tables, slug } = await tx(req, async (db) => {
       const t = await collect(db);
       await audit(db, req, format);
+      await logAccess(db, req.user.sub, 'export', `Full workspace (${format})`, req.ip);
       return { tables: t, slug: (t.workspace[0]?.slug as string) ?? 'workspace' };
     });
     const stamp = new Date().toISOString().slice(0, 10);

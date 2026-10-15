@@ -85,7 +85,10 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
           </Field>
         )}
         <button className="primary" disabled={busy}>{busy ? t("Signing in…") : t("Sign in")}</button>
-        <p className="small secondary" style={{ margin: 0 }}>{t("New company?")}{' '}<Link to="/signup">{t("Request a workspace")}</Link></p>
+        <div className="new-company">
+          <span className="small secondary">{t("Your company is not on SaaSERP yet?")}</span>
+          <Link to="/signup" className="btn">{t("New company")}</Link>
+        </div>
       </form>
     </div>
   );

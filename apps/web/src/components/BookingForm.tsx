@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Booking } from '../api';
 import { useHidden } from '../auth';
 import { useBusinessUnits, useLookups, useUsers, useVenues } from '../hooks';
 import { today } from '../format';
-import { Field, LookupSelect, useForm } from './ui';
+import { Field, LookupSelect, useDirty, useForm } from './ui';
 import { t } from '../i18n';
 
 /** Client details of the contract (CLIENT FIRST NAME, FAMILY NAME, PHONE …). */
@@ -29,8 +29,10 @@ export function clientOf(b: Partial<Booking>): ClientValues {
  * contract & payment details, follow-up details and client details.
  * Fields hidden from the user's role (Admin → Contract fields) are left out.
  */
-export function BookingForm({ initial, isNew, onSubmit, id }: {
+export function BookingForm({ initial, isNew, onSubmit, id, onDirty }: {
   initial?: Partial<Booking>; isNew?: boolean; onSubmit: (v: BookingFormValues) => void; id: string;
+  /** Told whether the form has unsaved changes (for "Discard your changes?"). */
+  onDirty?: (dirty: boolean) => void;
 }) {
   const { data: lookups } = useLookups();
   const { data: users } = useUsers();
@@ -43,6 +45,8 @@ export function BookingForm({ initial, isNew, onSubmit, id }: {
     ...initial,
     contact: initial ? clientOf(initial) : {},
   });
+  const dirty = useDirty(form);
+  useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
   const client = form.contact ?? {};
   const bindClient = (k: keyof ClientValues) => ({
     value: client[k] ?? '',

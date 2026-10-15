@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ModuleGrid } from '../../components/modules';
 import { ActivityRow } from '../../components/rows';
 import { Button, Card, Empty, H1, H2, Kpi, Notice, Screen, StatusBadge, T } from '../../components/ui';
@@ -27,7 +26,6 @@ function change(cur: number | null | undefined, prev: number | null | undefined)
 export default function Home() {
   const { me, can } = useAuth();
   const c = useColors();
-  const insets = useSafeAreaInsets();
   const year = new Date().getFullYear();
   const dash = useQuery({ queryKey: ['dashboard', year], queryFn: () => api<Dashboard>(`/reports/dashboard?year=${year}`) });
   const tomorrow = addDays(today(), 1);
@@ -43,21 +41,13 @@ export default function Home() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, gap: 14, paddingBottom: 32 }}
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { dash.refetch(); todo.refetch(); bell.refetch(); }} />}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
             <H1>{greeting()}, {me?.name.split(' ')[0]}</H1>
             <T muted small>{me?.tenant.name} · {currencyCode()}</T>
           </View>
-          <Pressable onPress={() => router.push('/notifications')} accessibilityLabel={t("Notifications")} hitSlop={10} style={{ padding: 6 }}>
-            <Ionicons name="notifications-outline" size={24} color={c.text} />
-            {(bell.data?.unread ?? 0) > 0 && (
-              <View style={{ position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{bell.data!.unread}</Text>
-              </View>
-            )}
-          </Pressable>
         </View>
 
         {(me?.covering ?? []).length > 0 && (

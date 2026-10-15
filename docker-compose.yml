@@ -35,6 +35,9 @@ services:
       AUTO_APPROVE_SIGNUPS: ${AUTO_APPROVE_SIGNUPS:-false}
       # Optional Slack/Teams/Zapier incoming-webhook URL pinged on every new sign-up.
       SIGNUP_WEBHOOK_URL: ${SIGNUP_WEBHOOK_URL:-}
+    # Admin → IT shows the date of the last backup (read-only).
+    volumes:
+      - ./backups:/app/backups:ro
     ports: ["${APP_PORT:-4000}:4000"]
     restart: unless-stopped
   # Full database dump every 24 h into ./backups, keeping BACKUP_KEEP_DAYS days.

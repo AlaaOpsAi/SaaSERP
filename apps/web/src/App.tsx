@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import { date } from './format';
-import { Icon } from './components/ui';
-import { Bell } from './components/Bell';
+import { TopBar } from './components/TopBar';
 import { Activities } from './pages/Activities';
 import { Delegations } from './pages/Delegations';
 import { BookingDetailPage } from './pages/BookingDetail';
@@ -19,26 +18,8 @@ import { Preferences } from './pages/Preferences';
 import { Settings } from './pages/Settings';
 import { lang, t } from './i18n';
 
-const ROLE_NAMES: Record<string, string> = {
-  owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', finance: 'Finance', viewer: 'Viewer',
-};
-
-// Menu names follow the customer's module plan (Contracts, Event calendar, CRM, Admin).
-const NAV = [
-  ['/', 'Home', Icon.home, 'all'],
-  ['/dashboard', 'Dashboard', Icon.dashboard, 'all'],
-  ['/bookings', 'Contracts', Icon.bookings, 'all'],
-  ['/diary', 'Event calendar', Icon.diary, 'all'],
-  ['/activities', 'Activities', Icon.activities, 'all'],
-  ['/clients', 'CRM', Icon.clients, 'all'],
-  ['/delegations', 'Cover & delegation', Icon.cover, 'all'],
-  ['/finance', 'Finance', Icon.finance, 'finance'],
-  ['/settings', 'Admin', Icon.settings, 'manage'],
-] as const;
-
 export function App() {
-  const { me, loading, signOut, can } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { me, loading } = useAuth();
   const location = useLocation();
   // Re-render everything when the language changes (before sign-in it is chosen on the login page).
   const [, setPreLang] = useState(lang().code);
@@ -64,37 +45,7 @@ export function App() {
 
   return (
     <div className="shell" key={lang().code}>
-      <div className="mobile-bar">
-        <button className="ghost" onClick={() => setMenuOpen((o) => !o)} aria-label={t("Menu")}>☰</button>
-        <strong>{me.tenant.name}</strong>
-      </div>
-      <nav className={`sidebar ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
-        <div className="brand">
-          <div className="brand-mark">{me.tenant.name.slice(0, 2).toUpperCase()}</div>
-          <div className="grow">
-            {me.tenant.name}
-            <small>{t("Sales & Event Management")}</small>
-          </div>
-          <Bell />
-        </div>
-        {NAV.filter(([, , , area]) => area === 'all' || can(area)).map(([to, label, icon]) => (
-          <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            {icon}
-            {t(label)}
-          </NavLink>
-        ))}
-        <div className="sidebar-foot">
-          <div><strong>{me.name}</strong> <span className="tag">{me.code}</span></div>
-          <div className="muted" style={{ margin: '2px 0 8px' }}>
-            {t(ROLE_NAMES[me.role])} · {me.tenant.slug} · {me.tenant.plan}
-            <div>{me.sees_all ? t("Sees the whole company") : me.team_ids.length > 1 ? t('Sees own + {n} in team', { n: me.team_ids.length - 1 }) : t("Sees own records")}</div>
-          </div>
-          <div className="row">
-            <NavLink to="/preferences" className="btn sm">{t('Preferences')}</NavLink>
-            <button className="sm" onClick={signOut}>{t("Sign out")}</button>
-          </div>
-        </div>
-      </nav>
+      <TopBar />
       <main className="main">
         {(me.covering ?? []).length > 0 && (
           <div className="cover-banner">{t("You are covering for")}{' '}<strong>{me.covering.map((c) => c.delegator_name).join(', ')}</strong>

@@ -13,6 +13,7 @@ This file reproduces what was shown on screen during the session: your messages,
 - [ ] **Check who sees the finance figures:** sales and viewers no longer see them by default. Re-enable under Admin → Contract fields if needed (section 23).
 - [ ] **Optional:** automatic server updates, so new versions go live without manual commands (section 24).
 - [ ] **Optional:** connect the Hostinger connector, then start a new session to manage the VPS from here (sections 15–17).
+- [ ] **Try Phase 1b** after updating the server: Plan / Log / Report under Activities, Admin → IT, Admin → Deactivated records.
 - [ ] **Next phase** (Operations): a short design for approval before development starts ([MODULES.md](MODULES.md#next-phases)).
 
 ---
@@ -1449,6 +1450,35 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 **Point 3 (phone app without the bottom tab bar):** mock-up for approval, showing today, the proposed screen, the ☰ Menu open, and Arabic.
 
 ![Phone app mock-up](images/mockup-phone-top-buttons.png)
+
+---
+
+## 32. Approval and Phase 1b delivered
+
+> **You:** approve
+
+### Reply
+
+**Phase 1b is built and pushed.** 54 API tests pass, web and phone apps typecheck and build, Arabic is complete, and every screen was checked in a browser (web and phone width).
+
+1. **Top bar on every page:**
+   - Home · ☰ Menu · EN | AR. The left sidebar is gone.
+   - The phone app has the same header and no bottom bar (as in the mock-up).
+2. **Admin & IT:**
+   - One icon. A new **IT** tab shows the version, database, last backup (with a 36-hour warning), and the sign-in and export log.
+   - A new **Deactivated records** tab.
+3. **New company** button on the sign-in page.
+4. **Activities:**
+   - **Customer ID** (C-00001) for every person and company.
+   - Every client activity linked to a contract or customer ID.
+   - **Marketing** role with campaigns, posts, exhibitions, ads and content.
+   - **Plan** (next week, with carry-over), **Log activity** (with outcome), and **Report** (daily or monthly, Print / Save as PDF, Excel).
+5. **Save / Cancel / Delete** on contract, client, company and activity forms, with a warning before discarding unsaved changes.
+6. **Delete = Deactivate with a reason:**
+   - Hidden everywhere by the database, and it frees the room.
+   - Sales: own early-stage contracts only. Managers restore; admins delete for good, and only deactivated records.
+
+**To update the server:** `git pull --ff-only`, then rebuild with the production overlay.
 
 ---
 

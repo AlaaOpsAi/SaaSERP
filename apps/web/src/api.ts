@@ -86,7 +86,7 @@ export async function download(path: string, filename: string) {
 // ---- shared types ------------------------------------------------------
 
 export type Status = 'INQ' | 'TEN' | 'DEF' | 'ACT' | 'LOS' | 'CXL';
-export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'finance' | 'viewer';
+export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'marketing' | 'finance' | 'viewer';
 
 export interface Me {
   id: string;
@@ -162,6 +162,7 @@ export interface Item { id: string; category: string; description: string; quant
 export interface Activity {
   id: string; type: string; subject: string; due_at: string; location: string | null; notes: string | null; outcome: string | null;
   completed_at: string | null; owner_id: string | null; owner_name: string | null; owner_code?: string | null; booking_id: string | null;
+  contact_id?: string | null; account_id?: string | null; account_name?: string | null; customer_no?: string | null;
   booking_no?: string; booking_name?: string; booking_status?: Status; contact_name?: string; contact_phone?: string;
   not_mine?: boolean; completed_by_name?: string | null; completed_on_behalf_of_name?: string | null;
 }

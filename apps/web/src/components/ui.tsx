@@ -31,24 +31,50 @@ export function Field({ label, children, className }: { label: string; children:
   );
 }
 
-export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+/** Like Field, for widgets with several controls (a <label> would send every click to the first one). */
+export function FieldGroup({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={`field ${className ?? ''}`} role="group" aria-label={label}>
+      <span>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Dialog. With `dirty`, closing (✕, Esc, clicking outside or Cancel via `guard`) asks
+ * before throwing away unsaved changes.
+ */
+export function Modal({ title, onClose, children, footer, dirty }: {
+  title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; dirty?: boolean;
+}) {
+  const close = () => { if (!dirty || confirm(t('Discard your changes?'))) onClose(); };
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  });
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
-          <button className="ghost" onClick={onClose} aria-label={t("Close")}>✕</button>
+          <button className="ghost" onClick={close} aria-label={t("Close")}>✕</button>
         </header>
         <div className="body">{children}</div>
         {footer && <footer>{footer}</footer>}
       </div>
     </div>
   );
+}
+
+/** Ask before discarding unsaved changes (for Cancel buttons). */
+export const confirmDiscard = (dirty: boolean, close: () => void) => () => { if (!dirty || confirm(t('Discard your changes?'))) close(); };
+
+/** True once a form differs from what it started with. */
+export function useDirty(form: unknown) {
+  const [start] = useState(() => JSON.stringify(form));
+  return JSON.stringify(form) !== start;
 }
 
 export function ErrorNote({ error }: { error: unknown }) {

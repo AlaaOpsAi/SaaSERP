@@ -10,11 +10,13 @@ interface AuthState {
   loading: boolean;
   signIn: (token: string) => Promise<void>;
   signOut: () => void;
-  can: (area: 'sell' | 'finance' | 'manage' | 'admin') => boolean;
+  can: (area: 'sell' | 'activity' | 'finance' | 'manage' | 'admin') => boolean;
 }
 
 const AREAS: Record<string, Role[]> = {
   sell: ['owner', 'admin', 'manager', 'sales'],
+  /** Plan and log activities: sales and marketing. */
+  activity: ['owner', 'admin', 'manager', 'sales', 'marketing'],
   finance: ['owner', 'admin', 'manager', 'finance'],
   manage: ['owner', 'admin', 'manager'],
   admin: ['owner', 'admin'],

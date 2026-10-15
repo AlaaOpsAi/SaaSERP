@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authed, hiddenFields, tx } from '../auth.js';
 import { CONTRACT_FIELDS, type ContractField } from '../lib/fields.js';
 import type { Db } from '../db.js';
+import { logAccess } from '../lib/access.js';
 
 const query = z.object({
   year: z.coerce.number().int().min(2000).max(2100).default(new Date().getFullYear()),
@@ -348,7 +349,10 @@ export async function reportRoutes(app: FastifyInstance) {
   app.get('/reports/payouts', { preHandler: authed }, (req) => tx(req, (db) => payoutsDue(db)));
   app.get('/reports/contracts.xlsx', { preHandler: authed }, async (req, reply) => {
     const q = query.parse(req.query);
-    const buf = await tx(req, (db) => exportWorkbook(db, q, hiddenFields(req)));
+    const buf = await tx(req, async (db) => {
+      await logAccess(db, req.user.sub, 'export', `Contracts ${q.year} (xlsx)`, req.ip);
+      return exportWorkbook(db, q, hiddenFields(req));
+    });
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="contracts-${q.year}.xlsx"`);

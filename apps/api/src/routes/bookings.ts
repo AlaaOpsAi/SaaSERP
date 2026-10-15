@@ -146,7 +146,7 @@ const BOOKING_SELECT = `
   SELECT b.*, bu.code AS business_unit_code,
          u.name AS owner_name, u.code AS owner_code,
          c.name AS contact_name, c.phone AS contact_phone, c.email AS contact_email,
-         c.first_name AS contact_first_name, c.family_name AS contact_family_name,
+         c.customer_no AS customer_no, c.first_name AS contact_first_name, c.family_name AS contact_family_name,
          c.nationality AS contact_nationality, c.address AS contact_address, c.social_handle AS contact_social_handle,
          a.name AS account_name,
          v.name AS venue_name, s.name AS space_name,
@@ -259,7 +259,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       if (q.q) {
         const like = p(`%${q.q}%`);
         where.push(`(b.booking_no ILIKE ${like} OR b.name ILIKE ${like} OR c.name ILIKE ${like}
-                      OR c.phone ILIKE ${like} OR a.name ILIKE ${like} OR b.description ILIKE ${like})`);
+                      OR c.phone ILIKE ${like} OR a.name ILIKE ${like} OR b.description ILIKE ${like} OR c.customer_no ILIKE ${like})`);
       }
       const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
       const baseParams = [...params];
@@ -408,12 +408,6 @@ export async function bookingRoutes(app: FastifyInstance) {
     }),
   );
 
-  app.delete('/bookings/:id', { preHandler: requireRole(can.manage) }, (req) =>
-    tx(req, async (db) => {
-      await deleteRow(db, 'bookings', id.parse(req.params).id, 'Booking');
-      return { ok: true };
-    }),
-  );
 
   // ---- events --------------------------------------------------------------
 

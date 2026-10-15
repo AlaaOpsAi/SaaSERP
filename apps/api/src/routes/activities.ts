@@ -3,17 +3,27 @@ import { z } from 'zod';
 import { authed, can, onBehalfOf, requireRole, tx } from '../auth.js';
 import { badRequest } from '../lib/errors.js';
 import { logChange, writable } from '../lib/guard.js';
-import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
+import { getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
 export const MEETING_TYPES = ['meeting', 'site_visit'];
+/** Marketing work that is not about one client: may be saved without a contract or customer. */
+export const MARKETING_TYPES = ['campaign', 'social_post', 'exhibition', 'advertisement', 'content'] as const;
+
+/** Every client-facing activity belongs to a contract (enquiry) or a customer. */
+function assertLinked(a: { type?: string; booking_id?: string | null; contact_id?: string | null; account_id?: string | null }) {
+  if ((MARKETING_TYPES as readonly string[]).includes(a.type ?? '')) return;
+  if (!a.booking_id && !a.contact_id && !a.account_id) {
+    throw badRequest('Link the activity to a contract ID or a customer ID');
+  }
+}
 
 const activitySchema = z.object({
   booking_id: z.string().uuid().nullish(),
   account_id: z.string().uuid().nullish(),
   contact_id: z.string().uuid().nullish(),
   owner_id: z.string().uuid().nullish(),
-  type: z.enum(['meeting', 'call', 'followup', 'site_visit', 'email', 'task']),
+  type: z.enum(['meeting', 'call', 'followup', 'site_visit', 'email', 'task', ...MARKETING_TYPES]),
   subject: z.string().trim().min(1),
   due_at: z.string().datetime({ offset: true }),
   location: z.string().nullish(),
@@ -34,8 +44,10 @@ const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(1000).default(200),
 });
 
+export { syncBookingFollowup };
+
 export async function activityRoutes(app: FastifyInstance) {
-  const sell = { preHandler: requireRole(can.sell) };
+  const sell = { preHandler: requireRole(can.activity) };
 
   app.get('/activities', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
@@ -65,7 +77,8 @@ export async function activityRoutes(app: FastifyInstance) {
       const { rows } = await db.query(
         `SELECT a.*, u.name AS owner_name, u.code AS owner_code, cb.name AS completed_by_name, cob.name AS completed_on_behalf_of_name,
                 (a.owner_id <> ${p(req.user.sub)}) AS not_mine, b.booking_no, b.name AS booking_name, b.status AS booking_status,
-                c.name AS contact_name, c.phone AS contact_phone, ac.name AS account_name
+                c.name AS contact_name, c.phone AS contact_phone, ac.name AS account_name,
+                coalesce(ac.customer_no, c.customer_no) AS customer_no
          FROM activities a
          JOIN tenants t ON t.id = a.tenant_id
          LEFT JOIN users u ON u.id = a.owner_id
@@ -85,6 +98,7 @@ export async function activityRoutes(app: FastifyInstance) {
   app.post('/activities', sell, (req) =>
     tx(req, async (db) => {
       const body = activitySchema.parse(req.body);
+      assertLinked(body);
       const ctx = body.booking_id ? await writable(db, req, body.booking_id) : null;
       const activity = await insertRow(db, 'activities', {
         ...body,
@@ -98,10 +112,13 @@ export async function activityRoutes(app: FastifyInstance) {
 
   app.patch('/activities/:id', sell, (req) =>
     tx(req, async (db) => {
-      const current = await getRow<{ booking_id: string | null }>(db, 'activities', id.parse(req.params).id, 'Activity');
+      const current = await getRow<{ booking_id: string | null; contact_id: string | null; account_id: string | null; type: string }>(
+        db, 'activities', id.parse(req.params).id, 'Activity');
       if (current.booking_id) await writable(db, req, current.booking_id);
-      const activity = await updateRow<{ booking_id: string | null }>(
-        db, 'activities', id.parse(req.params).id, activitySchema.partial().parse(req.body), 'Activity');
+      const body = activitySchema.partial().parse(req.body);
+      // Changing the link or the type must keep the activity linked (older unlinked ones can still be edited).
+      if (['booking_id', 'contact_id', 'account_id', 'type'].some((k) => k in body)) assertLinked({ ...current, ...body });
+      const activity = await updateRow<{ booking_id: string | null }>(db, 'activities', id.parse(req.params).id, body, 'Activity');
       await syncBookingFollowup(db, activity.booking_id);
       return activity;
     }),
@@ -129,15 +146,45 @@ export async function activityRoutes(app: FastifyInstance) {
     }),
   );
 
-  app.delete('/activities/:id', sell, (req) =>
+  // Plan: move the open activities of one week to the same days of the next week.
+  app.post('/activities/carry-over', sell, (req) =>
     tx(req, async (db) => {
-      const activity = await getRow<{ booking_id: string | null }>(db, 'activities', id.parse(req.params).id, 'Activity');
-      if (activity.booking_id) await writable(db, req, activity.booking_id);
-      await deleteRow(db, 'activities', id.parse(req.params).id, 'Activity');
-      await syncBookingFollowup(db, activity.booking_id);
-      return { ok: true };
+      const q = z.object({
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        owner_id: z.string().uuid().optional(), days: z.number().int().min(1).max(31).default(7),
+      }).parse(req.body);
+      const { rowCount } = await db.query(
+        `UPDATE activities a SET due_at = a.due_at + make_interval(days => $4)
+         FROM tenants t
+         WHERE t.id = a.tenant_id AND a.completed_at IS NULL AND a.owner_id = $3
+           AND (a.due_at AT TIME ZONE t.timezone)::date BETWEEN $1 AND $2`,
+        [q.from, q.to, q.owner_id ?? req.user.sub, q.days],
+      );
+      return { moved: rowCount ?? 0 };
     }),
   );
+
+  // Find a contract or a customer to link an activity to (by number, name or phone).
+  app.get('/links', { preHandler: authed }, (req) =>
+    tx(req, async (db) => {
+      const { q } = z.object({ q: z.string().trim().min(1).max(80) }).parse(req.query);
+      const like = `%${q}%`;
+      const contracts = (await db.query(
+        `SELECT b.id, b.booking_no AS code, b.name, b.status, c.name AS client, c.phone
+         FROM bookings b LEFT JOIN contacts c ON c.id = b.contact_id
+         WHERE b.booking_no ILIKE $1 OR b.name ILIKE $1 OR c.name ILIKE $1 OR c.phone ILIKE $1
+         ORDER BY b.inquiry_date DESC LIMIT 8`, [like])).rows;
+      const customers = (await db.query(
+        `SELECT id, 'contact' AS kind, customer_no AS code, name, phone FROM contacts
+         WHERE customer_no ILIKE $1 OR name ILIKE $1 OR phone ILIKE $1 OR social_handle ILIKE $1
+         UNION ALL
+         SELECT id, 'account', customer_no, name, phone FROM accounts
+         WHERE customer_no ILIKE $1 OR name ILIKE $1 OR phone ILIKE $1
+         ORDER BY code LIMIT 8`, [like])).rows;
+      return { contracts, customers };
+    }),
+  );
+
 }
 
 /**

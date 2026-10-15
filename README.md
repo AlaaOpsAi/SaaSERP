@@ -7,6 +7,8 @@ Oracle OPERA Cloud Sales & Event Management and on the team's existing *daily re
 | Area | What it does |
 |---|---|
 | **Home screen** | The modules as iPhone-style icons under a welcome line, in an order the admin sets. Planned modules (Operations, Inventory, Marketing, Procurement, HR) show as "Coming soon". See [docs/MODULES.md](docs/MODULES.md). |
+| **Every page** | Home, ☰ Menu and EN \| AR in the top corner (web and phone); Save / Cancel / Delete on every form, where Delete deactivates with a reason, managers restore and admins delete for good. |
+| **Activities planning** | Every client activity linked to a contract or a customer ID (C-00001); next week's plan per person; log of what was done; daily and monthly printable reports; a Marketing role with its own activity types. |
 | **Contracts (Bookings)** | One page in the three groups of the daily report: contract & payment (branch, hotel, design, contract value, down payment recorded by sales, difference), follow-up (meetings with outcomes) and client (first and family name, Instagram, nationality, address). Admins choose which fields each role sees, enforced by the server. |
 | **Bookings** | Enquiry → Tentative → Definite → Actualised, or Lost / Cancelled (reason required). Numbers like `W2026001` per business unit and year. Full status history. |
 | **Function diary** | Rooms across venues × days. Definite bookings cannot double-book an exclusive room (managers can override); tentative clashes are flagged. |

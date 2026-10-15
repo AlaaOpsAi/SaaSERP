@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Status } from '../api';
 import { useAuth } from '../auth';
-import { ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
+import { confirmDiscard, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useDirty, useForm } from '../components/ui';
+import { DeactivateButton, FormActions } from '../components/FormActions';
 import { date, money } from '../format';
 import { useLookups, useSave } from '../hooks';
 import { t } from '../i18n';
 
-interface Contact { id: string; name: string; phone: string | null; email: string | null; nationality: string | null; address: string | null;
+interface Contact { id: string; customer_no: string; name: string; first_name: string | null; family_name: string | null; phone: string | null; email: string | null; nationality: string | null; address: string | null;
   social_handle: string | null; notes: string | null; account_id: string | null; account_name: string | null; booking_count: number }
-interface Account { id: string; name: string; kind: string; business_type: string | null; phone: string | null; email: string | null;
+interface Account { id: string; customer_no: string; name: string; kind: string; business_type: string | null; phone: string | null; email: string | null;
   address: string | null; country: string | null; notes: string | null; booking_count: number }
 interface Linked { bookings: { id: string; booking_no: string; name: string; status: Status; event_date: string | null; revenue: number }[] }
 
@@ -31,15 +32,16 @@ export function Clients() {
         {can('sell') && <button className="primary" onClick={() => setOpen({ kind: tab })}>{t("New")}{' '}{tab === 'contacts' ? t("contact") : t("company")}</button>}
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[['contacts', 'Contacts'], ['accounts', 'Companies']]} />
-      <div className="filters"><input type="search" placeholder={t("Search name, phone, email…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="filters"><input type="search" placeholder={t("Search customer ID, name, phone, email…")} value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="card flush">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{t("Name")}</th><th>{t("Phone")}</th><th>{t("Email")}</th><th>{tab === 'contacts' ? t("Company") : t("Type")}</th><th className="num">{t("Bookings")}</th></tr></thead>
+            <thead><tr><th>{t("Customer ID")}</th><th>{t("Name")}</th><th>{t("Phone")}</th><th>{t("Email")}</th><th>{tab === 'contacts' ? t("Company") : t("Type")}</th><th className="num">{t("Bookings")}</th></tr></thead>
             <tbody>
-              {data?.length === 0 && <tr><td colSpan={5} className="empty">{t("No")}{' '}{tab}{' '}{t("found.")}</td></tr>}
+              {data?.length === 0 && <tr><td colSpan={6} className="empty">{t("No")}{' '}{tab}{' '}{t("found.")}</td></tr>}
               {data?.map((r) => (
                 <tr key={r.id} className="clickable" onClick={() => setOpen({ kind: tab, id: r.id })}>
+                  <td><span className="tag">{r.customer_no}</span></td>
                   <td><strong>{r.name}</strong>{'social_handle' in r && r.social_handle && <div className="small secondary">{r.social_handle}</div>}</td>
                   <td>{r.phone ?? '—'}</td>
                   <td>{r.email ?? '—'}</td>
@@ -72,7 +74,7 @@ function ClientForm({ kind, initial, onClose }: { kind: 'contacts' | 'accounts';
   const { data: accounts } = useQuery({ queryKey: ['accounts', ''], queryFn: () => api<Account[]>('/accounts'), enabled: kind === 'contacts' });
   const { form, set, bind } = useForm<Record<string, string | null>>(
     kind === 'contacts'
-      ? { name: initial?.name ?? '', phone: initial?.phone ?? null, email: initial?.email ?? null, nationality: initial?.nationality ?? null,
+      ? { first_name: initial?.first_name ?? (initial?.family_name ? null : initial?.name ?? ''), family_name: initial?.family_name ?? null, phone: initial?.phone ?? null, email: initial?.email ?? null, nationality: initial?.nationality ?? null,
           address: initial?.address ?? null, social_handle: initial?.social_handle ?? null, notes: initial?.notes ?? null, account_id: initial?.account_id ?? null }
       : { name: initial?.name ?? '', kind: initial?.kind ?? 'company', business_type: initial?.business_type ?? null, phone: initial?.phone ?? null,
           email: initial?.email ?? null, address: initial?.address ?? null, country: initial?.country ?? null, notes: initial?.notes ?? null },
@@ -82,14 +84,19 @@ function ClientForm({ kind, initial, onClose }: { kind: 'contacts' | 'accounts';
     [[kind]],
   );
   const editable = can('sell');
+  const dirty = useDirty(form);
 
   return (
-    <Modal title={initial?.id ? String(initial.name) : kind === 'contacts' ? t("New contact") : t("New company")} onClose={onClose}
-      footer={editable ? <><button onClick={onClose}>{t("Cancel")}</button><button className="primary" form="client-form" disabled={save.isPending}>{t("Save")}</button></> : undefined}>
+    <Modal title={initial?.id ? `${initial.customer_no} · ${initial.name}` : kind === 'contacts' ? t("New contact") : t("New company")} onClose={onClose} dirty={dirty}
+      footer={editable ? <FormActions formId="client-form" saving={save.isPending} onCancel={confirmDiscard(dirty, onClose)}
+        remove={initial?.id && <DeactivateButton kind={kind} id={initial.id} name={String(initial.customer_no ?? initial.name)} invalidate={[[kind]]} onDone={onClose} />} /> : undefined}>
       <form id="client-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined, { onSuccess: onClose }); }}>
         <ErrorNote error={save.error} />
         <fieldset disabled={!editable} className="form-grid" style={{ border: 'none', padding: 0, margin: 0 }}>
-          <Field label={t("Name")} className="span-2"><input required {...bind('name')} /></Field>
+          {kind === 'contacts' ? <>
+            <Field label={t("First name / contact")}><input required {...bind('first_name')} /></Field>
+            <Field label={t("Family name")}><input {...bind('family_name')} /></Field>
+          </> : <Field label={t("Name")} className="span-2"><input required {...bind('name')} /></Field>}
           <Field label={t("Phone")}><input {...bind('phone')} /></Field>
           <Field label={t("Email")}><input type="email" {...bind('email')} /></Field>
           {kind === 'contacts' ? <>

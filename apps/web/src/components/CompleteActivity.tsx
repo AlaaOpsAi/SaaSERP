@@ -9,6 +9,7 @@ export const NEEDS_OUTCOME = ['meeting', 'site_visit'];
 
 export const ACTIVITY_TYPES: [string, string][] = [
   ['followup', 'Follow-up'], ['call', 'Call'], ['meeting', 'Meeting'], ['site_visit', 'Site visit'], ['email', 'Email'], ['task', 'Task'],
+  ['campaign', 'Campaign'], ['social_post', 'Social media post'], ['exhibition', 'Exhibition / event'], ['advertisement', 'Advertisement'], ['content', 'Content'],
 ];
 export const activityType = (type: string) => t(ACTIVITY_TYPES.find(([k]) => k === type)?.[1] ?? type);
 

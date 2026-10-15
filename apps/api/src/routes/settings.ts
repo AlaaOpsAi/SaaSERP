@@ -20,12 +20,12 @@ const tenantPatch = z.object({
   fixed_cost_pct: pct,
   credit_facility_pct: pct,
   /** Contract fields hidden per role, e.g. {"sales": ["finance"]}. Owners and admins always see all. */
-  field_visibility: z.partialRecord(z.enum(['manager', 'sales', 'finance', 'viewer']), z.array(z.enum(FIELD_KEYS as [ContractField, ...ContractField[]]))),
+  field_visibility: z.partialRecord(z.enum(['manager', 'sales', 'marketing', 'finance', 'viewer']), z.array(z.enum(FIELD_KEYS as [ContractField, ...ContractField[]]))),
   /** Home-screen icon order (module keys). */
   home_order: z.array(z.string().regex(/^[a-z_]+$/)).max(40).nullable(),
 }).partial();
 
-const roles = z.enum(['owner', 'admin', 'manager', 'sales', 'finance', 'viewer']);
+const roles = z.enum(['owner', 'admin', 'manager', 'sales', 'marketing', 'finance', 'viewer']);
 const userCreate = z.object({
   name: z.string().trim().min(2),
   email: z.string().trim().toLowerCase().email().nullish(),

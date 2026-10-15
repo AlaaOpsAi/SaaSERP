@@ -4,7 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, download, type Booking, type Conflict } from '../api';
 import { useAuth, useHidden } from '../auth';
 import { BookingForm, bookingPayload, clientPayload, type BookingFormValues } from '../components/BookingForm';
-import { ErrorNote, Modal, StatusBadge } from '../components/ui';
+import { confirmDiscard, ErrorNote, Modal, StatusBadge } from '../components/ui';
+import { FormActions } from '../components/FormActions';
 import { date, money, monthNames, num, STATUS_LABEL, statusLabel } from '../format';
 import { useLabel, useLookups, useSave, useUsers } from '../hooks';
 import { lookupLabel, t } from '../i18n';
@@ -155,6 +156,7 @@ export function Bookings() {
 function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { can } = useAuth();
   const [pending, setPending] = useState<BookingFormValues | null>(null);
+  const [dirty, setDirty] = useState(false);
   const save = useSave((v: { values: BookingFormValues; force?: boolean }) =>
     api<Booking>('/bookings', { body: { ...bookingPayload(v.values), contact: clientPayload(v.values.contact), force: v.force } }),
     [['bookings'], ['dashboard']]);
@@ -169,15 +171,11 @@ function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (i
     <Modal
       title={t("New contract")}
       onClose={onClose}
-      footer={
-        <>
-          <button type="button" onClick={onClose}>{t("Cancel")}</button>
-          {conflicts && can('manage') && pending && (
-            <button type="button" className="danger" onClick={() => submit(pending, true)}>{t("Override & book")}</button>
-          )}
-          <button className="primary" form="new-booking" disabled={save.isPending}>{t("Create contract")}</button>
-        </>
-      }
+      dirty={dirty}
+      footer={<FormActions formId="new-booking" saving={save.isPending} onCancel={confirmDiscard(dirty, onClose)} saveLabel={t("Create contract")}
+        remove={conflicts && can('manage') && pending && (
+          <button type="button" className="danger" onClick={() => submit(pending, true)}>{t("Override & book")}</button>
+        )} />}
     >
       <div className="stack">
         <ErrorNote error={save.error} />
@@ -185,7 +183,7 @@ function NewBooking({ onClose, onCreated }: { onClose: () => void; onCreated: (i
           <div className="small secondary">{t("Clashes with")}{' '}{conflicts.map((c) => c.booking_id ? `${c.booking_no} (${c.booking_name}, ${statusLabel(c.status)})` : `${c.booking_name} (${statusLabel(c.status)})`).join(', ')}.
           </div>
         )}
-        <BookingForm id="new-booking" isNew onSubmit={(v) => submit(v)} />
+        <BookingForm id="new-booking" isNew onDirty={setDirty} onSubmit={(v) => submit(v)} />
       </div>
     </Modal>
   );

@@ -7,6 +7,7 @@ import { withTenant, withoutTenant } from '../db.js';
 import { seedTenantDefaults } from '../lib/defaults.js';
 import { badRequest, conflict, HttpError } from '../lib/errors.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
+import { logAccess } from '../lib/access.js';
 
 const signupSchema = z.object({
   company_name: z.string().trim().min(2).max(120),
@@ -136,6 +137,7 @@ export async function authRoutes(app: FastifyInstance) {
         'UPDATE users SET last_login_at = now() WHERE id = $1 RETURNING role',
         [match.user_id],
       );
+      await logAccess(db, match.user_id, 'sign_in', undefined, req.ip);
       return rows[0].role;
     });
     const token = app.jwt.sign({ sub: match.user_id, tid: match.tenant_id, role }, { expiresIn: '12h' });
