@@ -1482,6 +1482,26 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 
 ---
 
+## 33. Error when saving an activity (400 Bad Request)
+
+**User:** "i got this error after delete activity log 'POST https://app.opsaibridge.eu/api/activities 400 (Bad Request)' … onSubmit …"
+
+**Cause:**
+- In **Log activity / Plan activity**, the "Contract or customer" box was filled with text (for example a name), but no result from the list was clicked.
+- The browser accepted the typed text, so the form was sent **without a link**.
+- The server correctly refused it with "Link the activity to a contract ID or a customer ID". That is the 400.
+- Reproduced in the browser before fixing.
+
+**Fix:**
+- Typed text no longer counts as a link. Until a result is clicked, Save is blocked on the spot with "Choose a contract or customer from the list", and nothing is sent to the server.
+- A hint under the box says "Click a result below to link it." It's in Arabic too.
+- Checked in the browser: typed text alone → blocked, no request. Clicking a result → saved (200).
+- The phone app was not affected: there, activities are always added from a contract.
+
+**To update the server:** the same command as before (backup, `git pull --ff-only`, rebuild).
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
@@ -1505,3 +1525,5 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 | `a423086` | Merge remote-tracking branch 'origin/claude/affectionate-sagan-hru2m7' into claude/affectionate-sagan-hru2m7 |
 | `59a04fa` | Caddy: serve extra sites from deploy/sites/*.caddy |
 | `fabe37a` | Merge commit '59a04fa' into claude/affectionate-sagan-hru2m7 |
+| `273b588` | Phase 1b: top bar on every page, activity planning and reports, deactivate instead of delete |
+| (this commit) | Activities: block saving until a contract or customer is picked from the list |

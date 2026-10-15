@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, type Activity } from '../api';
 import { useAuth } from '../auth';
 import { fromLocalInput, toLocalInput, today } from '../format';
@@ -31,6 +31,12 @@ export function LinkPicker({ value, onChange, required }: { value: Link | null; 
   const [debounced, setDebounced] = useState('');
   useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(h); }, [q]);
   const { data } = useQuery({ queryKey: ['links', debounced], queryFn: () => api<LinkResults>(`/links?q=${encodeURIComponent(debounced)}`), enabled: debounced.length > 0 });
+  // Typed text alone is not a link: the form can't be saved until a result is picked.
+  const input = useRef<HTMLInputElement>(null);
+  const pending = !value && q.trim().length > 0;
+  useEffect(() => {
+    input.current?.setCustomValidity(required && pending ? t('Choose a contract or customer from the list') : '');
+  }, [required, pending, value]);
   if (value) {
     return (
       <div className="link-chip">
@@ -41,8 +47,9 @@ export function LinkPicker({ value, onChange, required }: { value: Link | null; 
   }
   return (
     <div className="link-picker">
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} required={required}
+      <input ref={input} type="search" value={q} onChange={(e) => setQ(e.target.value)} required={required}
         placeholder={t('Contract ID, customer ID, name or phone')} aria-label={t('Contract or customer')} />
+      {required && pending && <div className="small muted" style={{ marginTop: 4 }}>{t('Click a result below to link it.')}</div>}
       {debounced && data && (
         <div className="link-results" role="listbox">
           {data.contracts.length + data.customers.length === 0 && <div className="small muted" style={{ padding: 8 }}>{t('Nothing found. Add the customer under CRM first.')}</div>}

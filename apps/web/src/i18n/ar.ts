@@ -270,6 +270,8 @@ const ar: Record<string, string> = {
   "Event types": "أنواع المناسبات",
   "Events": "الفعاليات",
   "Events & catering sales, bookings and function diary.": "مبيعات المناسبات والضيافة، الحجوزات ومفكرة القاعات.",
+  "Choose a contract or customer from the list": "اختر عقدًا أو عميلًا من القائمة",
+  "Click a result below to link it.": "انقر على نتيجة أدناه لربطها.",
   "Every client activity is linked to a contract ID or a customer ID.": "يُربط كل نشاط مع العملاء برقم عقد أو رقم عميل.",
   "Every definite booking is fully paid.": "جميع الحجوزات المؤكدة مدفوعة بالكامل.",
   "Every enquiry, from first contact to a paid event.": "كل استفسار، من أول تواصل حتى مناسبة مدفوعة.",
