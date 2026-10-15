@@ -1,6 +1,6 @@
 # SaaSERP: build session transcript
 
-Session dates: 30 Sep – 14 Oct 2026
+Session dates: 30 Sep – 15 Oct 2026
 Repository: `AlaaOpsAi/SaaSERP`, branch `claude/affectionate-sagan-hru2m7`
 
 This file reproduces what was shown on screen during the session: your messages, my replies, and the progress notes I posted while working. Raw command output and code listings are left out; the code is in the repository.
@@ -1336,6 +1336,41 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail 40 a
 ### Reply
 
 This file was extended with sections 15 onward. From now on it is updated at the end of each request, so it always has the latest discussion.
+
+---
+
+## 28. Customer comment 4: top buttons, activity module, Save/Cancel/Delete
+
+> **You:** below more comments: Every page, every platform has to have 3 buttons in the right upper corner: HOME, MENU (3 lines only), LANGUAGE (EN | AR)
+> Admin and IT will be under the same button
+> New Company button to add on the Sign In platform
+> ACTIVITY MODULE:
+> - Each activity must be linked to either a CONTRACT ID (if client details are not yet available, but we got an enquiry before). Or CUSTOMER ID, if we approach this Client for the first time.
+> - FUTURE ACTIVITIES: Planning the actions for next week - each action must be linked to a Client or a Contract ID
+> - PRESENT ACTIVITIES: sales team and marketing team registers their daily activity in the system.
+> - REPORT PRINTING: daily or monthly extract of each person's activity
+> SAVE, CANCEL, DELETE buttons to be placed on each data entry page
+
+### Reply
+
+Noted as comment #4; no code changes until "i finished my comments please provide your recommendations".
+
+**Understood:**
+1. Three buttons in the top-right of every page (web and mobile): Home, Menu (☰), Language (EN | AR).
+2. Admin and IT under one button (the Admin icon).
+3. A "New Company" button on the sign-in page.
+4. Activity module:
+   - every activity linked to a Contract ID or a Customer ID
+   - future activities (next week's plan, each linked to a client or contract)
+   - present activities recorded by the sales and marketing teams
+   - daily or monthly printable report per person
+5. Save, Cancel and Delete on every data entry page.
+
+**Open questions:**
+1. Should the ☰ Menu replace the left sidebar?
+2. Is an automatic Customer ID like C-00001 fine?
+3. Add a Marketing role with its own activity types?
+4. Who may delete: salespeople (own entries) or only managers and admins?
 
 ---
 
