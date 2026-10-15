@@ -1374,6 +1374,35 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 
 ---
 
+## 29. Answers on comment 4, and delete vs. deactivate
+
+> **You:** 1- replace the left sidebar, 2 - ok, 3 yes please, 4 the challenge if sales add new contract and did mistake on it what shall he do delete or de-activate plus maybe managers and admins can do delete while it's better to be de-active so will not be available on any screen
+
+### Reply
+
+**Answers noted:**
+- The ☰ Menu replaces the left sidebar.
+- Customer IDs will be like C-00001.
+- A new Marketing role will be added.
+
+**Recommendation for mistakes:**
+- **Deactivate, don't delete.** A mistaken contract is marked "Deactivated (entered by mistake)" with a reason.
+  - It disappears from every screen, list, calendar, dashboard, report and export.
+  - It stays in the database with its history, and its number is never reused.
+- **Different from Lost and Cancelled:** those are real outcomes and still count in reports. Deactivated counts nowhere.
+
+| Action | Salesperson | Manager / Admin |
+|---|---|---|
+| Deactivate | own contracts, while Inquiry/Tentative and no payment | any contract |
+| Restore | — | yes |
+| Permanent delete | — | admins only, from the "Deactivated" list |
+
+- For sales, the Delete button is labelled "Deactivate".
+- Admins get a "Deactivated records" view.
+- The same rule applies to clients and activities.
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
