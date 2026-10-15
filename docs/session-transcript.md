@@ -1436,6 +1436,22 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 
 ---
 
+## 31. Approval of points 1–2; mock-up for point 3
+
+> **You:** for point 1 and 2 i'm ok but for point 3 can you show me first what's expected screen?
+
+### Reply
+
+**Points 1 and 2 approved:**
+- Marketing-only activities may be saved without a client or contract.
+- Existing unlinked activities stay as they are, in a "to link" list.
+
+**Point 3 (phone app without the bottom tab bar):** mock-up for approval, showing today, the proposed screen, the ☰ Menu open, and Arabic.
+
+![Phone app mock-up](images/mockup-phone-top-buttons.png)
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
