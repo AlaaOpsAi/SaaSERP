@@ -1403,6 +1403,39 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 
 ---
 
+## 30. Recommendations for comment 4 (Phase 1b)
+
+> **You:** i finished my comments please provide your recommendations
+
+### Reply
+
+**Phase 1b**, before Operations:
+
+1. **Top bar on every page** (web and phone):
+   - Home, ☰ Menu (all modules, Preferences, Sign out) and EN | AR, in the top-right.
+   - The left sidebar is removed; the bell and the user's name move into the Menu.
+   - The phone app gets the same three buttons; removing its bottom tab bar is recommended.
+2. **Admin + IT:** a new IT tab in Admin showing the app version, the last backup time, and a sign-in and export log.
+3. **New company button** on the sign-in page. Requests still need operator approval.
+4. **Activity module:**
+   - Every activity is linked to a Contract ID or a Customer ID (automatic C-00001 numbering), with search by name, phone or ID.
+   - "Next week" plan per person, with carry-over; managers see their team's plans.
+   - Quick "Log activity" for today's work, with outcome.
+   - New Marketing role with types: campaign, social post, exhibition/event, advertisement, content.
+   - Printable daily and monthly report per person (Print / Save as PDF), plus Excel.
+5. **Save / Cancel / Delete (Deactivate) action bar** on every data entry page, with an unsaved-changes warning.
+6. **Deactivate instead of delete:**
+   - Enforced by the database, so deactivated records are hidden everywhere.
+   - Sales can deactivate their own early-stage contracts; managers and admins can deactivate any and restore; admins can permanently delete from "Deactivated records".
+   - The same applies to clients and activities.
+
+**Questions:**
+1. May marketing-only activities (social post, campaign) be saved without a client or contract? Recommended: yes, for marketing types only.
+2. Leave existing unlinked activities as they are, in a "to link" list?
+3. Remove the phone app's bottom tab bar?
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
