@@ -1502,6 +1502,77 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 
 ---
 
+## 34. Customer comment 5: signed contracts, issuing contracts and proposals, EN/AR templates
+
+**User:** "some more requirements from the customer:
+- 'Sales team needs to upload the Signed Contract to each DEF status Contract ID. Upload format: Picture JPEG, PNG, or PDF. Upload should work for all statuses. ???'
+- 'Issuing CONTRACT / PROPOSAL from system: Contract template automatically fills from DATA entered for each Contract ID. From TEN or DEF status we can issue a contract or Proposal. Each Business Type has their own Template. Contracts may have Annexes (for example Wedding Specifications: full details for operations team). Client must sign it, approving all details.'
+- 'CONTRACT / PROPOSAL templates: should they be available both in EN & AR version?'
+
+…please check what's needed and provide your recommendation first"
+
+**Recommendations given:**
+1. **Signed contract upload:**
+   - at every status (the answer to "???"), and required in practice at DEF
+   - JPEG, PNG or PDF up to 15 MB, several files per contract
+   - photo straight from the phone
+   - asked for when the contract moves to DEF; flagged if skipped
+2. **Issuing:**
+   - the company's own Word templates with placeholders, per business type
+   - from TEN or DEF; Word + PDF output
+   - numbered, frozen copies; annexes as separate templates
+   - the document shows Signed once the signed copy is uploaded
+3. **EN & AR:** yes. Arabic, English or bilingual templates.
+4. **Questions:** the list of business types; who issues; flag or block at DEF.
+
+**User:** sent the files (`WEDX_Wedding_Contract_TOPRINT_OK.docx`, `W2025047_Qortuba_2025.10.09_SAMPLE.docx`, `Wedding_Details_Annex.docx`, `DB_CRM_Segm_1.2.xlsx`) and answered:
+1. "go for what you think now"
+2. "the salesperson"
+3. "just be flagged"
+
+**Delivered:**
+- **Documents tab on every contract** (web) and a **Documents card** on the phone. Sections:
+  - issued documents
+  - uploaded files
+  - **Services & prices** (printed in the contract)
+  - **Annex details** (e.g. Wedding Specifications), with "Add the standard list for this business type"
+- **Upload:**
+  - JPEG, PNG or PDF, at every status; the type is checked from the content
+  - on the phone: take a photo, choose a photo, or choose a PDF
+  - links expire after 10 minutes
+  - removing a file deactivates it
+- **DEF:**
+  - confirming asks for the signed copy at once
+  - if skipped: "Not signed" in the contracts list, a **Signed contract missing** filter, and a warning on the contract and the dashboard
+  - never blocked
+- **Issue contract / proposal** (the salesperson, TEN or DEF):
+  - fills the template with the contract's data, including the total in words in English and Arabic
+  - makes Word + PDF and numbers it `W2026052-C1 / -P1 / -A1`
+  - keeps the issued copy; it shows **Signed** when the signed copy is uploaded
+- **Admin & IT → Templates:**
+  - upload Word templates per business type, language (Arabic / English / both) and use (contract / proposal / annex); each upload is test-filled first
+  - download the standard templates and see the placeholder list
+  - annex checklist per business type
+- **WEDX templates prepared from the customer's files:**
+  - the blanks, the date, the `#` number box and the client's name in the trust receipt (إيصال أمانة) are filled automatically
+  - the items table repeats per service
+  - the civil ID and the signatures stay for writing by hand
+  - the 31 wedding services became the annex checklist
+- **Standard English & Arabic templates** come with the app for companies without their own.
+- **Server:**
+  - LibreOffice and fonts in the Docker image
+  - files in `./uploads`, backed up nightly as `backups/uploads-<date>.tar.gz`
+- **Checks:**
+  - API tests: 54 → 58, all passing
+  - checked in the browser (web and phone builds)
+  - PDF conversion checked inside the production base image
+
+**Not built yet:** `DB_CRM_Segm_1.2.xlsx` is a separate CRM database. It has segments, relations, customer IDs in the form `C000001`, and applicants. Recommendations for it follow separately.
+
+**To update the server:** the usual command. The first build after this takes longer, because LibreOffice is added. Then, as an admin, upload the two WEDX templates and paste the wedding checklist under **Admin & IT → Templates**.
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
@@ -1526,4 +1597,5 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 | `59a04fa` | Caddy: serve extra sites from deploy/sites/*.caddy |
 | `fabe37a` | Merge commit '59a04fa' into claude/affectionate-sagan-hru2m7 |
 | `273b588` | Phase 1b: top bar on every page, activity planning and reports, deactivate instead of delete |
-| (this commit) | Activities: block saving until a contract or customer is picked from the list |
+| `0de4eed` | Activities: block saving until a contract or customer is picked from the list |
+| (this commit) | Contract documents: signed copies, contracts / proposals / annexes from Word templates, EN & AR |

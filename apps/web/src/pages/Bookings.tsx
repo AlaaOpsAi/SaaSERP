@@ -74,6 +74,7 @@ export function Bookings() {
           <option value="-revenue">{t("Revenue ↓")}</option>
         </select>
         <label className="check"><input type="checkbox" checked={filter('followup_due') === 'true'} onChange={(e) => setFilter('followup_due', e.target.checked ? 'true' : '')} />{t("Follow-up due")}</label>
+        <label className="check"><input type="checkbox" checked={filter('signed_missing') === 'true'} onChange={(e) => setFilter('signed_missing', e.target.checked ? 'true' : '')} />{t("Signed contract missing")}</label>
       </div>
 
       {(() => {
@@ -115,7 +116,7 @@ export function Bookings() {
                     {b.name}
                     <div className="small secondary">{[b.contact_name, b.contact_phone].filter(Boolean).join(' · ')}</div>
                   </td>
-                  <td><StatusBadge status={b.status} /></td>
+                  <td><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}>⚠ {t('Not signed')}</span></div>}</td>
                   <td>{date(b.event_date)}<div className="small secondary">{eventLabel(b.event_type)}</div></td>
                   <td>{b.venue_name ?? '—'}<div className="small secondary">{b.space_name ?? b.hall_text ?? ''}</div></td>
                   <td className="num">{num(b.pax)}</td>

@@ -11,7 +11,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.saaserp.sales",
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -29,7 +31,18 @@
       "favicon": "./assets/favicon.png",
       "output": "single"
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Take a photo of the contract the client signed.",
+          "photosPermission": "Choose a photo of the contract the client signed."
+        }
+      ],
+      "expo-document-picker"
+    ],
     "extra": {
       "defaultServer": "https://app.opsaibridge.eu"
     }

@@ -74,6 +74,8 @@ export function Dashboard() {
         </div>
       </div>
 
+      <SignedMissing />
+
       <div className="filters dash-filters" role="group" aria-label={t("Dashboard filters")}>
         <div className="stepper">
           <button onClick={() => setYear((y) => y - 1)} aria-label={t("Previous year")}>‹</button>
@@ -317,4 +319,20 @@ function Tile({ label, value, sub, delta, spark, upTo, onClick }: {
   return onClick
     ? <button type="button" className="kpi kpi-button" onClick={onClick}>{body}</button>
     : <div className="kpi">{body}</div>;
+}
+
+/** Definite contracts still waiting for the client's signed copy (flagged, never blocked). */
+function SignedMissing() {
+  const { data } = useQuery({
+    queryKey: ['bookings', 'signed-missing'],
+    queryFn: () => api<{ totals: { signed_missing: number } }>('/bookings?signed_missing=true&limit=1'),
+  });
+  const n = Number(data?.totals.signed_missing ?? 0);
+  if (!n) return null;
+  return (
+    <div className="alert warn spread" style={{ marginBottom: 16 }}>
+      <span>⚠ {n === 1 ? t('1 definite contract has no signed copy uploaded.') : t('{n} definite contracts have no signed copy uploaded.', { n })}</span>
+      <Link className="btn sm" to="/bookings?signed_missing=true">{t('Show them')}</Link>
+    </div>
+  );
 }

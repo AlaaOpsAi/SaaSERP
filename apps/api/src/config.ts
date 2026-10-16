@@ -23,4 +23,8 @@ export const config = {
   autoApproveSignups: process.env.AUTO_APPROVE_SIGNUPS === 'true',
   // Optional incoming-webhook URL (Slack, Teams, Zapier...) pinged on every sign-up.
   signupWebhookUrl: process.env.SIGNUP_WEBHOOK_URL ?? '',
+  // Uploaded files (signed contracts, templates, issued documents). Back this folder up with the database.
+  uploadDir: process.env.UPLOAD_DIR ?? 'uploads',
+  // LibreOffice, to turn issued Word documents into PDF. Without it only the Word file is produced.
+  soffice: process.env.SOFFICE_PATH ?? 'soffice',
 };

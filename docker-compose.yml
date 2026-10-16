@@ -35,12 +35,14 @@ services:
       AUTO_APPROVE_SIGNUPS: ${AUTO_APPROVE_SIGNUPS:-false}
       # Optional Slack/Teams/Zapier incoming-webhook URL pinged on every new sign-up.
       SIGNUP_WEBHOOK_URL: ${SIGNUP_WEBHOOK_URL:-}
-    # Admin → IT shows the date of the last backup (read-only).
     volumes:
+      # Admin → IT shows the date of the last backup (read-only).
       - ./backups:/app/backups:ro
+      # Signed contracts, templates and issued documents (backed up with the database).
+      - ./uploads:/app/uploads
     ports: ["${APP_PORT:-4000}:4000"]
     restart: unless-stopped
-  # Full database dump every 24 h into ./backups, keeping BACKUP_KEEP_DAYS days.
+  # Full database dump (and a copy of ./uploads) every 24 h into ./backups, keeping BACKUP_KEEP_DAYS days.
   backup:
     image: postgres:16
     depends_on:
@@ -51,6 +53,7 @@ services:
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
     volumes:
       - ./backups:/backups
+      - ./uploads:/uploads:ro
       - ./deploy/backup-loop.sh:/backup-loop.sh:ro
     entrypoint: ["sh", "/backup-loop.sh"]
     restart: unless-stopped

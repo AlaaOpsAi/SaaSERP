@@ -37,16 +37,17 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T = any>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T = any>(path: string, init: { method?: string; body?: unknown; form?: FormData } = {}): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (token) headers.authorization = `Bearer ${token}`;
   if (init.body !== undefined) headers['content-type'] = 'application/json';
   let res: Response;
   try {
     res = await fetch(`${server}/api${path}`, {
-      method: init.method ?? (init.body !== undefined ? 'POST' : 'GET'),
+      method: init.method ?? (init.body !== undefined || init.form ? 'POST' : 'GET'),
       headers,
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      // A file upload: fetch sets the multipart boundary itself.
+      body: init.form ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
     });
   } catch {
     throw new ApiError(0, `Cannot reach ${server}. Check the server address and your internet connection.`);
@@ -119,4 +120,8 @@ export interface BookingDetail extends Booking {
   log: { id: string; action: string; created_at: string; actor_name: string | null; on_behalf_of_name: string | null }[];
   history: { id: string; from_status: Status | null; to_status: Status; changed_by_name: string | null; on_behalf_of_name: string | null; changed_at: string; reason: string | null }[];
   conflicts: { booking_name: string; space_name: string }[];
+  signed_missing: boolean;
+  documents: { id: string; kind: 'contract' | 'proposal' | 'annex'; doc_no: string; issued_at: string; has_pdf: boolean; template_name: string | null; signed_at: string | null }[];
+  files: { id: string; kind: FileKind; file_name: string; mime: string; size_bytes: number; uploaded_at: string; uploaded_by_name: string | null; doc_no: string | null }[];
 }
+export type FileKind = 'signed_contract' | 'signed_proposal' | 'annex' | 'other';

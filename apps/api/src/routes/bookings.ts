@@ -7,6 +7,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { contactName } from '../lib/contact.js';
 import { redactBooking, stripHidden } from '../lib/fields.js';
 import { bookingOf, logChange, writable } from '../lib/guard.js';
+import { documentsOf, filesOf } from './documents.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
@@ -87,6 +88,7 @@ const listQuery = z.object({
   from: date.optional(),
   to: date.optional(),
   followup_due: z.coerce.boolean().optional(),
+  signed_missing: z.enum(['true']).optional(),
   sort: z.enum(['event_date', '-event_date', 'inquiry_date', '-inquiry_date', 'booking_no', '-booking_no', '-revenue']).default('-inquiry_date'),
   limit: z.coerce.number().int().min(1).max(1000).default(200),
   offset: z.coerce.number().int().min(0).default(0),
@@ -141,9 +143,12 @@ const SORTS: Record<string, string> = {
   '-revenue': 'f.revenue DESC',
 };
 
+/** A confirmed contract whose signed copy has not been uploaded (flagged, never blocked). */
+export const SIGNED_MISSING = `b.status = 'DEF' AND NOT EXISTS (SELECT 1 FROM booking_files sf WHERE sf.booking_id = b.id AND sf.kind = 'signed_contract')`;
+
 /** Shared SELECT for booking rows with display names and finance figures. */
 const BOOKING_SELECT = `
-  SELECT b.*, bu.code AS business_unit_code,
+  SELECT b.*, bu.code AS business_unit_code, bu.name AS business_unit_name,
          u.name AS owner_name, u.code AS owner_code,
          c.name AS contact_name, c.phone AS contact_phone, c.email AS contact_email,
          c.customer_no AS customer_no, c.first_name AS contact_first_name, c.family_name AS contact_family_name,
@@ -153,7 +158,9 @@ const BOOKING_SELECT = `
          f.revenue, f.cost, f.gross_margin, f.margin_pct, f.diff, f.fixed_cost, f.cf_cost,
          f.net_profit, f.commission, f.shares, f.paid, f.outstanding, f.aging_days,
          -- DIFF CTRL of the daily report: money received less the contract value, for confirmed bookings.
-         CASE WHEN b.status IN ('DEF', 'ACT') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl
+         CASE WHEN b.status IN ('DEF', 'ACT') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl,
+         -- A confirmed contract without the client's signed copy uploaded.
+         (${SIGNED_MISSING}) AS signed_missing
   FROM bookings b
   JOIN business_units bu ON bu.id = b.business_unit_id
   JOIN booking_finance f ON f.booking_id = b.id
@@ -197,6 +204,10 @@ async function bookingDetail(db: Db, bookingId: string) {
      FROM booking_log l LEFT JOIN users u ON u.id = l.actor_id LEFT JOIN users ob ON ob.id = l.on_behalf_of
      WHERE l.booking_id = $1 ORDER BY l.created_at`,
   );
+  const contract_lines = await q('SELECT * FROM contract_lines WHERE booking_id = $1 ORDER BY sort_order, created_at');
+  const annex_lines = await q('SELECT * FROM annex_lines WHERE booking_id = $1 ORDER BY sort_order, created_at');
+  const documents = await documentsOf(db, bookingId);
+  const files = await filesOf(db, bookingId);
   const conflicts = await findConflicts(db, bookingId);
   // Whether the viewer may change this booking (false under a "view only" delegation).
   const access = (await db.query('SELECT app_can_write(owner_id, created_by) AS can_edit FROM bookings WHERE id = $1', [bookingId])).rows[0];
@@ -210,6 +221,10 @@ async function bookingDetail(db: Db, bookingId: string) {
     history,
     log,
     conflicts,
+    contract_lines,
+    annex_lines,
+    documents,
+    files,
     can_edit: access.can_edit,
   };
 }
@@ -256,6 +271,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       if (q.from) where.push(`b.event_date >= ${p(q.from)}`);
       if (q.to) where.push(`b.event_date <= ${p(q.to)}`);
       if (q.followup_due) where.push(`b.status IN ('INQ','TEN') AND b.next_followup_date <= current_date`);
+      if (q.signed_missing) where.push(SIGNED_MISSING);
       if (q.q) {
         const like = p(`%${q.q}%`);
         where.push(`(b.booking_no ILIKE ${like} OR b.name ILIKE ${like} OR c.name ILIKE ${like}
@@ -276,7 +292,8 @@ export async function bookingRoutes(app: FastifyInstance) {
                   coalesce(sum(f.revenue) FILTER (WHERE b.status IN ('DEF','ACT')), 0) AS revenue,
                   coalesce(sum(f.gross_margin) FILTER (WHERE b.status IN ('DEF','ACT')), 0) AS gross_margin,
                   coalesce(sum(f.net_profit) FILTER (WHERE b.status IN ('DEF','ACT')), 0) AS net_profit,
-                  coalesce(sum(f.outstanding), 0) AS outstanding
+                  coalesce(sum(f.outstanding), 0) AS outstanding,
+                  count(*) FILTER (WHERE ${SIGNED_MISSING}) AS signed_missing
            FROM bookings b JOIN booking_finance f ON f.booking_id = b.id
            LEFT JOIN contacts c ON c.id = b.contact_id LEFT JOIN accounts a ON a.id = b.account_id
            ${whereSql}`,
@@ -290,7 +307,13 @@ export async function bookingRoutes(app: FastifyInstance) {
   );
 
   app.get('/bookings/:id', { preHandler: authed }, (req) =>
-    tx(req, async (db) => redactBooking(await bookingDetail(db, id.parse(req.params).id), hiddenFields(req))),
+    tx(req, async (db) => {
+      const hidden = hiddenFields(req);
+      const b = redactBooking(await bookingDetail(db, id.parse(req.params).id), hidden);
+      // The client's prices follow the contract value: hidden together.
+      if (hidden.includes('contract_value')) b.contract_lines = b.contract_lines.map((l: Record<string, unknown>) => ({ ...l, unit_price: null }));
+      return b;
+    }),
   );
 
   app.post('/bookings', sell, (req, reply) =>

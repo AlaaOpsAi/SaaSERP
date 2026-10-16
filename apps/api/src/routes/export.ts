@@ -49,6 +49,15 @@ const SHEETS: Sheet[] = [
   { name: 'activities', purpose: 'Meetings, calls, follow-ups and tasks.', sql: 'SELECT * FROM activities ORDER BY due_at' },
   { name: 'status_history', purpose: 'Every booking status change.', sql: 'SELECT * FROM booking_status_history ORDER BY changed_at' },
   { name: 'booking_log', purpose: 'Audit trail of booking changes, including "on behalf of".', sql: 'SELECT * FROM booking_log ORDER BY created_at' },
+  { name: 'contract_lines', purpose: 'Services and prices agreed with the client, printed in the contract.', sql: 'SELECT * FROM contract_lines ORDER BY booking_id, sort_order' },
+  { name: 'annex_lines', purpose: 'Annex details per contract (e.g. Wedding Specifications).', sql: 'SELECT * FROM annex_lines ORDER BY booking_id, sort_order' },
+  { name: 'annex_checklists', purpose: 'Standard annex services per business type.', sql: 'SELECT * FROM annex_checklists' },
+  { name: 'document_templates', purpose: 'Word templates per business type and language (the files themselves are in the uploads backup).',
+    sql: 'SELECT id, name, kinds, business_unit_ids, language, file_name, size_bytes, is_active, created_at, updated_at FROM document_templates ORDER BY name' },
+  { name: 'documents', purpose: 'Contracts, proposals and annexes issued, with the values filled in.',
+    sql: 'SELECT id, booking_id, template_id, kind, doc_no, language, data, issued_by, issued_at FROM documents ORDER BY issued_at' },
+  { name: 'booking_files', purpose: 'Files uploaded to contracts: signed contracts, proposals, annexes (the files are in the uploads backup).',
+    sql: 'SELECT id, booking_id, kind, document_id, file_name, mime, size_bytes, uploaded_by, uploaded_at FROM booking_files ORDER BY uploaded_at' },
 ];
 
 /** What each role may do (mirrors `can` in auth.ts). */

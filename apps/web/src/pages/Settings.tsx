@@ -2,18 +2,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, download, type ContractField, type Role, type User } from '../api';
 import { useAuth } from '../auth';
+import { TemplatesAdmin } from '../components/TemplatesAdmin';
 import { ErrorNote, Field, Modal, Tabs, useForm } from '../components/ui';
 import { dateTime } from '../format';
 import { useBusinessUnits, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { LANGUAGES, t } from '../i18n';
 
-type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
+type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'templates' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
 
 export function Settings() {
   const { can } = useAuth();
   const [tab, setTab] = useState<Tab>('company');
   const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
-  if (can('manage')) tabs.push(['deactivated', 'Deactivated records']);
+  if (can('manage')) tabs.push(['templates', 'Templates'], ['deactivated', 'Deactivated records']);
   if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ['export', 'Export'], ['it', 'IT']);
   return (
     <>
@@ -25,6 +26,7 @@ export function Settings() {
       {tab === 'venues' && <Venues />}
       {tab === 'units' && <Units />}
       {tab === 'lists' && <Lists />}
+      {tab === 'templates' && <TemplatesAdmin />}
       {tab === 'fields' && <ContractFields />}
       {tab === 'deactivated' && <Deactivated />}
       {tab === 'it' && <ItStatus />}
@@ -640,7 +642,7 @@ function ContractFields() {
 
 /** Admin → Deactivated records: things entered by mistake. Managers restore; admins delete for good. */
 type DeactivatedRow = { id: string; code: string; name: string; deactivated_at: string; deactivate_reason: string; deactivated_by_name: string | null };
-const DEACTIVATED_KINDS: [string, string][] = [['bookings', 'Contracts'], ['contacts', 'Customers'], ['accounts', 'Companies'], ['activities', 'Activities']];
+const DEACTIVATED_KINDS: [string, string][] = [['bookings', 'Contracts'], ['contacts', 'Customers'], ['accounts', 'Companies'], ['activities', 'Activities'], ['booking-files', 'Contract files']];
 
 function Deactivated() {
   const { can } = useAuth();

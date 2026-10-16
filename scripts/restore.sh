@@ -19,3 +19,5 @@ docker compose exec -T db psql -U postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE 
 docker compose exec -T db pg_restore -U postgres -d saaserp --no-owner --role=saaserp_owner --exit-on-error < "$file"
 docker compose start app
 echo "Restored $file. The app is starting again (migrations run automatically)."
+echo "Uploaded files (signed contracts, templates, documents) are restored separately, e.g.:"
+echo "  tar -xzf backups/<same name>.uploads.tar.gz    or    tar -xzf backups/uploads-<date>.tar.gz"

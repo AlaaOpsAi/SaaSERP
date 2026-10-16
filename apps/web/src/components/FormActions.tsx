@@ -20,20 +20,20 @@ export function FormActions({ formId, saving, onCancel, remove, saveLabel }: {
   );
 }
 
-export type DeactivateKind = 'bookings' | 'contacts' | 'accounts' | 'activities';
+export type DeactivateKind = 'bookings' | 'contacts' | 'accounts' | 'activities' | 'booking-files';
 
 /**
  * "Delete" for everyday users: the record is deactivated with a reason and disappears
  * from every screen. Managers can restore it; admins can delete it for good
  * (Admin → Deactivated records).
  */
-export function DeactivateButton({ kind, id, name, invalidate, onDone, label }: {
-  kind: DeactivateKind; id: string; name: string; invalidate: unknown[][]; onDone: () => void; label?: string;
+export function DeactivateButton({ kind, id, name, invalidate, onDone, label, small }: {
+  kind: DeactivateKind; id: string; name: string; invalidate: unknown[][]; onDone: () => void; label?: string; small?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="danger" onClick={() => setOpen(true)}>{label ?? t('Delete')}</button>
+      <button type="button" className={small ? 'sm danger' : 'danger'} onClick={() => setOpen(true)}>{label ?? t('Delete')}</button>
       {open && <DeactivateDialog kind={kind} id={id} name={name} invalidate={invalidate} onClose={() => setOpen(false)} onDone={onDone} />}
     </>
   );

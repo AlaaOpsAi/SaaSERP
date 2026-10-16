@@ -5,6 +5,7 @@ import { api, type BookingDetail, type BookingEvent, type Conflict, type Item, t
 import { useAuth, useHidden } from '../auth';
 import { BookingForm, bookingPayload, clientOf, clientPayload, hasClient } from '../components/BookingForm';
 import { ActivityDialog } from '../components/ActivityForm';
+import { ContractDocuments, UploadDialog } from '../components/ContractDocuments';
 import { activityType, CompleteButton } from '../components/CompleteActivity';
 import { DeactivateButton, FormActions } from '../components/FormActions';
 import { confirmDiscard, Empty, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
@@ -12,7 +13,7 @@ import { date, dateTime, fromLocalInput, money, num, pct, statusLabel, time, tod
 import { useLabel, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { t } from '../i18n';
 
-type Tab = 'overview' | 'events' | 'lines' | 'money' | 'history';
+type Tab = 'overview' | 'documents' | 'events' | 'lines' | 'money' | 'history';
 
 export function BookingDetailPage() {
   const { id = '' } = useParams();
@@ -51,6 +52,12 @@ export function BookingDetailPage() {
       )}
 
       <CoverNote b={b} />
+      {b.signed_missing && tab !== 'documents' && (
+        <div className="alert warn spread" style={{ marginBottom: 12 }}>
+          <span>{t('Signed contract missing: upload the copy the client signed (photo or PDF).')}</span>
+          <button className="sm" onClick={() => setTab('documents')}>{t('Open documents')}</button>
+        </div>
+      )}
       <Pipeline status={b.status} />
 
       <div style={{ display: 'grid', gridTemplateColumns: hidden('finance') ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 300px', gap: 16, alignItems: 'start' }} className="detail-grid">
@@ -59,13 +66,16 @@ export function BookingDetailPage() {
             value={tab}
             onChange={setTab}
             tabs={[
-              ['overview', 'Contract'], ['events', `${t('Events')} (${b.events.length})`],
+              ['overview', 'Contract'],
+              ['documents', `${t('Documents')} (${b.documents.length + b.files.length})${b.signed_missing ? ' ⚠' : ''}`],
+              ['events', `${t('Events')} (${b.events.length})`],
               ...(hidden('finance') ? [] : [['lines', `${t('Revenue & cost')} (${b.items.length})`] as [Tab, string]]),
               ...(hidden('finance') && hidden('money_received') ? [] : [['money', 'Payments & payouts'] as [Tab, string]]),
               ['history', 'History'],
             ]}
           />
           {tab === 'overview' && <ContractGroups b={b} onEdit={() => setEditing(true)} />}
+          {tab === 'documents' && <DocumentsTab b={b} />}
           {tab === 'events' && <Events b={b} />}
           {tab === 'lines' && <Lines b={b} />}
           {tab === 'money' && <Money b={b} />}
@@ -128,6 +138,7 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
   const { data: lookups } = useLookups();
   const [target, setTarget] = useState<Status | null>(null);
   const [reason, setReason] = useState<string | null>(null);
+  const [askSigned, setAskSigned] = useState(false);
   const change = useSave(
     (v: { status: Status; reason?: string | null; force?: boolean }) =>
       api(`/bookings/${booking.id}/status`, { body: { status: v.status, reason: v.reason || undefined, force: v.force } }),
@@ -142,7 +153,11 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
       setTarget(s);
       return;
     }
-    change.mutate({ status: s, reason, force }, { onSuccess: () => { setTarget(null); setReason(null); } });
+    change.mutate({ status: s, reason, force }, { onSuccess: (updated: BookingDetail) => {
+      setTarget(null); setReason(null);
+      // Confirmed: ask for the client's signed copy straight away (it can wait; the contract stays flagged).
+      if (s === 'DEF' && updated?.signed_missing) setAskSigned(true);
+    } });
   };
   const labels: Partial<Record<Status, string>> = {
     TEN: 'Mark tentative', DEF: 'Confirm (definite)', ACT: 'Actualise', LOS: 'Mark lost', CXL: 'Cancel', INQ: 'Back to inquiry',
@@ -164,6 +179,7 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
           {conflicts && can('manage') && <button className="sm danger" onClick={() => go('DEF', true)}>{t("Override clash & confirm")}</button>}
         </div>
       )}
+      {askSigned && <UploadDialog b={booking} kind="signed_contract" prompt onClose={() => setAskSigned(false)} />}
       {target && (
         <Modal
           title={target === 'LOS' ? t("Why was this booking lost?") : t("Why is this booking cancelled?")}
@@ -478,6 +494,11 @@ function EventModal({ b, event, onClose }: { b: BookingDetail; event: Partial<Bo
       </form>
     </Modal>
   );
+}
+
+function DocumentsTab({ b }: { b: BookingDetail }) {
+  const { can } = useAccess(b);
+  return <ContractDocuments b={b} canSell={can('sell')} />;
 }
 
 // ---- lines -----------------------------------------------------------------

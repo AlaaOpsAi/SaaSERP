@@ -4,6 +4,7 @@ import { authed, can, hasRole, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { logChange, writable } from '../lib/guard.js';
+import { removeStored } from '../lib/storage.js';
 import { syncBookingFollowup } from './activities.js';
 
 /**
@@ -15,6 +16,7 @@ import { syncBookingFollowup } from './activities.js';
  *   contracts:  sales — own contracts, while Inquiry/Tentative and without payments
  *   customers:  sales — only while no contract uses them
  *   activities: the activity's owner
+ *   files on a contract: whoever uploaded them
  *   managers and admins — any record they can see
  */
 const KINDS = {
@@ -22,6 +24,7 @@ const KINDS = {
   contacts: { table: 'contacts', label: 'Customer' },
   accounts: { table: 'accounts', label: 'Company' },
   activities: { table: 'activities', label: 'Activity' },
+  'booking-files': { table: 'booking_files', label: 'File' },
 } as const;
 type Kind = keyof typeof KINDS;
 
@@ -47,6 +50,11 @@ async function assertMayDeactivate(db: Db, req: FastifyRequest, kind: Kind, id: 
   }
   const { rows } = await db.query(`SELECT * FROM ${KINDS[kind].table} WHERE id = $1`, [id]);
   if (!rows[0]) throw notFound(KINDS[kind].label);
+  if (kind === 'booking-files') {
+    const ctx = await writable(db, req, rows[0].booking_id);
+    if (!manager && rows[0].uploaded_by !== req.user.sub) throw forbidden('You can only remove files you uploaded; ask a manager');
+    return ctx;
+  }
   if (manager) return null;
   if (kind === 'activities') {
     if (rows[0].owner_id !== req.user.sub) throw forbidden('You can only deactivate your own activities');
@@ -71,7 +79,7 @@ export async function deactivationRoutes(app: FastifyInstance) {
       // Marketing may deactivate its own activities; contracts and customers belong to sales.
       if (kind !== 'activities' && !hasRole(req, can.sell)) throw forbidden();
       const ctx = await assertMayDeactivate(db, req, kind, id);
-      if (ctx) await logChange(db, req, ctx, 'deactivated', { reason });
+      if (ctx) await logChange(db, req, ctx, kind === 'booking-files' ? 'file removed' : 'deactivated', { reason });
       const linked = kind === 'activities' ? (await db.query('SELECT booking_id FROM activities WHERE id = $1', [id])).rows[0]?.booking_id : null;
       await showDeactivated(db);
       await db.query(
@@ -109,7 +117,9 @@ export async function deactivationRoutes(app: FastifyInstance) {
         const used = await db.query(`SELECT 1 FROM bookings WHERE ${column} = $1 LIMIT 1`, [id]);
         if (used.rows[0]) throw badRequest('Contracts still use this customer, so it cannot be deleted');
       }
+      const stored = kind === 'booking-files' ? (await db.query('SELECT storage_key FROM booking_files WHERE id = $1', [id])).rows[0]?.storage_key : null;
       await db.query(`DELETE FROM ${KINDS[kind].table} WHERE id = $1`, [id]);
+      if (stored) await removeStored(stored);
       return { ok: true };
     }),
   );
@@ -132,6 +142,9 @@ export async function deactivationRoutes(app: FastifyInstance) {
                            WHERE x.deactivated_at IS NOT NULL ORDER BY x.deactivated_at DESC LIMIT 500`),
         activities: await q(`SELECT ${pick}, x.type AS code, x.subject AS name, x.due_at FROM activities x ${who}
                              WHERE x.deactivated_at IS NOT NULL ORDER BY x.deactivated_at DESC LIMIT 500`),
+        'booking-files': await q(`SELECT ${pick}, b.booking_no AS code, x.file_name AS name, x.kind FROM booking_files x
+                                  JOIN bookings b ON b.id = x.booking_id ${who}
+                                  WHERE x.deactivated_at IS NOT NULL ORDER BY x.deactivated_at DESC LIMIT 500`),
       };
     }),
   );

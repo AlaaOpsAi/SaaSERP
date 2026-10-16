@@ -104,7 +104,7 @@ The restore keeps the server's new passwords, because the logins aren't part of 
 | Database console | `dc exec db psql -U postgres saaserp` |
 
 **Backups:**
-- They run every night into `/root/SaaSERP/backups` and are kept for 14 days. They sit **on the same server**, though, so copy them somewhere else too.
+- They run every night into `/root/SaaSERP/backups` and are kept for 14 days: the database dump and an `uploads-….tar.gz` with the signed contracts, templates and issued documents (folder `/root/SaaSERP/uploads`). They sit **on the same server**, though, so copy them somewhere else too.
 - Either add Hostinger's weekly **VPS backups / snapshots** in hPanel, or copy the folder to your Mac now and then:
   ```bash
   scp -r root@<VPS-IP>:/root/SaaSERP/backups ./server-backups

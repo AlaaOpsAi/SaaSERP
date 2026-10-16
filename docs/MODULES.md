@@ -111,6 +111,44 @@ The importer finds columns **by their headers** (row 2, with the group names of 
 - **Managers** restore records under **Admin → Deactivated records**.
 - **Admins** can **delete for good**, but only records that are already deactivated.
 
+## Contract documents (customer comment 5)
+
+Every contract has a **Documents** tab (phone: a Documents card on the contract).
+
+**Signed contract upload:**
+- A picture (JPEG, PNG) or PDF, up to 15 MB, at **every status**. Kinds: signed contract, signed proposal, annex, other.
+- On the phone: **Take photo**, **Choose photo** or **Choose PDF**.
+- Moving a contract to **Definite** asks for the signed copy straight away. It can wait: the contract is then **flagged**, never blocked:
+  - "Not signed" in the contracts list, with a **Signed contract missing** filter
+  - a warning on the contract and on the dashboard
+- The type is checked from the file's content, not its name. Files open through links that expire after 10 minutes.
+- Removing a file deactivates it, as with other records (Admin → Deactivated records).
+
+**Issuing a contract or proposal** (the salesperson, from **Tentative** or **Definite**):
+1. Fill in **Services & prices** (type of work, details, qty, price) and, for weddings, the **Annex details**. **Add the standard list** loads the business type's annex checklist; fill in quantities and notes.
+2. **Issue contract / proposal**: choose Contract, Proposal or Annex and the template, and add notes if needed.
+3. The system fills the template and makes a Word file and a PDF:
+   - the client, event date and day, venue, guests, services, total, down payment and remaining
+   - the total in words, in English and in Arabic
+4. Each issued document is numbered (**W2026052-C1**, **-P1**, **-A1**) and kept exactly as issued. Issuing again creates the next number.
+5. When the client's signed copy is uploaded, the document shows **Signed**.
+
+**Templates** (**Admin & IT → Templates**):
+- Ordinary Word files with `{placeholders}`. The company's letterhead, wording and layout stay as designed.
+- Each template is set for:
+  - contract, proposal and/or annex
+  - one or more **business types** (business units), or all
+  - **Arabic**, **English** or **both**
+- An upload is test-filled first. A broken placeholder is refused with a message.
+- Until a company uploads its own, a **standard English & Arabic** contract/proposal and annex are used. Both can be downloaded as a starting point. The list of placeholders is on the same page.
+- **Annex checklist per business type:** one service per line, with the second language after `|`.
+- PDFs are made by LibreOffice inside the app container (included in the Docker image).
+
+**WEDX:**
+- The wedding contract and the Wedding Details annex were turned into templates. The blanks became placeholders, and the items table became a repeating row.
+- They are uploaded under Templates for business type **W**.
+- The 31 annex services are the wedding checklist.
+
 ## Next phases
 
 | Phase | Module | Content |

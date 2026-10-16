@@ -75,12 +75,14 @@ BACKUP_KEEP_DAYS=30
 BACKUP_INTERVAL_SECONDS=43200   # every 12 hours
 ```
 
-Check that it works: `docker compose logs backup` shows "backup written…" lines.
+It also packs the **uploaded files** (signed contracts, Word templates, issued contracts and proposals in `./uploads`) into **`./backups/uploads-YYYYmmdd-HHMMSS.tar.gz`**, kept just as long.
+
+Check that it works: `docker compose logs backup` shows "backup written…" and "files backup written…" lines.
 
 ### Now, on demand
 
 ```bash
-./scripts/backup.sh          # -> backups/saaserp-20261002-101500.dump
+./scripts/backup.sh          # -> backups/saaserp-20261002-101500.dump (+ .uploads.tar.gz)
 ```
 
 ### Keep a copy off the machine
@@ -94,6 +96,8 @@ The dumps contain all customer data, including client phone numbers. Store them 
 ### What a backup contains
 
 Everything: all workspaces, users (with password hashes), settings, bookings, history, the schema, security policies and permissions. Restoring it gives an identical system.
+
+The files themselves (signed contracts, templates, issued documents) are in the matching `uploads` archive. After a restore, unpack it in the `SaaSERP` folder: `tar -xzf backups/uploads-<date>.tar.gz`.
 
 For a **readable** copy of one workspace's data (Excel or JSON), an admin can use **Settings → Export → Full workspace export** in the app instead. It contains no password hashes.
 

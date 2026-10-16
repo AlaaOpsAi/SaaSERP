@@ -20,6 +20,7 @@ import { platformRoutes } from './routes/platform.js';
 import { reportRoutes } from './routes/reports.js';
 import { dailyRoutes } from './routes/daily.js';
 import { deactivationRoutes } from './routes/deactivation.js';
+import { documentRoutes } from './routes/documents.js';
 import { itRoutes } from './routes/it.js';
 import { settingsRoutes } from './routes/settings.js';
 
@@ -84,6 +85,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
       await api.register(reportRoutes);
       await api.register(dailyRoutes);
       await api.register(deactivationRoutes);
+      await api.register(documentRoutes);
       await api.register(itRoutes);
       await api.register(importRoutes);
       await api.register(platformRoutes);

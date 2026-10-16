@@ -137,7 +137,8 @@ button.primary:hover { filter: brightness(1.07); background: var(--accent); }
 button.danger { color: var(--danger); }
 button.ghost { border-color: transparent; background: transparent; }
 button.ghost:hover { background: var(--surface-2); }
-button.sm { padding: 4px 8px; font-size: 12px; }
+button.sm, .btn.sm { padding: 4px 8px; font-size: 12px; }
+label.btn { cursor: pointer; display: inline-flex; align-items: center; }
 input, select, textarea {
   font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong);
   border-radius: 8px; padding: 7px 10px; width: 100%; min-width: 0;
@@ -193,6 +194,8 @@ tfoot td { font-weight: 650; border-top: 1px solid var(--border-strong); }
 .tabs button:hover { background: none; color: var(--text); }
 .alert { padding: 10px 12px; border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-size: 13px; }
 .alert.info { background: var(--accent-soft); color: var(--accent); }
+.alert.warn { background: color-mix(in srgb, var(--status-warning) 18%, transparent); color: var(--text); border: 1px solid color-mix(in srgb, var(--status-warning) 55%, transparent); }
+.alert.spread { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .empty { padding: 32px; text-align: center; color: var(--muted); }
 .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; font-size: 13px; }
 .kv dt { color: var(--muted); }
@@ -212,6 +215,16 @@ tfoot td { font-weight: 650; border-top: 1px solid var(--border-strong); }
 .modal header { border-bottom: 1px solid var(--border); }
 .modal footer { border-top: 1px solid var(--border); justify-content: flex-end; }
 .modal .body { padding: 20px; }
+.modal.wide { width: min(1080px, 100%); }
+/* Row editors (services, annex details). */
+table.grid-edit td { padding: 4px; }
+table.grid-edit input { width: 100%; min-width: 60px; }
+table.grid-edit input.num { text-align: end; }
+.nowrap { white-space: nowrap; }
+button.link { background: none; border: none; padding: 0; color: var(--accent); text-align: start; cursor: pointer; font: inherit; }
+button.link:hover { text-decoration: underline; }
+.flag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--status-warning) 22%, transparent); color: var(--text); white-space: nowrap; }
 
 /* ---- charts --------------------------------------------------------- */
 .chart { position: relative; }

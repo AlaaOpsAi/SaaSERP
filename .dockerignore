@@ -7,3 +7,5 @@ node_modules
 .git
 apps/mobile
 backups
+uploads
+**/uploads

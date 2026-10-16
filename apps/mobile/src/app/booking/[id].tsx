@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { askForSignedCopy, Documents } from '../../components/documents';
 import { ActivityRow } from '../../components/rows';
 import {
   Button, Card, Chips, Empty, ErrorText, Field, H1, H2, Loading, Notice, Screen, StatusBadge, T, type IconName,
@@ -35,8 +36,11 @@ export default function BookingScreen() {
 
   const refresh = () => qc.invalidateQueries();
   const status = useMutation({
-    mutationFn: (v: { status: Status; reason?: string }) => api(`/bookings/${id}/status`, { body: v }),
-    onSuccess: () => { setPending(null); refresh(); },
+    mutationFn: (v: { status: Status; reason?: string }) => api<BookingDetail>(`/bookings/${id}/status`, { body: v }),
+    onSuccess: (updated, v) => {
+      setPending(null); refresh();
+      if (v.status === 'DEF' && updated?.signed_missing) askForSignedCopy(id, refresh);
+    },
   });
 
   if (q.isLoading) return <Screen><Loading /></Screen>;
@@ -123,6 +127,8 @@ export default function BookingScreen() {
           {covering && <T small muted>{t("Payments and commissions stay with finance while you cover.")}</T>}
           {editable && !covering && !hidden('money_received') && <DownPayment bookingId={b.id} />}
         </Card>
+
+        <Documents b={b} editable={editable} />
 
         <H2>{t("Follow-ups")}</H2>
         <Card style={{ padding: 0, overflow: 'hidden' }}>

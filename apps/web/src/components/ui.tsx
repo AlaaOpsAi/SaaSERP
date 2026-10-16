@@ -45,8 +45,8 @@ export function FieldGroup({ label, children, className }: { label: string; chil
  * Dialog. With `dirty`, closing (✕, Esc, clicking outside or Cancel via `guard`) asks
  * before throwing away unsaved changes.
  */
-export function Modal({ title, onClose, children, footer, dirty }: {
-  title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; dirty?: boolean;
+export function Modal({ title, onClose, children, footer, dirty, wide }: {
+  title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; dirty?: boolean; wide?: boolean;
 }) {
   const close = () => { if (!dirty || confirm(t('Discard your changes?'))) onClose(); };
   useEffect(() => {
@@ -56,7 +56,7 @@ export function Modal({ title, onClose, children, footer, dirty }: {
   });
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
           <button className="ghost" onClick={close} aria-label={t("Close")}>✕</button>

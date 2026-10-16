@@ -152,6 +152,9 @@ export interface Booking {
   revenue: number; cost: number; gross_margin: number; margin_pct: number | null; diff: number | null;
   fixed_cost: number; cf_cost: number; net_profit: number; commission: number; shares: number;
   paid: number; outstanding: number; aging_days: number;
+  business_unit_name?: string;
+  /** Definite, and the client's signed contract has not been uploaded yet. */
+  signed_missing: boolean;
 }
 
 export interface BookingEvent {
@@ -177,4 +180,35 @@ export interface BookingDetail extends Booking {
   log: { id: string; action: string; details: Record<string, unknown>; created_at: string; actor_name: string | null; on_behalf_of_name: string | null }[];
   can_edit: boolean;
   conflicts: Conflict[];
+  contract_lines: ContractLine[]; annex_lines: AnnexLine[]; documents: IssuedDocument[]; files: BookingFile[];
+}
+
+export type DocKind = 'contract' | 'proposal' | 'annex';
+export type FileKind = 'signed_contract' | 'signed_proposal' | 'annex' | 'other';
+export interface ContractLine { id?: string; work_type: string; details: string | null; quantity: number | null; unit_price: number | null }
+export interface AnnexLine { id?: string; service: string; service_alt: string | null; quantity: number | null; notes: string | null }
+export interface IssuedDocument {
+  id: string; kind: DocKind; doc_no: string; language: string; issued_at: string; has_pdf: boolean;
+  issued_by_name: string | null; template_name: string | null; signed_at: string | null;
+}
+export interface BookingFile {
+  id: string; kind: FileKind; file_name: string; mime: string; size_bytes: number; uploaded_at: string; uploaded_by: string | null;
+  uploaded_by_name: string | null; document_id: string | null; doc_no: string | null;
+}
+export interface DocTemplate {
+  id: string; name: string; kinds: DocKind[]; business_unit_ids: string[]; language: 'ar' | 'en' | 'bilingual';
+  file_name?: string; size_bytes?: number; is_active?: boolean; updated_at?: string; created_by_name?: string | null;
+}
+
+/** Open a file behind a short-lived signed link in a new tab (opened first, so pop-up blockers allow it). */
+export async function openSigned(path: string) {
+  const tab = window.open('', '_blank');
+  try {
+    const { url } = await api<{ url: string }>(path);
+    if (tab) tab.location.href = url;
+    else window.location.assign(url);
+  } catch (e) {
+    tab?.close();
+    throw e;
+  }
 }
