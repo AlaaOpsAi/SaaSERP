@@ -35,6 +35,8 @@ const userCreate = z.object({
   is_active: z.boolean().default(true),
   manager_id: z.string().uuid().nullish(),
   data_scope: z.enum(['all', 'team']).optional(),
+  /** The employee ID (E + year + serial) follows the year of hiring when it is given at creation. */
+  hired_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
 });
 const userPatch = userCreate.partial();
 
@@ -142,7 +144,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.get('/users', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const { rows } = await db.query(
-        `SELECT id, email, name, code, role, is_active, last_login_at, created_at, manager_id, data_scope,
+        `SELECT id, email, name, code, role, is_active, last_login_at, created_at, manager_id, data_scope, employee_no, hired_on,
                 (app_sees_all() OR id = ANY (app_write_ids())) AS in_my_team
          FROM users ORDER BY is_active DESC, name`,
       );

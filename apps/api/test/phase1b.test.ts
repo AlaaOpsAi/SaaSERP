@@ -22,16 +22,16 @@ describe('customer IDs', () => {
   it('numbers people and companies in one series per company, and finds them by number', async () => {
     const c = await newTenant(app);
     const p1 = (await c.post('/contacts', { first_name: 'Latifa', phone: '1' })).body;
-    const co = (await c.post('/accounts', { name: 'Gulf Bank' })).body;
-    const p2 = (await c.post('/contacts', { name: 'Noura' })).body;
-    expect([p1.customer_no, co.customer_no, p2.customer_no]).toEqual(['C-00001', 'C-00002', 'C-00003']);
-    // Another company starts again at C-00001.
+    const co = (await c.post('/accounts', { name: 'Gulf Bank', email: 'info@gulfbank.test' })).body;
+    const p2 = (await c.post('/contacts', { name: 'Noura', phone: '99001122' })).body;
+    expect([p1.customer_no, co.customer_no, p2.customer_no]).toEqual(['C0000000001', 'C0000000002', 'C0000000003']);
+    // Another company starts again at C0000000001.
     const other = await newTenant(app);
-    expect((await other.post('/contacts', { name: 'X' })).body.customer_no).toBe('C-00001');
+    expect((await other.post('/contacts', { name: 'X', phone: '99001133' })).body.customer_no).toBe('C0000000001');
 
-    const found = (await c.get('/links?q=C-00002')).body;
+    const found = (await c.get('/links?q=C0000000002')).body;
     expect(found.customers.map((x: any) => x.name)).toEqual(['Gulf Bank']);
-    expect((await c.get('/contacts?q=C-00003')).body.map((x: any) => x.name)).toEqual(['Noura']);
+    expect((await c.get('/contacts?q=C0000000003')).body.map((x: any) => x.name)).toEqual(['Noura']);
   });
 });
 
@@ -127,7 +127,7 @@ describe('deactivate instead of delete', () => {
   it('deactivates customers without contracts, and activities by their owner', async () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
-    const free = (await sara.post('/contacts', { name: 'Wrong person' })).body;
+    const free = (await sara.post('/contacts', { name: 'Wrong person', phone: '99001144' })).body;
     const used = (await sara.post('/bookings', { name: 'B', contact: { name: 'Real client', phone: '9' } })).body;
     expect((await sara.post(`/contacts/${free.id}/deactivate`, { reason: 'typo' })).status).toBe(200);
     expect((await sara.post(`/contacts/${used.contact_id}/deactivate`, { reason: 'typo' })).status).toBe(403);

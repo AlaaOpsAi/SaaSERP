@@ -132,6 +132,7 @@ def signatures(d):
 EVENT_FACTS = [
     ('Client', '{client_name}', 'الطرف الثاني'),
     ('Phone', '{client_phone}', 'رقم الهاتف'),
+    ('Civil ID', '{client_civil_id}', 'رقم البطاقة المدنية'),
     ('Address', '{client_address}', 'العنوان'),
     ('Event date', '{event_date}  {event_day_en} / {event_day}', 'تاريخ الحفل'),
     ('Venue', '{venue}', 'مكان الحفل'),

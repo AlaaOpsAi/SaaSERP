@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { config } from '../src/config.js';
+import { seedTenantDefaults } from '../src/lib/defaults.js';
 
 // scripts/ when run with tsx, dist/scripts/ when compiled.
 const here = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +36,12 @@ export async function migrate(url = config.migrationDatabaseUrl, appRole = confi
         throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
       }
     }
+    // Pick-lists added by a release (e.g. the CRM lists) for companies that do not have them yet.
+    for (const { id } of (await client.query('SELECT id FROM tenants')).rows) {
+      await client.query(`SELECT set_config('app.tenant_id', $1, false)`, [id]);
+      await seedTenantDefaults(client);
+    }
+    await client.query(`SELECT set_config('app.tenant_id', '', false)`);
     const role = pg.escapeIdentifier(appRole);
     await client.query(`GRANT USAGE ON SCHEMA public TO ${role}`);
     await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${role}`);

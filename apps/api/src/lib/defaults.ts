@@ -1,4 +1,5 @@
 import type { Db } from '../db.js';
+import { CRM_LOOKUPS } from './crm-lists.js';
 
 /**
  * Starter pick-lists for a new tenant, taken from the PAR sheet of the
@@ -85,8 +86,16 @@ export const DEFAULT_LOOKUPS: Record<string, [code: string, label: string, arabi
   ],
 };
 
-export async function seedTenantDefaults(db: Db) {
+Object.assign(DEFAULT_LOOKUPS, CRM_LOOKUPS);
+
+/**
+ * Fill the starter pick-lists of the current tenant. A list the company already has
+ * entries in is left alone, so values an admin removed never come back.
+ */
+export async function seedTenantDefaults(db: Pick<Db, 'query'>) {
   for (const [type, values] of Object.entries(DEFAULT_LOOKUPS)) {
+    const { rows } = await db.query('SELECT 1 FROM lookups WHERE tenant_id = current_tenant_id() AND type = $1 LIMIT 1', [type]);
+    if (rows[0]) continue;
     for (const [i, [code, label, arabic]] of values.entries()) {
       await db.query(
         `INSERT INTO lookups (tenant_id, type, code, label, sort_order, translations)

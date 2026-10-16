@@ -1641,6 +1641,50 @@ Development starts after approval.
 
 ---
 
+## 36. CRM database approved and delivered
+
+**User:** "1- yes ,2- can be included and add something like already exist under customer :customer name ,the CRM will be under CRM Module not HR ,4 no"
+
+**What I understood:**
+1. Customer ID: C + 10 digits, and today's numbers are converted.
+2. An email *or* a mobile number is required. A duplicate shows "Already exists under customer: <ID> <name>".
+3. Applicant data stays in the CRM module.
+4. The old relation list is **kept**.
+
+**Delivered:**
+- **Customer IDs:** C0000000001 for new customers. Existing numbers were converted, and the workbook's C000001 is kept as "Earlier ID".
+- **Duplicate check:**
+  - email or mobile required
+  - a live warning while typing, with **Open C…**
+  - saving a duplicate is refused
+  - mobiles match with or without +965
+- **New customer fields** (person and company), shown in sections: Person / Company, Contact, Address, Segment & marketing.
+- **Civil ID** fills رقم بطاقه مدنيه in the WEDX contract and the trust receipt. When it's unknown, the line stays blank for writing by hand.
+- **Relationships** on every customer:
+  - several per customer, each with a segment, contract, date, user and comments
+  - the earlier relation list kept as a second field
+  - list filters by relationship and segment
+- **Applicant profile** in the CRM.
+- **Pick-lists** from PAR, for every company: Relationships, earlier list, Segments, Industries, Titles, Contact modes, Education.
+- **Employee ID:** E + hiring year + serial for every user, plus a hiring date under Admin → Team.
+- **CRM workbook import and export:**
+  - import from Admin → Import from Excel, with a report
+  - export from CRM → Export Excel, in the same 56 columns
+- **Checks:**
+  - API tests 58 → 62, all passing
+  - checked in the browser with the real workbook (local only): 46 rows → 44 people, 15 companies, 1 merged by email, 45 relationships, 29 applicant profiles
+  - 4 joined names to check
+
+**Points to note:**
+- The users "Glory" and "Lojine" and contract X2025036 were not found locally. On the live server they match if those users and that contract exist; otherwise they're kept in the comments.
+- The workbook's "CO Name" for applicants is their current employer. It goes into the applicant profile, not into Companies.
+
+**To update the server:** the usual command. Then:
+- import the CRM workbook under Admin → Import from Excel
+- re-upload the updated WEDX contract template (it now prints the civil ID)
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
@@ -1667,3 +1711,5 @@ Development starts after approval.
 | `273b588` | Phase 1b: top bar on every page, activity planning and reports, deactivate instead of delete |
 | `0de4eed` | Activities: block saving until a contract or customer is picked from the list |
 | `c67afbc` | Contract documents: signed copies, contracts / proposals / annexes from Word templates, EN & AR |
+| `07b3e6e` | Session transcript: recommendations for the CRM database workbook |
+| (this commit) | CRM database: C + 10 digit IDs, duplicate check, relationships, applicant profiles, employee IDs, CRM workbook import/export |

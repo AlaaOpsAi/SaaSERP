@@ -1,10 +1,12 @@
 import ExcelJS from 'exceljs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { authed, hiddenFields, tx } from '../auth.js';
+import { authed, can, hasRole, hiddenFields, tx } from '../auth.js';
 import { CONTRACT_FIELDS, type ContractField } from '../lib/fields.js';
 import type { Db } from '../db.js';
 import { logAccess } from '../lib/access.js';
+import { exportCrmWorkbook } from '../lib/crm-workbook.js';
+import { forbidden } from '../lib/errors.js';
 
 const query = z.object({
   year: z.coerce.number().int().min(2000).max(2100).default(new Date().getFullYear()),
@@ -347,6 +349,19 @@ export async function reportRoutes(app: FastifyInstance) {
   app.get('/reports/dashboard', { preHandler: authed }, (req) => tx(req, (db) => dashboard(db, query.parse(req.query))));
   app.get('/reports/receivables', { preHandler: authed }, (req) => tx(req, (db) => receivables(db)));
   app.get('/reports/payouts', { preHandler: authed }, (req) => tx(req, (db) => payoutsDue(db)));
+  // The CRM in the customer's workbook layout (DB_CRM_Segm, sheet DB), same 56 columns in the same order.
+  app.get('/reports/crm.xlsx', { preHandler: authed }, async (req, reply) => {
+    const data = await tx(req, async (db) => {
+      if (!hasRole(req, can.manage)) throw forbidden();
+      await logAccess(db, req.user.sub, 'export', 'crm.xlsx', req.ip);
+      return exportCrmWorkbook(db);
+    });
+    return reply
+      .header('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('content-disposition', 'attachment; filename="crm.xlsx"')
+      .send(data);
+  });
+
   app.get('/reports/contracts.xlsx', { preHandler: authed }, async (req, reply) => {
     const q = query.parse(req.query);
     const buf = await tx(req, async (db) => {

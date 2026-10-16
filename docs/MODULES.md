@@ -85,7 +85,7 @@ The importer finds columns **by their headers** (row 2, with the group names of 
 
 **New company:** a button on the sign-in page opens the workspace request. The operator still approves every request.
 
-**Customer ID:** every person and company in CRM gets an automatic number (**C-00001**, one series per company). You can search by it in CRM, Contracts and the activity link search.
+**Customer ID:** every person and company in CRM gets an automatic number (**C0000000001**, C + 10 digits, one series per company). You can search by it in CRM, Contracts and the activity link search.
 
 **Activities:**
 - **Linked:** every client activity (call, meeting, site visit, follow-up, email, task) must be linked to a **Contract ID** or a **Customer ID**. Search by number, name or phone. The API refuses unlinked ones. Older unlinked activities are listed as "not linked" so you can link them.
@@ -148,6 +148,42 @@ Every contract has a **Documents** tab (phone: a Documents card on the contract)
 - The wedding contract and the Wedding Details annex were turned into templates. The blanks became placeholders, and the items table became a repeating row.
 - They are uploaded under Templates for business type **W**.
 - The 31 annex services are the wedding checklist.
+
+## CRM database (customer workbook DB_CRM_Segm)
+
+- **Customer ID:**
+  - C + 10 digits (C0000000001), one series for people and companies
+  - the earlier C-00001 numbers were converted, keeping their order
+  - the ID from the workbook (C000001) is kept as **Earlier ID**, shown under the new one and searchable
+- **One customer per email and per mobile:**
+  - every customer needs an email or a mobile number
+  - typing an existing one shows **"Already exists under customer: C… Name"**, with a button to open that customer
+  - saving a duplicate is refused
+  - mobiles match with or without the country code
+- **Customer fields:**
+  - person: title, gender, position / profession, civil ID (also printed in contracts), date of birth
+  - company: parent company, registration no., license no., tax ID, legal representative, established on
+  - both: second mobile, landline, city, ZIP, web page, segment, industry, newsletter consent (with its date), preferred contact
+  - the registration date and who registered it are automatic
+- **Relationships:**
+  - one customer can have several: Client, Applicant, Supplier, Partner, Enquiry, Sales Blitz, Owner, Buyer, Seller, Employee, Attendee, LinkedIn
+  - each has a segment, an optional contract, the registration date and user, and comments
+  - the earlier relation list (MEET, MBS, BMB, …) is kept as an optional second field
+  - the CRM list filters by relationship and segment
+- **Applicant profile** (in the CRM): education, degree industry and name, year, country, years of experience, management experience, companies worked for, fields of experience, languages, driving license.
+- **Pick-lists** (Admin → Pick-lists, from the workbook's PAR sheet): Relationships, Relationships (earlier list), Segments, Industries, Titles, Contact modes, Education levels.
+- **Employee ID:**
+  - each user gets E + year of hiring + 4-digit serial (E20250001)
+  - set the hiring date under Admin → Team; the initials stay as the short code
+- **Excel:**
+  - **Admin → Import from Excel → Import the CRM workbook** reads sheet DB (row 2 headers, columns in their usual order)
+    - rows with the same email or mobile become one customer with several relationships
+    - re-importing adds nothing twice
+  - the import report lists:
+    - joined names to check (e.g. "A B D U L A Z I Z")
+    - users and contract IDs it couldn't match (kept in the comments)
+    - skipped rows
+  - **CRM → Export Excel** (managers) writes the same 56 columns in the same order, one row per relationship
 
 ## Next phases
 

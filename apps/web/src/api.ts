@@ -126,6 +126,8 @@ export interface Lookup { id: string; type: string; code: string; label: string;
 export interface User {
   id: string; name: string; email: string | null; code: string | null; role: Role; is_active: boolean; last_login_at: string | null;
   manager_id: string | null; data_scope: 'all' | 'team';
+  /** Employee ID: E + year of hiring + serial (automatic), and the hiring date. */
+  employee_no?: string | null; hired_on?: string | null;
   /** Whether the signed-in user can see this person's records (and assign to them). */
   in_my_team: boolean;
 }

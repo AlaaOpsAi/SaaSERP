@@ -273,7 +273,7 @@ export async function documentRoutes(app: FastifyInstance) {
         `SELECT b.*, bu.name AS business_unit_name, u.name AS owner_name,
                 c.name AS contact_name, c.phone AS contact_phone, c.email AS contact_email, c.customer_no,
                 c.first_name AS contact_first_name, c.family_name AS contact_family_name, c.nationality AS contact_nationality,
-                c.address AS contact_address, c.social_handle AS contact_social_handle,
+                c.address AS contact_address, c.social_handle AS contact_social_handle, c.civil_id AS contact_civil_id,
                 a.name AS account_name, v.name AS venue_name, s.name AS space_name, f.paid
          FROM bookings b JOIN business_units bu ON bu.id = b.business_unit_id JOIN booking_finance f ON f.booking_id = b.id
          LEFT JOIN users u ON u.id = b.owner_id LEFT JOIN contacts c ON c.id = b.contact_id LEFT JOIN accounts a ON a.id = b.account_id

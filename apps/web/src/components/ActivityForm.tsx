@@ -26,7 +26,7 @@ interface LinkResults {
 }
 
 /** Search box for a Contract ID or Customer ID (also by name or phone). */
-export function LinkPicker({ value, onChange, required }: { value: Link | null; onChange: (l: Link | null) => void; required?: boolean }) {
+export function LinkPicker({ value, onChange, required, contractsOnly }: { value: Link | null; onChange: (l: Link | null) => void; required?: boolean; contractsOnly?: boolean }) {
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => { const h = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(h); }, [q]);
@@ -48,17 +48,17 @@ export function LinkPicker({ value, onChange, required }: { value: Link | null; 
   return (
     <div className="link-picker">
       <input ref={input} type="search" value={q} onChange={(e) => setQ(e.target.value)} required={required}
-        placeholder={t('Contract ID, customer ID, name or phone')} aria-label={t('Contract or customer')} />
+        placeholder={contractsOnly ? t('Contract ID, name or phone') : t('Contract ID, customer ID, name or phone')} aria-label={contractsOnly ? t('Contract') : t('Contract or customer')} />
       {required && pending && <div className="small muted" style={{ marginTop: 4 }}>{t('Click a result below to link it.')}</div>}
       {debounced && data && (
         <div className="link-results" role="listbox">
-          {data.contracts.length + data.customers.length === 0 && <div className="small muted" style={{ padding: 8 }}>{t('Nothing found. Add the customer under CRM first.')}</div>}
+          {data.contracts.length + (contractsOnly ? 0 : data.customers.length) === 0 && <div className="small muted" style={{ padding: 8 }}>{t('Nothing found. Add the customer under CRM first.')}</div>}
           {data.contracts.map((c) => (
             <button type="button" key={c.id} role="option" onClick={() => onChange({ kind: 'booking', id: c.id, code: c.code, name: c.name })}>
               <span className="tag">{c.code}</span> {c.name}<span className="small muted"> · {[c.client, c.phone].filter(Boolean).join(' · ')}</span>
             </button>
           ))}
-          {data.customers.map((c) => (
+          {!contractsOnly && data.customers.map((c) => (
             <button type="button" key={c.id} role="option" onClick={() => onChange({ kind: c.kind, id: c.id, code: c.code, name: c.name })}>
               <span className="tag">{c.code}</span> {c.name}{c.phone && <span className="small muted"> · {c.phone}</span>}
             </button>

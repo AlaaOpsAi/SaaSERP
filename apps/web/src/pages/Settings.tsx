@@ -4,7 +4,7 @@ import { api, download, type ContractField, type Role, type User } from '../api'
 import { useAuth } from '../auth';
 import { TemplatesAdmin } from '../components/TemplatesAdmin';
 import { ErrorNote, Field, Modal, Tabs, useForm } from '../components/ui';
-import { dateTime } from '../format';
+import { date, dateTime } from '../format';
 import { useBusinessUnits, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { LANGUAGES, t } from '../i18n';
 
@@ -30,7 +30,7 @@ export function Settings() {
       {tab === 'fields' && <ContractFields />}
       {tab === 'deactivated' && <Deactivated />}
       {tab === 'it' && <ItStatus />}
-      {tab === 'import' && <Import />}
+      {tab === 'import' && <div className="stack"><Import /><CrmImport /></div>}
       {tab === 'export' && <Export />}
     </>
   );
@@ -160,11 +160,13 @@ function Team() {
       ) : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{t("Name")}</th><th>{t("Code")}</th><th>{t("Email")}</th><th>{t("Role")}</th><th>{t("Reports to")}</th><th>{t("Can see")}</th><th>{t("Status")}</th><th>{t("Last login")}</th><th /></tr></thead>
+            <thead><tr><th>{t("Name")}</th><th>{t("Employee ID")}</th><th>{t("Code")}</th><th>{t("Email")}</th><th>{t("Role")}</th><th>{t("Reports to")}</th><th>{t("Can see")}</th><th>{t("Status")}</th><th>{t("Last login")}</th><th /></tr></thead>
             <tbody>
               {users?.map((u) => (
                 <tr key={u.id}>
-                  <td>{u.name}</td><td><span className="tag">{u.code ?? '—'}</span></td><td>{u.email ?? '—'}</td>
+                  <td>{u.name}</td>
+                  <td className="small">{u.employee_no ?? '—'}{u.hired_on && <div className="muted">{t('since')} {date(u.hired_on)}</div>}</td>
+                  <td><span className="tag">{u.code ?? '—'}</span></td><td>{u.email ?? '—'}</td>
                   <td>{ROLE_LABEL[u.role]}</td>
                   <td>{nameOf(u.manager_id)}</td>
                   <td>{u.role === 'owner' || u.role === 'admin' || u.data_scope === 'all' ? t("Whole company") : t("Their team")}</td>
@@ -239,7 +241,7 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
   const { form, set, bind } = useForm({
     name: user.name ?? '', email: user.email ?? null, code: user.code ?? null, role: user.role ?? 'sales',
     is_active: user.is_active ?? true, password: null as string | null,
-    manager_id: user.manager_id ?? null, data_scope: user.data_scope ?? 'team',
+    manager_id: user.manager_id ?? null, data_scope: user.data_scope ?? 'team', hired_on: user.hired_on?.slice(0, 10) ?? null,
   });
   // Who this user may report to: anyone except themselves and the people below them.
   const below = new Set<string>();
@@ -290,6 +292,9 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
         <div className="form-grid">
           <Field label={t("Name")}><input required {...bind('name')} /></Field>
           <Field label={t("Initials code (AM)")}><input maxLength={6} {...bind('code')} placeholder={t("e.g. JOU")} /></Field>
+          <Field label={user.employee_no ? `${t("Hiring date")} · ${user.employee_no}` : t("Hiring date (sets the employee ID year)")}>
+            <input type="date" value={form.hired_on ?? ''} onChange={(e) => set('hired_on')(e.target.value || null)} />
+          </Field>
           <Field label={t("Email (for login)")}><input type="email" {...bind('email')} /></Field>
           <Field label={t("Role")}>
             <select value={form.role} onChange={(e) => set('role')(e.target.value as Role)}>
@@ -440,6 +445,9 @@ function Units() {
 const LIST_TYPES: [string, string][] = [
   ['branch', 'Branches'], ['event_type', 'Event types'], ['design', 'Designs'], ['source', 'Lead sources'], ['lost_reason', 'Lost reasons'], ['item_category', 'Line categories'],
   ['setup_style', 'Setup styles'], ['payment_method', 'Payment methods'], ['bank_account', 'Bank accounts'], ['business_type', 'Business types'],
+  // CRM (customer workbook, sheet PAR)
+  ['relation', 'Relationships'], ['relation_old', 'Relationships (earlier list)'], ['segment', 'Segments'], ['industry', 'Industries'],
+  ['title', 'Titles'], ['contact_mode', 'Contact modes'], ['education', 'Education levels'],
 ];
 
 /** Languages other than English get a translation column in the pick-lists. */
@@ -573,6 +581,53 @@ function Import() {
               {r.errors.length}{' '}{t("rows failed:")}<ul>{r.errors.slice(0, 20).map((e) => <li key={e.row}>{t("Row")}{' '}{e.row} {e.booking_no}: {e.message}</li>)}</ul>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface CrmReport {
+  rows: number; people_created: number; companies_created: number; merged: number; relationships: number; applicants: number;
+  cleaned_names: string[]; unknown_users: string[]; unknown_contracts: string[]; skipped: string[];
+}
+
+/** The CRM workbook (DB_CRM_Segm, sheet DB): customers, relationships and applicant profiles. */
+function CrmImport() {
+  const qc = useQueryClient();
+  const [file, setFile] = useState<File | null>(null);
+  const run = useSave(async () => {
+    const form = new FormData();
+    form.append('file', file!);
+    const result = await api<CrmReport>('/import/crm', { form });
+    await qc.invalidateQueries();
+    return result;
+  });
+  const r = run.data;
+  const list = (title: string, items: string[]) => items.length > 0 && (
+    <div><strong>{title}</strong> ({items.length})<ul style={{ margin: '4px 0 0' }}>{items.slice(0, 30).map((x) => <li key={x}>{x}</li>)}</ul></div>
+  );
+  return (
+    <div className="card stack" style={{ maxWidth: 760 }}>
+      <div>
+        <h3>{t('Import the CRM workbook')}</h3>
+        <p className="secondary" style={{ margin: '4px 0 0' }}>
+          {t('Upload the CRM workbook (sheet DB, headers in row 2, columns in their usual order). Rows with the same email or mobile become one customer with several relationships; customers already in the CRM get the new relationships. Re-importing adds nothing twice.')}
+        </p>
+      </div>
+      <input type="file" accept=".xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <div><button className="primary" disabled={!file || run.isPending} onClick={() => run.mutate(undefined)}>{run.isPending ? t('Importing…') : t('Import')}</button></div>
+      <ErrorNote error={run.error} />
+      {r && (
+        <div className="stack">
+          <div className="alert info">
+            {t('{rows} rows: {people} new people, {companies} new companies, {merged} added to existing customers, {rel} relationships, {app} applicant profiles.',
+              { rows: r.rows, people: r.people_created, companies: r.companies_created, merged: r.merged, rel: r.relationships, app: r.applicants })}
+          </div>
+          {list(t('Names joined (check them)'), r.cleaned_names)}
+          {list(t('Users not found (kept in the comments)'), r.unknown_users)}
+          {list(t('Contract IDs not found (kept in the comments)'), r.unknown_contracts)}
+          {list(t('Rows skipped'), r.skipped)}
         </div>
       )}
     </div>
