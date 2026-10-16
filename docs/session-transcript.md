@@ -1573,6 +1573,74 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 
 ---
 
+## 35. Recommendations for the CRM database (DB_CRM_Segm_1.2.xlsx)
+
+**User:** "can you share recommendations for DB_CRM_Segm_1.2.xlsx"
+
+**What the workbook is:** the customer's master CRM layout.
+- **DB:** 47 records, 56 columns. 29 applicants for the manpower contract X2025036, 9 suppliers, 4 clients and 4 partners.
+- **PAR:** the pick-lists. 12 relation types, 35 segments, 32 industries, titles, contact consent, contact mode, users, education.
+- **RULES:** the rules, partly in Hungarian.
+- **CONTACT / COMPANY:** two empty draft layouts.
+
+**Rules in the workbook:**
+- One customer can have several business relationships. The email is unique per customer, and a duplicate gives a warning ("This email is already registered").
+- The customer ID (CID) is automatic; the same email always gives the same CID; a CID needs at least one email.
+- Companies and people both have IDs, and people are linked to their company.
+- The serial must be 10 digits, not 7.
+- The contract ID links a customer to the Contract module, only for customers who had an enquiry.
+- The Excel extract keeps the same column order.
+- Employee / user ID: E + hiring year + 4 digits (E20250001).
+
+**Recommendations:**
+1. **Customer ID:**
+   - the automatic number becomes C + 10 digits (C0000000001), one series for people and companies
+   - the existing C-00001 numbers are converted once (each customer keeps its place in the series)
+2. **One customer, many relationships:** a Relationships list on every customer. Each relationship has:
+   - a type (Client, Applicant, Supplier, Partner, Enquiry, Sales Blitz, Owner, Buyer, Seller, Employee, Attendee, LinkedIn)
+   - a segment and industry
+   - the date and who registered it (both automatic)
+   - the linked contract ID, if any
+   - comments
+
+   The old Hungarian relation list (REL OLD) is not carried over.
+3. **Duplicate check:**
+   - the email is unique per company; typing an existing one warns and offers to open that customer
+   - the same check for mobile numbers
+   - the email-required rule: see question 2
+4. **New customer fields:**
+   - title, gender, position / profession
+   - second mobile, landline, phones stored with the country code (+965 …)
+   - city, ZIP, web page
+   - company registration / licence number, tax ID, legal representative, parent company
+   - date of birth or establishment, with age calculated
+   - civil ID, which also fills رقم بطاقه مدنيه in the contract
+   - newsletter consent (with the date given), preferred contact mode (Tel / WhatsApp / Email / Message / Any)
+   - segment and industry as pick-lists under Admin → Pick-lists, filled from PAR
+
+   The grey helper columns (EMAIL CTRL, CID ASSIST, CID COPY, REPETED CID, ALERT, AGE) are done by the system and not stored.
+5. **Applicant data** (education, degree, experience, languages, driving licence, past employers):
+   - personal recruitment data, so it goes in an Applicant profile on the customer
+   - visible only to an HR role and managers, never to all sales
+   - the HR module (Phase 5) builds on it later
+6. **Employee ID:** an automatic E + hiring year + 4-digit number for each user, plus a hiring date under Admin → Team. The initials stay as the short code.
+7. **Excel:**
+   - CRM import reads this DB layout by its headers (like the contracts import): it skips the "end" rows, merges duplicates by email and lists names that need cleaning (e.g. "A B D U L A Z I Z")
+   - CRM export writes the same 56 columns in the same order
+8. **Privacy:**
+   - marketing (newsletter, campaigns) uses only customers with consent YES
+   - the workbook is never stored in the code; it is imported through the app
+
+**Questions for the user / customer:**
+1. Is C + 10 digits right (C0000000001), and should today's C-00001 numbers be converted?
+2. Must every customer have an email? Many event clients only give a WhatsApp number. Recommendation: email or mobile required, both checked for duplicates.
+3. Should applicant data go in the CRM now (restricted to HR), or wait for the HR module?
+4. Can the old Hungarian relation list (REL OLD) be dropped?
+
+Development starts after approval.
+
+---
+
 ## Commits on the branch
 
 | Commit | Summary |
@@ -1598,4 +1666,4 @@ Noted as comment #4; no code changes until "i finished my comments please provid
 | `fabe37a` | Merge commit '59a04fa' into claude/affectionate-sagan-hru2m7 |
 | `273b588` | Phase 1b: top bar on every page, activity planning and reports, deactivate instead of delete |
 | `0de4eed` | Activities: block saving until a contract or customer is picked from the list |
-| (this commit) | Contract documents: signed copies, contracts / proposals / annexes from Word templates, EN & AR |
+| `c67afbc` | Contract documents: signed copies, contracts / proposals / annexes from Word templates, EN & AR |
