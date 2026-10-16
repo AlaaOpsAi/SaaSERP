@@ -61,6 +61,15 @@ Request: "more animated and better interface", plus recommendations.
 7. Mobile: 16px body text and 44px touch targets; bottom tab bar on phones.
 8. Optimistic updates (status changes show instantly, roll back on error).
 
+## Push and deployment (2026-10-17)
+
+- Pushed `d6a5557` to `claude/affectionate-sagan-hru2m7` on GitHub.
+- VPS (Hostinger KVM 2, `app.opsaibridge.eu`): Docker projects `saaserp` (/root/SaaSERP) and `goalpace` (/opt/goalpace).
+- The Hostinger API can't run commands on the VPS, and its Docker "update" only pulls prebuilt images (this app is built from source), so it can't deploy this app.
+- Decision: no SSH key added; the user runs the update in hPanel → VPS → Browser terminal:
+  `cd /root/SaaSERP && ./scripts/backup.sh && git pull --ff-only && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
+- [ ] Live site checked after the update.
+
 ## Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.
