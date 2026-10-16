@@ -87,6 +87,9 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 h1 { font-size: 22px; }
 h2 { font-size: 16px; }
 h3 { font-size: 14px; }
+/* Inline icons (lucide) sized to the text around them; `flip` mirrors arrows in Arabic. */
+.ico { width: 1.05em; height: 1.05em; vertical-align: -0.15em; flex: none; display: inline-block; }
+[dir='rtl'] .ico.flip { transform: scaleX(-1); }
 .num { font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
 .muted { color: var(--muted); }
 .secondary { color: var(--text-2); }
@@ -294,6 +297,7 @@ svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; borde
 .attn:hover { text-decoration: none; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); background: var(--surface); }
 .attn-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); font-size: 18px; flex: none; }
 .attn.warn .attn-icon { background: var(--danger-soft); color: var(--danger); }
+.attn-icon svg { width: 18px; height: 18px; }
 .attn-value { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
 .attn-label { font-weight: 600; font-size: 13px; }
 .kpi-tiles { margin-bottom: 0; }
@@ -302,6 +306,8 @@ svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; borde
 .tile-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
 .sparkline { flex: 0 1 96px; min-width: 48px; width: 96px; height: 32px; }
 .delta { font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.delta-icon { display: inline-block; width: 13px; height: 13px; vertical-align: -2px; }
+[dir='rtl'] .delta-icon.flip { transform: scaleX(-1); }
 .delta.up { color: var(--good-text); }
 .delta.down { color: var(--danger); }
 .segmented { display: inline-flex; max-width: 100%; overflow-x: auto; background: var(--surface-2); border-radius: 8px; padding: 2px; }
@@ -440,6 +446,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 26px 12px;
   justify-items: center; padding: 8px 0 12px;
 }
+.app-slot { display: flex; justify-content: center; width: 100%; }
 .app-tile { position: relative; display: flex; flex-direction: column; align-items: center; width: 104px; }
 .app-icon-btn {
   all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -449,10 +456,10 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 .app-icon {
   position: relative; width: 72px; height: 72px; border-radius: 22.5%; display: grid; place-items: center;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08), 0 6px 14px rgba(0, 0, 0, 0.14), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.15s ease, box-shadow 0.2s ease;
 }
 .app-icon svg { width: 46px; height: 46px; }
-.app-icon-btn:hover .app-icon { transform: translateY(-2px) scale(1.03); }
+.app-icon-btn:hover .app-icon { transform: translateY(-3px) scale(1.06); box-shadow: 0 2px 2px rgba(0, 0, 0, 0.08), 0 12px 24px rgba(0, 0, 0, 0.18), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25); }
 .app-icon-btn:active .app-icon { transform: scale(0.94); filter: brightness(0.92); }
 .app-label { font-size: 0.86rem; font-weight: 500; color: var(--text); text-align: center; line-height: 1.2; max-width: 100px; }
 /* Calendar shows today's date like the iPhone one. */
@@ -474,7 +481,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 }
 /* Arranging: icons wiggle like on the iPhone home screen. */
 .home-grid.arranging .app-icon { animation: app-wiggle 0.28s ease-in-out infinite alternate; cursor: grab; }
-.home-grid.arranging .app-tile:nth-child(2n) .app-icon { animation-delay: -0.14s; }
+.home-grid.arranging .app-slot:nth-child(2n) .app-icon { animation-delay: -0.14s; }
 .app-tile.dragging { opacity: 0.4; }
 .app-move { display: flex; gap: 2px; margin-top: 2px; }
 .app-move button { min-width: 30px; padding: 0 6px; }

@@ -1,8 +1,11 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type DragEvent } from 'react';
+import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { api, type Activity } from '../api';
 import { useAuth } from '../auth';
+import { EASE_OUT, enter, stagger } from '../components/motion';
 import { ErrorNote } from '../components/ui';
 import { greeting, longToday } from '../format';
 import { intlLocale, t } from '../i18n';
@@ -58,39 +61,44 @@ export function Home() {
 
   return (
     <div className="home">
-      <div className="home-welcome">
+      <div className={`home-welcome ${enter}`}>
         <h1>{greeting()}, {me?.name.split(' ')[0]}</h1>
         <p>{longToday()} · {me?.tenant.name}</p>
       </div>
 
       <ErrorNote error={error} />
       <div className={`home-grid ${editing ? 'arranging' : ''}`} role="list">
-        {modules.map((m) => (
-          <div key={m.key} role="listitem" className={`app-tile ${m.to ? '' : 'planned'} ${dragging === m.key ? 'dragging' : ''}`}
-            draggable={Boolean(editing)}
-            onDragStart={(e: DragEvent) => { setDragging(m.key); e.dataTransfer.effectAllowed = 'move'; }}
-            onDragOver={(e: DragEvent) => { if (editing && dragging && dragging !== m.key) { e.preventDefault(); move(dragging, indexOf(m.key)); } }}
-            onDragEnd={() => setDragging(null)}>
-            <button type="button" className="app-icon-btn" onClick={() => open(m)}
-              aria-label={m.to ? t(m.label) : `${t(m.label)} · ${t('Coming soon')}`}>
-              <AppIcon module={m} badge={m.key === 'activities' ? due.data?.length : undefined} />
-              <span className="app-label">{t(m.label)}</span>
-            </button>
-            {!m.to && !editing && <span className="app-soon">{t('Soon')}</span>}
-            {editing && (
-              <div className="app-move">
-                <button type="button" className="sm ghost" aria-label={t('Move {name} earlier', { name: t(m.label) })}
-                  disabled={indexOf(m.key) === 0} onClick={() => move(m.key, indexOf(m.key) - 1)}>‹</button>
-                <button type="button" className="sm ghost" aria-label={t('Move {name} later', { name: t(m.label) })}
-                  onClick={() => move(m.key, indexOf(m.key) + 1)}>›</button>
-              </div>
-            )}
-          </div>
+        {modules.map((m, i) => (
+          // Outer layer: glides to the new place when the icons are rearranged.
+          <motion.div key={m.key} role="listitem" layout transition={{ layout: { duration: 0.3, ease: EASE_OUT } }}
+            className="app-slot">
+            <div className={`app-tile ${m.to ? '' : 'planned'} ${dragging === m.key ? 'dragging' : ''} animate-in fade-in zoom-in-75 duration-500 ease-out fill-mode-both`}
+              style={stagger(i, 40)}
+              draggable={Boolean(editing)}
+              onDragStart={(e: DragEvent) => { setDragging(m.key); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(e: DragEvent) => { if (editing && dragging && dragging !== m.key) { e.preventDefault(); move(dragging, indexOf(m.key)); } }}
+              onDragEnd={() => setDragging(null)}>
+              <button type="button" className="app-icon-btn" onClick={() => open(m)}
+                aria-label={m.to ? t(m.label) : `${t(m.label)} · ${t('Coming soon')}`}>
+                <AppIcon module={m} badge={m.key === 'activities' ? due.data?.length : undefined} />
+                <span className="app-label">{t(m.label)}</span>
+              </button>
+              {!m.to && !editing && <span className="app-soon">{t('Soon')}</span>}
+              {editing && (
+                <div className="app-move">
+                  <button type="button" className="sm ghost" aria-label={t('Move {name} earlier', { name: t(m.label) })}
+                    disabled={indexOf(m.key) === 0} onClick={() => move(m.key, indexOf(m.key) - 1)}><ChevronLeft className="ico flip" aria-hidden /></button>
+                  <button type="button" className="sm ghost" aria-label={t('Move {name} later', { name: t(m.label) })}
+                    onClick={() => move(m.key, indexOf(m.key) + 1)}><ChevronRight className="ico flip" aria-hidden /></button>
+                </div>
+              )}
+            </div>
+          </motion.div>
         ))}
       </div>
 
       {soon && (
-        <p className="home-note" role="status">
+        <p className="home-note animate-in fade-in slide-in-from-top-1 duration-300" role="status">
           {t('{name} is planned in a later phase. It will open here once it is built.', { name: t(modules.find((m) => m.key === soon)?.label ?? '') })}
         </p>
       )}
@@ -124,7 +132,7 @@ export function AppIcon({ module: m, badge }: { module: Module; badge?: number }
           <span className="cal-date">{today.getDate()}</span>
         </span>
       ) : m.glyph}
-      {!!badge && <span className="app-badge" aria-label={t('{n} due', { n: badge })}>{badge > 99 ? '99+' : badge}</span>}
+      {!!badge && <span className="app-badge animate-in zoom-in-50 duration-300 ease-out fill-mode-both [animation-delay:600ms]" aria-label={t('{n} due', { n: badge })}>{badge > 99 ? '99+' : badge}</span>}
     </span>
   );
 }

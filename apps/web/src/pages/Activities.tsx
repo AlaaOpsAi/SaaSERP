@@ -1,3 +1,4 @@
+import { AlertTriangle, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -5,7 +6,7 @@ import { api, type Activity } from '../api';
 import { useAuth } from '../auth';
 import { ActivityDialog } from '../components/ActivityForm';
 import { activityType, CompleteButton } from '../components/CompleteActivity';
-import { StatusBadge, Tabs } from '../components/ui';
+import { SkeletonRows, StatusBadge, Tabs } from '../components/ui';
 import { dateTime } from '../format';
 import { t } from '../i18n';
 import { DailyReport } from './DailyReport';
@@ -75,18 +76,18 @@ function FollowUps({ onEdit }: { onEdit: (a: Activity) => void }) {
           <table>
             <thead><tr><th>{t("Due")}</th><th>{t("Activity")}</th><th>{t("Contract / customer")}</th><th>{t("Client")}</th><th>{t("Owner")}</th><th /></tr></thead>
             <tbody>
-              {isLoading && <tr><td colSpan={6} className="empty">{t("Loading…")}</td></tr>}
-              {data?.length === 0 && <tr><td colSpan={6} className="empty">{t("Nothing here. 🎉")}</td></tr>}
+              {isLoading && <SkeletonRows cols={6} />}
+              {data?.length === 0 && <tr><td colSpan={6} className="empty">{t("Nothing here.")}</td></tr>}
               {data?.map((a) => {
                 const overdue = !a.completed_at && new Date(a.due_at).getTime() < now;
                 const linked = a.booking_id || a.contact_id || a.account_id;
                 return (
                   <tr key={a.id} className={writer ? 'clickable' : ''} onClick={() => writer && onEdit(a)}>
-                    <td style={{ color: overdue ? 'var(--danger)' : undefined }}>{overdue && '⚠ '}{dateTime(a.due_at)}</td>
+                    <td style={{ color: overdue ? 'var(--danger)' : undefined }}>{overdue && <AlertTriangle className="ico" aria-hidden />} {dateTime(a.due_at)}</td>
                     <td><span className="tag">{activityType(a.type)}</span> {a.subject}
                       {a.not_mine && scope === 'mine' && <span className="tag cover-tag">{t("covering ·")}{' '}{a.owner_name}</span>}
                       {(a.location || a.notes) && <div className="small secondary">{[a.location, a.notes].filter(Boolean).join(' · ')}</div>}
-                      {a.outcome && <div className="small secondary">✓ {a.outcome}</div>}
+                      {a.outcome && <div className="small secondary"><Check className="ico" aria-hidden /> {a.outcome}</div>}
                       {a.completed_by_name && a.completed_on_behalf_of_name && <div className="small muted">{t("done by")}{' '}{a.completed_by_name}{' '}{t("for")}{' '}{a.completed_on_behalf_of_name}</div>}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {a.booking_id ? <><Link to={`/bookings/${a.booking_id}`}>{a.booking_no}</Link> {a.booking_status && <StatusBadge status={a.booking_status} />}<div className="small secondary">{a.booking_name}</div></>

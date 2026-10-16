@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, type Activity } from '../api';
@@ -93,7 +94,7 @@ export function WeekPlan() {
                 <div className="meeting-top"><strong>{time(a.due_at)}</strong><span className="tag">{activityType(a.type)}</span></div>
                 <div className="meeting-subject">{a.subject}</div>
                 {(a.booking_no || a.customer_no) && <div className="small secondary">{a.booking_no ?? a.customer_no} · {a.booking_name ?? a.account_name ?? a.contact_name}</div>}
-                {a.completed_at && <div className="small meeting-outcome">✓ {a.outcome ?? t('Done')}</div>}
+                {a.completed_at && <div className="small meeting-outcome"><Check className="ico" aria-hidden /> {a.outcome ?? t('Done')}</div>}
               </button>
             ))}
             {can('activity') && <button className="sm ghost no-print add-day" onClick={() => setAdding(d)}>+ {t('Add')}</button>}

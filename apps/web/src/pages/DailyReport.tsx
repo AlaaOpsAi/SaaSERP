@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api, download } from '../api';
 import { useAuth } from '../auth';
 import { activityType } from '../components/CompleteActivity';
-import { ErrorNote } from '../components/ui';
+import { ErrorNote, SkeletonRows } from '../components/ui';
 import { dateTime, time, today } from '../format';
 import { useUsers } from '../hooks';
 import { intlLocale, t } from '../i18n';
@@ -118,7 +118,7 @@ export function DailyReport() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={11} className="empty">{t('Loading…')}</td></tr>}
+              {isLoading && <SkeletonRows cols={11} />}
               {!isLoading && people.length === 0 && <tr><td colSpan={11} className="empty">{t('No salespeople in your view.')}</td></tr>}
               {people.map((p) => (
                 <tr key={p.user_id} className="clickable" onClick={() => setOpen(open === p.user_id ? null : p.user_id)} aria-expanded={open === p.user_id || single}>

@@ -116,7 +116,7 @@ export function PlatformConsole() {
           <table>
             <thead><tr><th>Workspace</th><th>Owner</th><th>About</th><th>Requested</th><th>Status</th><th>Plan</th><th className="num">Usage</th><th /></tr></thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={8} className="empty">{filter === 'pending' ? 'No workspaces waiting. 🎉' : 'Nothing here.'}</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={8} className="empty">{filter === 'pending' ? 'No workspaces waiting.' : 'Nothing here.'}</td></tr>}
               {rows.map((t) => (
                 <tr key={t.id}>
                   <td><strong>{t.name}</strong><div className="small muted">{t.slug} · {t.currency}</div></td>

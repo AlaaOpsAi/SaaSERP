@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { Lookup, Status } from '../api';
 import { statusLabel } from '../format';
 import { lookupLabel, t } from '../i18n';
@@ -55,11 +57,11 @@ export function Modal({ title, onClose, children, footer, dirty, wide }: {
     return () => window.removeEventListener('keydown', onKey);
   });
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+    <div className="modal-back animate-in fade-in duration-200" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className={`modal${wide ? ' wide' : ''} animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out`} role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
-          <button className="ghost" onClick={close} aria-label={t("Close")}>✕</button>
+          <button className="ghost" onClick={close} aria-label={t("Close")}><X className="size-4" aria-hidden /></button>
         </header>
         <div className="body">{children}</div>
         {footer && <footer>{footer}</footer>}
@@ -141,3 +143,28 @@ export const Icon = {
   cover: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="8" r="3.5"/><path d="M2 20c0-3.3 2.7-6 6-6 1.6 0 3 .6 4 1.6"/><path d="M15 12h7M19 9l3 3-3 3"/></svg>,
   settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>,
 };
+
+/** Table rows that pulse while a list loads, in place of "Loading…". */
+export function SkeletonRows({ cols, rows = 6 }: { cols: number; rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }, (_, r) => (
+        <tr key={r} aria-hidden="true">
+          {Array.from({ length: cols }, (_, c) => (
+            <td key={c}><Skeleton className="h-3.5" style={{ width: `${45 + ((r * 7 + c * 13) % 45)}%` }} /></td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/** A card-shaped placeholder for a page that is loading. */
+export function SkeletonPage() {
+  return (
+    <div className="stack" aria-busy="true" aria-label={t('Loading…')}>
+      <Skeleton className="h-7 w-64" />
+      <div className="card grid gap-3"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-40 w-full" /></div>
+    </div>
+  );
+}

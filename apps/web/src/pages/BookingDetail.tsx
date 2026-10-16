@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -8,7 +9,7 @@ import { ActivityDialog } from '../components/ActivityForm';
 import { ContractDocuments, UploadDialog } from '../components/ContractDocuments';
 import { activityType, CompleteButton } from '../components/CompleteActivity';
 import { DeactivateButton, FormActions } from '../components/FormActions';
-import { confirmDiscard, Empty, ErrorNote, Field, LookupSelect, Modal, StatusBadge, Tabs, useForm } from '../components/ui';
+import { confirmDiscard, Empty, ErrorNote, Field, LookupSelect, Modal, SkeletonPage, StatusBadge, Tabs, useForm } from '../components/ui';
 import { date, dateTime, fromLocalInput, money, num, pct, statusLabel, time, today, toLocalInput, TRANSITIONS } from '../format';
 import { useLabel, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { t } from '../i18n';
@@ -23,7 +24,7 @@ export function BookingDetailPage() {
   const [editing, setEditing] = useState(false);
   const hidden = useHidden();
 
-  if (isLoading) return <div className="empty">{t("Loading…")}</div>;
+  if (isLoading) return <SkeletonPage />;
   if (error || !b) return <ErrorNote error={error ?? new Error(t('Booking not found'))} />;
 
   return (
@@ -125,7 +126,7 @@ function Pipeline({ status }: { status: Status }) {
     <div className="pipeline" style={{ marginBottom: 16 }}>
       {steps.map((s, i) => (
         <span key={s} className={`pill-step ${s === status ? 'current' : idx > i ? 'done' : ''}`}>
-          {idx > i ? '✓ ' : ''}{statusLabel(s)}
+          {idx > i && <Check className="ico" aria-hidden />}{statusLabel(s)}
         </span>
       ))}
       {(status === 'LOS' || status === 'CXL') && <span className="pill-step current" style={{ background: 'var(--status-critical)', borderColor: 'var(--status-critical)' }}>{statusLabel(status)}</span>}
@@ -530,7 +531,7 @@ function Lines({ b }: { b: BookingDetail }) {
                 <td className="num">{money(i.unit_cost)}</td>
                 <td className="num">{money(i.quantity * i.unit_price)}</td>
                 <td className="num">{money(i.quantity * (i.unit_price - i.unit_cost))}</td>
-                <td className="num">{can('sell') && <button className="sm ghost danger" onClick={() => del.mutate(i.id)}>✕</button>}</td>
+                <td className="num">{can('sell') && <button className="sm ghost danger" onClick={() => del.mutate(i.id)} aria-label={t('Delete')}><X className="ico" aria-hidden /></button>}</td>
               </tr>
             ))}
           </tbody>
@@ -572,7 +573,7 @@ function BookingActivities({ b }: { b: BookingDetail }) {
                   <td><span className="tag">{activityType(a.type)}</span> {a.subject}
                     {(a.location || a.notes) && <div className="small secondary">{[a.location, a.notes].filter(Boolean).join(' · ')}</div>}</td>
                   <td>{a.owner_name ?? '—'}</td>
-                  <td>{a.completed_at ? <>✓ {a.outcome ?? t("Done")}</> : <span className="muted">{t("Open")}</span>}</td>
+                  <td>{a.completed_at ? <><Check className="ico" aria-hidden /> {a.outcome ?? t("Done")}</> : <span className="muted">{t("Open")}</span>}</td>
                   <td className="num">{!a.completed_at && can('sell') && <CompleteButton activity={a} invalidate={[['booking', b.id]]} />}</td>
                 </tr>
               ))}
@@ -623,7 +624,7 @@ function Money({ b }: { b: BookingDetail }) {
               <tr key={p.id}>
                 <td>{date(p.paid_on)}</td><td>{p.method}{p.bank_account ? ` · ${p.bank_account}` : ''}{p.kind === 'deposit' && <> <span className="tag">{t('Down payment')}</span></>}</td><td>{p.reference ?? '—'}</td>
                 <td className="num">{money(p.amount)}</td>
-                <td className="num">{can('finance') && <button className="sm ghost danger" onClick={() => confirm(t('Delete payment?')) && delPayment.mutate(p.id)}>✕</button>}</td>
+                <td className="num">{can('finance') && <button className="sm ghost danger" onClick={() => confirm(t('Delete payment?')) && delPayment.mutate(p.id)} aria-label={t('Delete')}><X className="ico" aria-hidden /></button>}</td>
               </tr>
             ))}
           </tbody>
@@ -654,10 +655,10 @@ function Money({ b }: { b: BookingDetail }) {
               <tr key={p.id}>
                 <td>{p.kind === 'commission' ? t("Commission") : t("Share")}</td><td>{p.payee_name}</td>
                 <td className="num">{pct(p.pct, 0)}</td><td className="num">{money(p.amount)}</td>
-                <td>{p.status === 'paid' ? `✓ ${t('Paid')} ${date(p.paid_on)}` : t("To pay")}</td>
+                <td>{p.status === 'paid' ? <><Check className="ico" aria-hidden /> {t('Paid')} {date(p.paid_on)}</> : t("To pay")}</td>
                 <td className="num">{can('finance') && <>
                   {p.status === 'pending' && <button className="sm" onClick={() => markPaid.mutate(p.id)}>{t("Mark paid")}</button>}
-                  <button className="sm ghost danger" onClick={() => delPayout.mutate(p.id)}>✕</button>
+                  <button className="sm ghost danger" onClick={() => delPayout.mutate(p.id)} aria-label={t('Delete')}><X className="ico" aria-hidden /></button>
                 </>}</td>
               </tr>
             ))}

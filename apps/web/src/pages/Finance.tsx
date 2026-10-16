@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -41,7 +42,7 @@ function ReceivablesView() {
         <Kpi label={t("1–30 days")} value={money(b.d30, { compact: true })} />
         <Kpi label={t("31–60 days")} value={money(b.d60, { compact: true })} />
         <Kpi label={t("61–90 days")} value={money(b.d90, { compact: true })} />
-        <Kpi label={t("Over 90 days")} value={money(b.over90, { compact: true })} sub={b.over90 > 0 ? t("⚠ Chase now") : undefined} />
+        <Kpi label={t("Over 90 days")} value={money(b.over90, { compact: true })} sub={b.over90 > 0 ? t("Chase now") : undefined} />
       </div>
       <div className="card flush">
         <div className="table-wrap">
@@ -95,8 +96,8 @@ function PayoutsView() {
                   <td>{p.payee_name}</td>
                   <td className="num">{pct(p.pct, 0)}</td>
                   <td className="num">{money(p.amount)}</td>
-                  <td>{p.fully_paid_date ? `✓ ${date(p.fully_paid_date)}` : <span className="muted">{t("Not yet")}</span>}</td>
-                  <td>{p.status === 'paid' ? `✓ ${t('Paid')} ${date(p.paid_on)}` : t("To pay")}</td>
+                  <td>{p.fully_paid_date ? <><Check className="ico" aria-hidden /> {date(p.fully_paid_date)}</> : <span className="muted">{t("Not yet")}</span>}</td>
+                  <td>{p.status === 'paid' ? <><Check className="ico" aria-hidden /> {t('Paid')} {date(p.paid_on)}</> : t("To pay")}</td>
                   <td className="num">{p.status === 'pending' && can('finance') && <button className="sm" onClick={() => pay.mutate(p.id)}>{t("Mark paid")}</button>}</td>
                 </tr>
               ))}

@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, openSigned, type AnnexLine, type BookingDetail, type BookingFile, type ContractLine, type DocKind, type DocTemplate, type FileKind } from '../api';
@@ -354,7 +355,7 @@ function LinesDialog<T extends object>({ title, url, bookingId, initial, blank, 
                   <td className="num nowrap">
                     <button type="button" className="sm ghost" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t('Move up')}>↑</button>
                     <button type="button" className="sm ghost" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={t('Move down')}>↓</button>
-                    <button type="button" className="sm ghost danger" onClick={() => setRows((rs) => rs.filter((_, n) => n !== i))} aria-label={t('Remove')}>✕</button>
+                    <button type="button" className="sm ghost danger" onClick={() => setRows((rs) => rs.filter((_, n) => n !== i))} aria-label={t('Remove')}><X className="ico" aria-hidden /></button>
                   </td>
                 </tr>
               ))}

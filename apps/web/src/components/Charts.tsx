@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { monthNames } from '../format';
 import { t } from '../i18n';
 
@@ -69,7 +70,7 @@ export function Delta({ current, previous, label, upIsGood = true, asPoints = fa
   const good = flat ? null : (diff > 0) === upIsGood;
   return (
     <span className={`delta ${good === null ? '' : good ? 'up' : 'down'}`}>
-      <span aria-hidden>{flat ? '→' : diff > 0 ? '▲' : '▼'}</span> {text} <span className="muted">{t("vs")}{' '}{label}</span>
+      {flat ? <ArrowRight className="delta-icon flip" aria-hidden /> : diff > 0 ? <ArrowUpRight className="delta-icon" aria-hidden /> : <ArrowDownRight className="delta-icon" aria-hidden />} {text} <span className="muted">{t("vs")}{' '}{label}</span>
     </span>
   );
 }

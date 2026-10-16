@@ -1,10 +1,11 @@
+import { AlertTriangle, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, download, type Booking, type Conflict } from '../api';
 import { useAuth, useHidden } from '../auth';
 import { BookingForm, bookingPayload, clientPayload, type BookingFormValues } from '../components/BookingForm';
-import { confirmDiscard, ErrorNote, Modal, StatusBadge } from '../components/ui';
+import { confirmDiscard, ErrorNote, Modal, SkeletonRows, StatusBadge } from '../components/ui';
 import { FormActions } from '../components/FormActions';
 import { date, money, monthNames, num, STATUS_LABEL, statusLabel } from '../format';
 import { useLabel, useLookups, useSave, useUsers } from '../hooks';
@@ -88,7 +89,7 @@ export function Bookings() {
         return chips.length > 0 && (
           <div className="row" style={{ marginBottom: 12 }}>
             {chips.map(([key, label]) => (
-              <button key={key} className="sm chip" onClick={() => setFilter(key, '')} aria-label={`Remove filter ${label}`}>{label} ✕</button>
+              <button key={key} className="sm chip" onClick={() => setFilter(key, '')} aria-label={`Remove filter ${label}`}>{label} <X className="ico" aria-hidden /></button>
             ))}
           </div>
         );
@@ -107,7 +108,7 @@ export function Bookings() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={11} className="empty">{t("Loading…")}</td></tr>}
+              {isLoading && <SkeletonRows cols={11} />}
               {data?.rows.length === 0 && <tr><td colSpan={11} className="empty">{t("No bookings match these filters.")}</td></tr>}
               {data?.rows.map((b) => (
                 <tr key={b.id} className="clickable" onClick={() => navigate(`/bookings/${b.id}`)}>
@@ -116,7 +117,7 @@ export function Bookings() {
                     {b.name}
                     <div className="small secondary">{[b.contact_name, b.contact_phone].filter(Boolean).join(' · ')}</div>
                   </td>
-                  <td><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}>⚠ {t('Not signed')}</span></div>}</td>
+                  <td><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}><AlertTriangle className="ico" aria-hidden /> {t('Not signed')}</span></div>}</td>
                   <td>{date(b.event_date)}<div className="small secondary">{eventLabel(b.event_type)}</div></td>
                   <td>{b.venue_name ?? '—'}<div className="small secondary">{b.space_name ?? b.hall_text ?? ''}</div></td>
                   <td className="num">{num(b.pax)}</td>

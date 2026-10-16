@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -275,7 +276,7 @@ function Relationships({ kind, owner, editable }: { kind: Kind; owner: Detail; e
                   <td>{date(r.registered_on)}<div className="small muted">{r.registered_by_name}</div></td>
                   <td className="secondary">{r.comments}</td>
                   <td className="num">{editable && <button type="button" className="sm ghost danger" aria-label={t('Remove')}
-                    onClick={() => confirm(t('Remove this relationship?')) && remove.mutate(r.id)}>✕</button>}</td>
+                    onClick={() => confirm(t('Remove this relationship?')) && remove.mutate(r.id)}><X className="ico" aria-hidden /></button>}</td>
                 </tr>
               ))}
             </tbody>

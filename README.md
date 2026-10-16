@@ -23,7 +23,7 @@ Oracle OPERA Cloud Sales & Event Management and on the team's existing *daily re
 | **Approvals** | New companies request a workspace; a platform operator approves (choosing plan and user limit), rejects with a reason, suspends or reactivates it in the operator console at `/platform`. Optional Slack/Teams webhook on each sign-up. |
 | **Mobile app** | iOS & Android app (Expo): home KPIs, bookings with search, one-tap call/WhatsApp, status changes, follow-ups, quick new enquiry, room diary and notifications. See [docs/MOBILE.md](docs/MOBILE.md). |
 | **Languages** | English and Arabic (full right-to-left layout, Arabic dates), on web and mobile; more can be added without code changes to the screens. Each user picks a language; admins set the company default and translate pick-lists. See [docs/I18N.md](docs/I18N.md). |
-| **Look & feel** | Per-user theme (light / dark / device), accent colour, density and text size, saved to the account; a company brand colour as everyone's default. |
+| **Look & feel** | Per-user theme (light / dark / device), accent colour, density and text size, saved to the account; a company brand colour as everyone's default. Built with Tailwind, shadcn/ui and 21st.dev components — see [docs/UI.md](docs/UI.md). |
 | **Data export** | Admins download the whole workspace — bookings with finance, events, payments, commissions, activities, history and audit log, clients, venues, pick-lists with translations, users, reporting lines, cover and a permissions matrix — as Excel (one sheet per table) or JSON. |
 | **SaaS** | Self-service workspace requests, roles (owner/admin/manager/sales/finance/viewer), plan user limits, per-tenant currency, time zone and profit percentages. |
 

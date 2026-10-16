@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { api, type Activity } from '../api';
@@ -41,7 +42,7 @@ export function LinkPicker({ value, onChange, required, contractsOnly }: { value
     return (
       <div className="link-chip">
         <span className="tag">{value.code}</span> <span className="grow">{value.name}</span>
-        <button type="button" className="sm ghost" onClick={() => onChange(null)} aria-label={t('Change')}>✕</button>
+        <button type="button" className="sm ghost" onClick={() => onChange(null)} aria-label={t('Change')}><X className="ico" aria-hidden /></button>
       </div>
     );
   }

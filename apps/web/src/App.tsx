@@ -1,22 +1,26 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import { date } from './format';
+import { PageTransition } from './components/motion';
 import { TopBar } from './components/TopBar';
-import { Activities } from './pages/Activities';
-import { Delegations } from './pages/Delegations';
-import { BookingDetailPage } from './pages/BookingDetail';
-import { Bookings } from './pages/Bookings';
-import { Clients } from './pages/Clients';
-import { Dashboard } from './pages/Dashboard';
-import { Diary } from './pages/Diary';
-import { Finance } from './pages/Finance';
+import { SkeletonPage } from './components/ui';
 import { Login, Signup } from './pages/Auth';
 import { PlatformConsole, PlatformLogin } from './pages/Platform';
 import { Home } from './pages/Home';
-import { Preferences } from './pages/Preferences';
-import { Settings } from './pages/Settings';
 import { lang, t } from './i18n';
+
+// Pages load when first opened, so the first screen (and the phone) downloads less.
+const Activities = lazy(() => import('./pages/Activities').then((m) => ({ default: m.Activities })));
+const Delegations = lazy(() => import('./pages/Delegations').then((m) => ({ default: m.Delegations })));
+const BookingDetailPage = lazy(() => import('./pages/BookingDetail').then((m) => ({ default: m.BookingDetailPage })));
+const Bookings = lazy(() => import('./pages/Bookings').then((m) => ({ default: m.Bookings })));
+const Clients = lazy(() => import('./pages/Clients').then((m) => ({ default: m.Clients })));
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const Diary = lazy(() => import('./pages/Diary').then((m) => ({ default: m.Diary })));
+const Finance = lazy(() => import('./pages/Finance').then((m) => ({ default: m.Finance })));
+const Preferences = lazy(() => import('./pages/Preferences').then((m) => ({ default: m.Preferences })));
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 
 export function App() {
   const { me, loading } = useAuth();
@@ -58,20 +62,24 @@ export function App() {
             <strong>{me.covered_by.map((c) => c.delegate_name).join(', ')}</strong> {me.covered_by.length > 1 ? t("are") : t("is")}{' '}{t("covering for you.")}{' '}<NavLink to="/delegations">{t("Manage")}</NavLink>
           </div>
         )}
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/bookings" element={<Bookings />} />
-          <Route path="/bookings/:id" element={<BookingDetailPage />} />
-          <Route path="/diary" element={<Diary />} />
-          <Route path="/activities" element={<Activities />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/delegations" element={<Delegations />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/preferences" element={<Preferences />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <PageTransition id={location.pathname}>
+          <Suspense fallback={<SkeletonPage />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/bookings" element={<Bookings />} />
+              <Route path="/bookings/:id" element={<BookingDetailPage />} />
+              <Route path="/diary" element={<Diary />} />
+              <Route path="/activities" element={<Activities />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/delegations" element={<Delegations />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/preferences" element={<Preferences />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </PageTransition>
       </main>
     </div>
   );

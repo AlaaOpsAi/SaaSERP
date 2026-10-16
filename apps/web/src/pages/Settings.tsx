@@ -1,3 +1,4 @@
+import { RotateCcw, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, download, type ContractField, type Role, type User } from '../api';
@@ -400,7 +401,7 @@ function Venues() {
                         <span key={sp.id} className="tag" style={{ opacity: sp.is_active ? 1 : 0.5 }}>
                           {sp.name}{sp.capacity ? ` · ${sp.capacity}` : ''}{sp.allow_overlap ? t(" · shared") : ''}
                           {can('manage') && <button className="sm ghost" style={{ padding: '0 4px' }} title={sp.is_active ? t("Deactivate") : t("Activate")}
-                            onClick={() => toggle.mutate({ id: sp.id, is_active: !sp.is_active, kind: 'function-spaces' })}>{sp.is_active ? '✕' : '↺'}</button>}
+                            onClick={() => toggle.mutate({ id: sp.id, is_active: !sp.is_active, kind: 'function-spaces' })}>{sp.is_active ? <X className="ico" aria-hidden /> : <RotateCcw className="ico" aria-hidden />}</button>}
                         </span>
                       ))}
                     </div>

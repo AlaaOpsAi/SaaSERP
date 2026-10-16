@@ -1,3 +1,4 @@
+import { Settings, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -99,7 +100,7 @@ function MenuPanel({ onClose }: { onClose: () => void }) {
             <div className="small muted">{t(ROLE_NAMES[me.role] ?? me.role)} · {scope}</div>
           </div>
           <Bell />
-          <button className="top-btn" onClick={onClose} aria-label={t('Close')}>✕</button>
+          <button className="top-btn" onClick={onClose} aria-label={t('Close')}><X className="ico" aria-hidden /></button>
         </div>
         <nav className="menu-list">
           {item('/', t('Home'), <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>, ['#4f8cff', '#1d4ed8'])}
@@ -114,7 +115,7 @@ function MenuPanel({ onClose }: { onClose: () => void }) {
           )}
         </nav>
         <div className="menu-foot">
-          <NavLink to="/preferences" className="menu-item" onClick={onClose}>⚙︎ {t('Preferences')}</NavLink>
+          <NavLink to="/preferences" className="menu-item" onClick={onClose}><Settings className="ico" aria-hidden /> {t('Preferences')}</NavLink>
           <button className="menu-item danger-text" onClick={signOut}>⎋ {t('Sign out')}</button>
           <div className="small muted" style={{ padding: '6px 10px' }}>{me.tenant.slug} · {me.tenant.plan}</div>
         </div>

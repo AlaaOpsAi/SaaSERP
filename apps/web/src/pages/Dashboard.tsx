@@ -3,8 +3,13 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, type Status } from '../api';
 import { useAuth } from '../auth';
-import { Delta, MonthTable, RankedBars, Sparkline, StackedColumns, TrendChart } from '../components/Charts';
+import { Delta, MonthTable, RankedBars, StackedColumns, TrendChart } from '../components/Charts';
 import { StatusBadge } from '../components/ui';
+import { KpiCard } from '@/components/ui/revenue-charts-kpi';
+import { NumberTicker } from '@/components/ui/number-ticker';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AlertTriangle, CheckCircle2, Target, Wallet } from 'lucide-react';
+import { enter, stagger } from '../components/motion';
 import { date, greeting, longToday, money, monthNames, num, pct, statusLabel } from '../format';
 import { useBusinessUnits, useLabel, useUsers } from '../hooks';
 import { t } from '../i18n';
@@ -64,6 +69,7 @@ export function Dashboard() {
   const upTo = year === thisYear ? new Date().getMonth() : 11;
   const series = (key: keyof Month) => months.map((m) => Number(m[key]));
   const compact = (v: number) => money(v, { compact: true });
+  const whole = (v: number) => num(Math.round(v));
 
   return (
     <>
@@ -98,13 +104,13 @@ export function Dashboard() {
         {isFetching && <span className="muted small">{t("Updating…")}</span>}
       </div>
 
-      {!data ? <div className="empty">{t("Loading…")}</div> : (
+      {!data ? <DashboardSkeleton /> : (
         <div className={`dash ${isFetching && isPlaceholderData ? 'refreshing' : ''}`}>
           {/* ---- hero + attention ---------------------------------------- */}
           <div className="dash-top">
-            <div className="card hero">
+            <div className={`card hero ${enter}`}>
               <div className="hero-label">{t("Definite revenue ·")}{' '}{year}</div>
-              <div className="hero-value">{money(k.revenue)}</div>
+              <div className="hero-value"><NumberTicker value={k.revenue} format={(v) => money(v)} /></div>
               <Delta current={k.revenue} previous={prev.revenue} label={prevLabel} />
               <div className="hero-meta">
                 <span><strong>{num(k.definite)}</strong>{' '}{t("definite")}</span>
@@ -119,26 +125,26 @@ export function Dashboard() {
               </div>
             </div>
             <div className="attention">
-              <Link to="/bookings?followup_due=true&status=INQ,TEN" className={`card attn ${data.followups.overdue ? 'warn' : ''}`}>
-                <span className="attn-icon" aria-hidden>{data.followups.overdue ? '⚠' : '✓'}</span>
+              <Link to="/bookings?followup_due=true&status=INQ,TEN" className={`card attn ${data.followups.overdue ? 'warn' : ''} ${enter}`} style={stagger(1, 70)}>
+                <span className="attn-icon" aria-hidden>{data.followups.overdue ? <AlertTriangle /> : <CheckCircle2 />}</span>
                 <div>
-                  <div className="attn-value">{num(data.followups.overdue)}</div>
+                  <div className="attn-value"><NumberTicker value={data.followups.overdue} format={whole} /></div>
                   <div className="attn-label">{t("follow-ups overdue")}</div>
                   <div className="small muted">{num(data.followups.today)}{' '}{t("due today ·")}{' '}{num(data.followups.unscheduled)}{' '}{t("open leads with no follow-up")}</div>
                 </div>
               </Link>
-              <Link to="/finance" className="card attn">
-                <span className="attn-icon" aria-hidden>¤</span>
+              <Link to="/finance" className={`card attn ${enter}`} style={stagger(2, 70)}>
+                <span className="attn-icon" aria-hidden><Wallet /></span>
                 <div>
-                  <div className="attn-value">{money(k.outstanding, { compact: true })}</div>
+                  <div className="attn-value"><NumberTicker value={k.outstanding} format={compact} /></div>
                   <div className="attn-label">{t("client outstanding")}</div>
                   <div className="small muted">{t("Open receivables and aging →")}</div>
                 </div>
               </Link>
-              <button type="button" className="card attn" onClick={() => drill({ status: 'INQ,TEN' })}>
-                <span className="attn-icon" aria-hidden>◎</span>
+              <button type="button" className={`card attn ${enter}`} style={stagger(3, 70)} onClick={() => drill({ status: 'INQ,TEN' })}>
+                <span className="attn-icon" aria-hidden><Target /></span>
                 <div>
-                  <div className="attn-value">{money(k.pipeline_value, { compact: true })}</div>
+                  <div className="attn-value"><NumberTicker value={k.pipeline_value} format={compact} /></div>
                   <div className="attn-label">{t("open pipeline")}</div>
                   <div className="small muted">{num(k.open)}{' '}{t("enquiries & tentative holds →")}</div>
                 </div>
@@ -148,17 +154,17 @@ export function Dashboard() {
 
           {/* ---- KPI tiles -------------------------------------------------- */}
           <div className="kpis kpi-tiles">
-            <Tile label={t("Bookings")} value={num(k.total)} spark={series('total')} upTo={upTo} onClick={() => drill({})}
+            <Tile i={0} label={t("Bookings")} value={<NumberTicker value={k.total} format={whole} />} spark={series('total')} upTo={upTo} onClick={() => drill({})}
               delta={<Delta current={k.total} previous={prev.total} label={prevLabel} />} />
-            <Tile label={t("Conversion")} value={pct(k.conversion_rate)} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF,ACT' })}
+            <Tile i={1} label={t("Conversion")} value={<NumberTicker value={k.conversion_rate} format={(v) => pct(v)} />} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF,ACT' })}
               delta={<Delta current={k.conversion_rate} previous={prev.conversion_rate} label={prevLabel} asPoints />} />
-            <Tile label={t("Win rate")} value={pct(k.win_rate)} sub={t("definite ÷ decided")} onClick={() => drill({ status: 'LOS' })}
+            <Tile i={2} label={t("Win rate")} value={<NumberTicker value={k.win_rate} format={(v) => pct(v)} />} sub={t("definite ÷ decided")} onClick={() => drill({ status: 'LOS' })}
               delta={<Delta current={k.win_rate} previous={prev.win_rate} label={prevLabel} asPoints />} />
-            <Tile label={t("Gross margin")} value={money(k.gross_margin, { compact: true })} sub={t('{pct} of revenue', { pct: pct(k.margin_pct) })} spark={series('gross_margin')} upTo={upTo}
+            <Tile i={3} label={t("Gross margin")} value={<NumberTicker value={k.gross_margin} format={compact} />} sub={t('{pct} of revenue', { pct: pct(k.margin_pct) })} spark={series('gross_margin')} upTo={upTo}
               delta={<Delta current={k.gross_margin} previous={prev.gross_margin} label={prevLabel} />} />
-            <Tile label={t("Net profit")} value={money(k.net_profit, { compact: true })} sub={t("after fixed & credit costs")} spark={series('net_profit')} upTo={upTo}
+            <Tile i={4} label={t("Net profit")} value={<NumberTicker value={k.net_profit} format={compact} />} sub={t("after fixed & credit costs")} spark={series('net_profit')} upTo={upTo}
               delta={<Delta current={k.net_profit} previous={prev.net_profit} label={prevLabel} />} />
-            <Tile label={t("Lost")} value={num(k.lost)} sub={t('{n} cancelled', { n: num(k.cancelled) })} onClick={() => drill({ status: 'LOS' })}
+            <Tile i={5} label={t("Lost")} value={<NumberTicker value={k.lost} format={whole} />} sub={t('{n} cancelled', { n: num(k.cancelled) })} onClick={() => drill({ status: 'LOS' })}
               delta={<Delta current={k.lost} previous={prev.lost} label={prevLabel} upIsGood={false} />} />
           </div>
 
@@ -202,7 +208,7 @@ export function Dashboard() {
 
           {/* ---- breakdowns ---------------------------------------------------- */}
           <div className="grid-3">
-            <div className="card">
+            <div className={`card ${enter}`} style={stagger(0)}>
               <div className="card-head"><h2>{t("Pipeline by stage")}</h2><span className="muted small">{t("bookings · value")}</span></div>
               <RankedBars onSelect={(s) => drill({ status: s })} format={num}
                 rows={data.by_status.filter((s) => s.total > 0).map((s) => ({
@@ -210,16 +216,16 @@ export function Dashboard() {
                   note: s.value ? `· ${money(s.value, { compact: true })}` : undefined,
                 }))} />
             </div>
-            <div className="card">
+            <div className={`card ${enter}`} style={stagger(1)}>
               <div className="card-head"><h2>{t("Lead sources")}</h2><span className="muted small">{t("bookings · % won")}</span></div>
               <RankedBars onSelect={(src) => drill(src === '∅' ? {} : { source: src })} format={num}
                 rows={data.by_source.map((s) => ({
                   key: s.key ?? '∅', label: s.key ? sourceLabel(s.key) : t('Unknown'), value: s.total, note: `· ${pct(s.total ? s.definite / s.total : null, 0)}`,
                 }))} />
             </div>
-            <div className="card">
+            <div className={`card ${enter}`} style={stagger(2)}>
               <div className="card-head"><h2>{t("Why we lose")}</h2><span className="muted small">{t("lost bookings")}</span></div>
-              <RankedBars onSelect={(code) => drill({ status: 'LOS', lost_reason: code })} format={num} empty={t("No lost bookings 🎉")}
+              <RankedBars onSelect={(code) => drill({ status: 'LOS', lost_reason: code })} format={num} empty={t("No lost bookings")}
                 rows={data.lost_reasons.map((r) => ({ key: r.code, label: lostLabel(r.code), value: r.total }))} />
             </div>
           </div>
@@ -302,23 +308,34 @@ function cumulative(values: number[]) {
   return values.map((v) => (sum += v));
 }
 
-function Tile({ label, value, sub, delta, spark, upTo, onClick }: {
-  label: string; value: string; sub?: string; delta: ReactNode; spark?: number[]; upTo?: number; onClick?: () => void;
+function Tile({ i, label, value, sub, delta, spark, upTo, onClick }: {
+  i: number; label: string; value: ReactNode; sub?: string; delta: ReactNode; spark?: number[]; upTo?: number; onClick?: () => void;
 }) {
-  const body = (
-    <>
-      <div className="kpi-label">{label}</div>
-      <div className="tile-row">
-        <div className="kpi-value">{value}</div>
-        {spark && <Sparkline values={spark} upTo={upTo} />}
-      </div>
-      <div className="kpi-sub">{delta}</div>
-      {sub && <div className="kpi-sub">{sub}</div>}
-    </>
+  return (
+    <KpiCard label={label} value={value} onClick={onClick} className={enter} style={stagger(i + 4, 55)}
+      trend={spark && (upTo === undefined ? spark : spark.slice(0, upTo + 1))}
+      footer={<>
+        <div className="kpi-sub">{delta}</div>
+        {sub && <div className="kpi-sub">{sub}</div>}
+      </>} />
   );
-  return onClick
-    ? <button type="button" className="kpi kpi-button" onClick={onClick}>{body}</button>
-    : <div className="kpi">{body}</div>;
+}
+
+/** Placeholder in the dashboard's shape while the figures load. */
+function DashboardSkeleton() {
+  return (
+    <div className="dash" aria-busy="true" aria-label={t('Loading…')}>
+      <div className="dash-top">
+        <div className="card hero"><Skeleton className="h-3 w-40" /><Skeleton className="mt-3 h-12 w-72" /><Skeleton className="mt-6 h-36 w-full" /></div>
+        <div className="attention">
+          {[0, 1, 2].map((n) => <div key={n} className="card attn"><Skeleton className="size-9 rounded-lg" /><div className="grid flex-1 gap-2"><Skeleton className="h-6 w-20" /><Skeleton className="h-3 w-32" /></div></div>)}
+        </div>
+      </div>
+      <div className="kpis kpi-tiles">
+        {[0, 1, 2, 3, 4, 5].map((n) => <div key={n} className="kpi grid gap-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-7 w-24" /><Skeleton className="h-3 w-28" /></div>)}
+      </div>
+    </div>
+  );
 }
 
 /** Definite contracts still waiting for the client's signed copy (flagged, never blocked). */
@@ -331,7 +348,7 @@ function SignedMissing() {
   if (!n) return null;
   return (
     <div className="alert warn spread" style={{ marginBottom: 16 }}>
-      <span>⚠ {n === 1 ? t('1 definite contract has no signed copy uploaded.') : t('{n} definite contracts have no signed copy uploaded.', { n })}</span>
+      <span><AlertTriangle className="ico" aria-hidden /> {n === 1 ? t('1 definite contract has no signed copy uploaded.') : t('{n} definite contracts have no signed copy uploaded.', { n })}</span>
       <Link className="btn sm" to="/bookings?signed_missing=true">{t('Show them')}</Link>
     </div>
   );

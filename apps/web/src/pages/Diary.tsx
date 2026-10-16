@@ -1,8 +1,10 @@
+import { Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Activity, type Status } from '../api';
 import { useAuth } from '../auth';
+import { SkeletonPage } from '../components/ui';
 import { dayOf, statusLabel, time, today } from '../format';
 import { useUsers, useVenues } from '../hooks';
 import { intlLocale, t } from '../i18n';
@@ -136,7 +138,7 @@ function Meetings({ from, span, owner }: { from: string; span: number; owner: st
   const byDay = new Map<string, Activity[]>();
   for (const a of data ?? []) byDay.set(dayOf(a.due_at), [...(byDay.get(dayOf(a.due_at)) ?? []), a]);
   const todayIso = today();
-  if (isLoading) return <div className="card empty">{t('Loading…')}</div>;
+  if (isLoading) return <SkeletonPage />;
   return (
     <div className="week-grid">
       {days.map((d) => {
@@ -160,7 +162,7 @@ function Meetings({ from, span, owner }: { from: string; span: number; owner: st
                 {(a.contact_name || a.location) && <div className="small secondary">{[a.contact_name, a.location].filter(Boolean).join(' · ')}</div>}
                 {a.booking_id && <Link className="small" to={`/bookings/${a.booking_id}`}>{a.booking_no}</Link>}
                 {a.completed_at
-                  ? <div className="small meeting-outcome">✓ {a.outcome ?? t('Done')}</div>
+                  ? <div className="small meeting-outcome"><Check className="ico" aria-hidden /> {a.outcome ?? t('Done')}</div>
                   : new Date(a.due_at) < new Date() && <div className="small" style={{ color: 'var(--danger)' }}>{t('Outcome not recorded')}</div>}
               </div>
             ))}

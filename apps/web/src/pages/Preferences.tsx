@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, type Me } from '../api';
@@ -71,10 +72,10 @@ export function Preferences() {
           <p className="secondary small" style={{ margin: 0 }}>{t('Used for buttons, links and highlights. Chart colours stay fixed so figures always read the same.')}</p>
           <div className="swatches">
             <button className={`swatch ${!accent ? 'on' : ''}`} style={{ background: company ?? '#2a78d6' }} title={t('Company default')}
-              aria-label={t('Company default')} onClick={() => save({ accent: null })}>{!accent ? '✓' : ''}</button>
+              aria-label={t('Company default')} onClick={() => save({ accent: null })}>{!accent && <Check className="ico" aria-hidden />}</button>
             {ACCENTS.map((a) => (
               <button key={a.hex} className={`swatch ${accent === a.hex ? 'on' : ''}`} style={{ background: a.hex }} title={t(a.name)}
-                aria-label={t(a.name)} onClick={() => save({ accent: a.hex })}>{accent === a.hex ? '✓' : ''}</button>
+                aria-label={t(a.name)} onClick={() => save({ accent: a.hex })}>{accent === a.hex && <Check className="ico" aria-hidden />}</button>
             ))}
             <label className="check">
               <input type="color" value={accent ?? company ?? '#2a78d6'} onChange={(e) => save({ accent: e.target.value })} aria-label={t('Custom colour')} />

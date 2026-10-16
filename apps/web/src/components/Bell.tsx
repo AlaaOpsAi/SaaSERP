@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -29,7 +30,7 @@ export function Bell() {
       </button>
       {open && (
         <div className="bell-panel" role="dialog" aria-label={t("Notifications")} onClick={(e) => e.stopPropagation()}>
-          <div className="spread" style={{ marginBottom: 6 }}><strong>{t("Notifications")}</strong><button className="sm ghost" onClick={() => setOpen(false)}>✕</button></div>
+          <div className="spread" style={{ marginBottom: 6 }}><strong>{t("Notifications")}</strong><button className="sm ghost" onClick={() => setOpen(false)} aria-label={t('Close')}><X className="ico" aria-hidden /></button></div>
           {!data?.items.length && <div className="empty">{t("Nothing yet.")}</div>}
           {data?.items.map((n) => (
             <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`}>
