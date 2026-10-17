@@ -157,6 +157,15 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 
 - Committed and pushed with the combined discussion file (2026-10-17); VPS update pending (migration 010 runs on start).
 
+**Logos received (2026-10-17):** `Wed-x-all-logos.pdf`, `Conf-x-all-logos.pdf`, `Deal-x-all-logos.pdf` (Illustrator sheets with every version).
+- Short logos cut out as small vector SVGs with [scripts/make-logo-icons.py](scripts/make-logo-icons.py): WED-X = the TwinFlame (calligraphy + magenta letter, without the WED·X lettering); CONF-X = magenta triangle + black X; DEAL-X = neon-green triangle + dark-brown X. Each in two versions: `-light.svg` (dark ink + accent) and `-dark.svg` (white + accent, made from the coloured one).
+- Saved in `templates/logos/` (git-ignored, like all customer files), with the original PDFs.
+- Brand colours read from the files: magenta **#EB028D** (WED-X, CONF-X), neon green **#5EC232** (DEAL-X), black #231F20, dark brown #221A13.
+- Checked locally: uploaded to the demo companies and the group (CONF-X), shown in the header box in light and dark, and in Admin → Business units.
+- Logo box made a bit bigger (44 → 48 px, logo 40 px tall) so the tall TwinFlame reads clearly.
+- New: readable shades of the company colour for text (e.g. neon green links become #3D7E21 on white); filled buttons pick black or white text.
+- Still missing: REAL-X and SELL-X logos and colours.
+
 **Waiting for the customer:** logo files (black and white versions per company), colour codes (WED-X and CONF-X now, the rest later), the companies Excel, and job titles for the users.
 
 ## Local test setup used

@@ -66,6 +66,9 @@ and gives screen readers the final text only.
   Admin & IT → Company and shows for users without a company. Until a logo is uploaded, the company code stands in.
 - **Highlight colour** follows the user's company (`companyAccent()` in `api.ts`): company colour → workspace brand
   colour → default blue. A personal accent under Preferences still wins.
+- **Readable shades:** text in the accent colour uses `--accent-text`, a darker shade on the light theme and a lighter
+  one on the dark theme when the colour itself is under 4.5:1 (e.g. DEAL-X neon green → #3D7E21 for links). Filled
+  buttons use `--on-accent` (black or white, whichever reads better). Set in `appearance.ts`.
 - **Name card** at the top of the menu: full name, then "JOB TITLE - E2021001". The permission level is shown only
   in Admin & IT → Team.
 

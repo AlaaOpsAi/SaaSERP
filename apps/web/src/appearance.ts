@@ -28,6 +28,30 @@ export function textOn(hex: string) {
   return (1.05 / (l + 0.05)) >= ((l + 0.05) / 0.05) ? '#ffffff' : '#0b0b0b';
 }
 
+/** Contrast ratio between two colours (WCAG). */
+function contrast(a: string, b: string) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+/** Mix a colour towards black (amount < 0) or white (amount > 0). */
+function mix(hex: string, amount: number) {
+  const target = amount < 0 ? 0 : 255;
+  const k = Math.abs(amount);
+  return '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k) + target * k)
+    .toString(16).padStart(2, '0')).join('');
+}
+/**
+ * The accent as text on a background: darker (light theme) or lighter (dark theme) until it
+ * reads at 4.5:1, so light brand colours like neon green stay readable as links and labels.
+ */
+export function readableOn(accent: string, background: string, direction: -1 | 1) {
+  for (let k = 0; k <= 1; k += 0.05) {
+    const c = mix(accent, direction * k);
+    if (contrast(c, background) >= 4.5) return c;
+  }
+  return direction < 0 ? '#000000' : '#ffffff';
+}
+
 const CACHE = 'saaserp.appearance';
 
 export function applyAppearance(p: Preferences, companyAccent?: string | null) {
@@ -39,10 +63,14 @@ export function applyAppearance(p: Preferences, companyAccent?: string | null) {
   if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
     root.style.setProperty('--accent', accent);
     root.style.setProperty('--on-accent', textOn(accent));
+    root.style.setProperty('--accent-text-light', readableOn(accent, '#fcfcfb', -1));
+    root.style.setProperty('--accent-text-dark', readableOn(accent, '#1a1a19', 1));
     root.dataset.accent = accent;
   } else {
     root.style.removeProperty('--accent');
     root.style.removeProperty('--on-accent');
+    root.style.removeProperty('--accent-text-light');
+    root.style.removeProperty('--accent-text-dark');
     delete root.dataset.accent;
   }
   if (p.density === 'compact') root.dataset.density = 'compact';
