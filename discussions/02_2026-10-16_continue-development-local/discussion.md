@@ -70,6 +70,40 @@ Request: "more animated and better interface", plus recommendations.
   `cd /root/SaaSERP && ./scripts/backup.sh && git pull --ff-only && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
 - [ ] Live site checked after the update.
 
+## Template check (2026-10-17)
+
+Checked with [scripts/check-templates.mts](scripts/check-templates.mts), which uses the app's own engine (the same test-fill as an upload):
+
+| File | Placeholders | Result |
+|---|---|---|
+| `templates/WEDX_Wedding Contract_TOPRINT OK.docx` | 0 | Customer's original blank form; would print empty every time |
+| `templates/Wedding Details_Annex.docx` | 0 | Customer's original annex; same |
+| `templates/W2025047_Qortuba_2025.10.09_SAMPLE.docx` | 0 | A filled-in client contract (reference only, personal data) |
+| `apps/api/templates/standard-contract.docx` | 32 | OK, all known to the app |
+| `apps/api/templates/standard-annex.docx` | 24 | OK, all known to the app |
+
+- The copies in Downloads and in the older project folder are the same originals; the WEDX templates prepared in the earlier session (with placeholders) are not on this Mac.
+- `templates/` is not ignored by git, so the SAMPLE contract could be committed by mistake.
+
+## WEDX templates prepared (2026-10-17)
+
+Request: turn the WEDX contract and annex into templates with placeholders, keep the layout, and keep `templates/` out of git.
+
+- `/templates/` added to `.gitignore` (customer files and the filled client sample are never committed).
+- Built with [scripts/make-wedx-templates.py](scripts/make-wedx-templates.py) into `templates/prepared/` (git-ignored):
+  - `WEDX_Wedding_Contract_template.docx`: number box (`# {doc_no}`), date, client name, civil ID, address, phone, venue, guests, weekday + event date, total / down payment / remaining with currency, notes, the services table, and the trust receipt (name, amount, "(اسم العميل)", name and civil ID). Signature lines stay blank.
+  - `WEDX_Wedding_Annex_template.docx`: number box, date, address, phone, venue, guests, event date, and the services table (Arabic name, English name, quantity, notes).
+  - `WEDX_annex_checklist.txt`: the 31 wedding services, in the "Arabic | English" format to paste under Admin & IT → Templates → annex checklist.
+- Unknown values print the original underscores, so they can still be written by hand.
+- Tables keep their printed length: new template feature `{#lines_pad_N}` / `{#annex_pad_N}` adds blank rows up to N (contract 7, annex 32). Code in `apps/api/src/lib/docgen.ts`, with a test; API tests 63/63 pass.
+- Mixed Arabic/English lines: values are wrapped in direction marks (RLE…PDF; the phone in RLM + LRE…PDF), otherwise English names and phone numbers scramble the Arabic lines. Four variants were compared on rendered PDFs before choosing.
+- The form's own date digits are printed in white in the original; the template recolours that slot.
+- Checked: filled with English, Arabic and empty sample data through the app's engine and converted to PDF with the production image's LibreOffice; page counts match the originals (contract 2, annex 3); samples in `templates/prepared/samples/`.
+- Note: a filled contract runs a little shorter than the blank form (underscores wrapped to two lines), so the last clause and the sales signature line move up to page 1.
+- The production Docker image now builds cleanly from the current code (checked locally).
+- [ ] Commit, push and deploy (the padding needs the new API on the server; without it the template still works, but the table shrinks to the number of services).
+- [ ] Upload both templates (Admin & IT → Templates, business type Weddings, Arabic) and paste the checklist.
+
 ## Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

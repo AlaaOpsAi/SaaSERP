@@ -150,13 +150,31 @@ export const PLACEHOLDERS: [string, string][] = [
   ['notes', 'Notes typed when issuing'], ['salesperson', 'Account manager'], ['issued_by', 'Who issued the document'],
   ['#lines … /lines', 'Repeat a table row per service: {no} {work_type} {details} {qty} {price} {amount}'],
   ['#annex … /annex', 'Repeat a table row per annex service: {no} {service} {service_alt} {qty} {notes}'],
+  ['#lines_pad_7 … /lines_pad_7', 'Blank rows after the services, so the table always has at least 7 rows (any number; also #annex_pad_N)'],
 ];
+
+/** {#lines_pad_7}: blank rows that top a table up to 7 rows, so a printed form keeps its layout. */
+const PAD = /^(lines|annex)_pad_(\d{1,3})$/;
 
 /** Fill a template; a broken template gives a message the admin can act on. */
 export function fillTemplate(template: Buffer, data: Record<string, unknown>): Buffer {
   let doc: Docxtemplater;
   try {
-    doc = new Docxtemplater(new PizZip(template), { paragraphLoop: true, linebreaks: true, nullGetter: () => '' });
+    doc = new Docxtemplater(new PizZip(template), {
+      paragraphLoop: true, linebreaks: true, nullGetter: () => '',
+      parser: (tag) => {
+        const pad = PAD.exec(tag.trim());
+        return {
+          get: (scope: Record<string, unknown>) => {
+            if (pad) {
+              const rows = data[pad[1]];
+              return Array.from({ length: Math.max(0, Number(pad[2]) - (Array.isArray(rows) ? rows.length : 0)) }, () => ({}));
+            }
+            return tag === '.' ? scope : scope?.[tag];
+          },
+        };
+      },
+    });
     doc.render(data);
   } catch (e) {
     const errors = (e as { properties?: { errors?: { properties?: { explanation?: string } }[] } }).properties?.errors;

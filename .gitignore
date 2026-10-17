@@ -9,3 +9,5 @@ coverage/
 *.tsbuildinfo
 backups/
 uploads/
+# Customer Word files (originals, filled client samples, prepared templates): never commit them.
+/templates/

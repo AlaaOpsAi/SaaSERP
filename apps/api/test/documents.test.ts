@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import PizZip from 'pizzip';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
+import { fillTemplate } from '../src/lib/docgen.js';
 import { amountInWords } from '../src/lib/words.js';
 import { client, login, makeApp, newTenant, type Client } from './helpers.js';
 
@@ -150,6 +151,19 @@ describe('issuing contracts, proposals and annexes', () => {
     expect(doc.doc_no).toBe(`${b.booking_no}-C1`);
     const sales = await member(owner, 'Sam', 'sales');
     expect((await upload(sales, `/templates?name=X&kinds=contract&language=ar`, standard, 'x.docx')).status).toBe(403);
+  });
+
+  it('tops a table up with blank rows ({#lines_pad_N})', async () => {
+    const standard = await readFile(new URL('../templates/standard-contract.docx', import.meta.url));
+    const zip = new PizZip(standard);
+    const xml = zip.file('word/document.xml')!.asText();
+    zip.file('word/document.xml', xml.replace('</w:body>', '<w:p><w:r><w:t>[{#lines_pad_3}x{/lines_pad_3}]</w:t></w:r></w:p></w:body>'));
+    const fill = (lines: number) => text(fillTemplate(zip.generate({ type: 'nodebuffer' }), {
+      lines: Array.from({ length: lines }, () => ({})), annex: [],
+    }));
+    expect(fill(1)).toContain('[xx]');
+    expect(fill(3)).toContain('[]');
+    expect(fill(5)).toContain('[]');
   });
 
   it('writes amounts in words in English and Arabic', () => {
