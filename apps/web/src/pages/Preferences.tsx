@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api, type Me } from '../api';
+import { api, companyAccent, type Me } from '../api';
 import { ACCENTS, applyAppearance, type Preferences as Prefs } from '../appearance';
 import { useAuth } from '../auth';
 import { ErrorNote, StatusBadge } from '../components/ui';
@@ -14,7 +14,7 @@ export function Preferences() {
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
   const prefs: Prefs = me?.preferences ?? {};
-  const company = me?.tenant.branding?.accent ?? null;
+  const company = me ? companyAccent(me) : null;
 
   async function save(change: Partial<Record<keyof Prefs, unknown>>) {
     setError(null);

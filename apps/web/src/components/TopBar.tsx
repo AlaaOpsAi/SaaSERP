@@ -8,14 +8,10 @@ import { LANGUAGES, lang, t } from '../i18n';
 import { MODULES, ordered } from '../modules';
 import { Bell } from './Bell';
 
-const ROLE_NAMES: Record<string, string> = {
-  owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', marketing: 'Marketing',
-  finance: 'Finance', viewer: 'Viewer',
-};
-
 /**
- * The bar on every page (customer request): the company on one side, and
- * Home · ☰ Menu · EN | AR in the top corner. The menu replaces the old sidebar.
+ * The bar on every page (customer request): the company logo and the user's full name on
+ * the left, Home · ☰ Menu · EN | AR on the right. It never mirrors: in Arabic only the page
+ * below switches to right-to-left. The menu replaces the old sidebar.
  */
 export function TopBar() {
   const { me } = useAuth();
@@ -28,10 +24,10 @@ export function TopBar() {
   const unread = bell?.unread ?? 0;
   return (
     <>
-      <header className="topbar">
+      <header className="topbar" dir="ltr">
         <Link to="/" className="topbar-brand" aria-label={t('Home')}>
-          <span className="brand-mark">{me.tenant.name.slice(0, 2).toUpperCase()}</span>
-          <span className="topbar-name">{me.tenant.name}</span>
+          <LogoBox me={me} />
+          <span className="topbar-name" dir="auto">{me.name}</span>
         </Link>
         <div className="topbar-actions">
           <button className={`top-btn ${location.pathname === '/' ? 'on' : ''}`} onClick={() => navigate('/')} aria-label={t('Home')} title={t('Home')}>
@@ -46,6 +42,22 @@ export function TopBar() {
       </header>
       {open && <MenuPanel onClose={() => setOpen(false)} />}
     </>
+  );
+}
+
+/**
+ * The company logo in a box framed by a thin line in the logo's own colour: the black logo
+ * on the light theme, the white one on the dark theme (CSS picks one). Until a logo is
+ * uploaded, the company's name stands in for it.
+ */
+export function LogoBox({ me }: { me: Me }) {
+  const label = me.company?.name ?? me.tenant.name;
+  if (!me.logo.light && !me.logo.dark) return <span className="logo-box text" title={label}>{me.company?.code ?? label}</span>;
+  return (
+    <span className="logo-box" title={label}>
+      <img className="logo-light" src={me.logo.light ?? me.logo.dark!} alt={label} />
+      <img className="logo-dark" src={me.logo.dark ?? me.logo.light!} alt="" aria-hidden="true" />
+    </span>
   );
 }
 
@@ -80,7 +92,8 @@ function MenuPanel({ onClose }: { onClose: () => void }) {
   const modules = ordered(me.tenant.home_order).filter((m) => m.area === 'all' || can(m.area));
   const live = modules.filter((m) => m.to);
   const planned = modules.filter((m) => !m.to);
-  const scope = me.sees_all ? t('Sees the whole company') : me.team_ids.length > 1 ? t('Sees own + {n} in team', { n: me.team_ids.length - 1 }) : t('Sees own records');
+  // Name card (customer request): job title and employee ID; the permission level shows only in Admin & IT.
+  const card = [me.job_title?.toUpperCase(), me.employee_no].filter(Boolean).join(' - ');
   const item = (to: string, label: string, icon: React.ReactNode, colors?: [string, string]) => (
     <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`} onClick={onClose}>
       <span className="menu-icon" style={colors ? { background: `linear-gradient(180deg, ${colors[0]}, ${colors[1]})` } : undefined}>{icon}</span>
@@ -97,7 +110,7 @@ function MenuPanel({ onClose }: { onClose: () => void }) {
           <span className="avatar">{(me.code ?? me.name).slice(0, 3)}</span>
           <div className="grow">
             <strong>{me.name}</strong>
-            <div className="small muted">{t(ROLE_NAMES[me.role] ?? me.role)} · {scope}</div>
+            {card && <div className="small muted name-card" dir="auto">{card}</div>}
           </div>
           <Bell />
           <button className="top-btn" onClick={onClose} aria-label={t('Close')}><X className="ico" aria-hidden /></button>

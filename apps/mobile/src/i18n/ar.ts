@@ -381,6 +381,7 @@ const ar: Record<string, string> = {
   "Annex": "ملحق",
   "Proposal": "عرض سعر",
   "Other": "أخرى",
+  "Email or employee ID": "البريد الإلكتروني أو الرقم الوظيفي",
 };
 
 export default ar;

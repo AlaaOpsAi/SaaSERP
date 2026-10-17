@@ -37,8 +37,13 @@ const userCreate = z.object({
   data_scope: z.enum(['all', 'team']).optional(),
   /** The employee ID (E + year + serial) follows the year of hiring when it is given at creation. */
   hired_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+  /** Shown under the name in the menu ("OWNER - E2021001"). */
+  job_title: z.string().trim().max(60).nullish(),
+  /** The company the employee works for: sets their logo and colour. */
+  business_unit_id: z.string().uuid().nullish(),
 });
-const userPatch = userCreate.partial();
+// No defaults on an update: a field left out stays as it is (role and status included).
+const userPatch = userCreate.extend({ role: roles.optional(), is_active: z.boolean().optional() }).partial();
 
 /** Roles that see the whole workspace unless told otherwise. */
 const SEES_ALL_BY_DEFAULT = new Set(['owner', 'admin', 'finance']);
@@ -63,6 +68,8 @@ const buSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,4}$/),
   name: z.string().trim().min(1),
   is_active: z.boolean().optional(),
+  /** Company colour for highlights, e.g. #E6007E. */
+  accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullish(),
 });
 
 const lookupSchema = z.object({
@@ -145,7 +152,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const { rows } = await db.query(
         `SELECT id, email, name, code, role, is_active, last_login_at, created_at, manager_id, data_scope, employee_no, hired_on,
-                (app_sees_all() OR id = ANY (app_write_ids())) AS in_my_team
+                job_title, business_unit_id, (app_sees_all() OR id = ANY (app_write_ids())) AS in_my_team
          FROM users ORDER BY is_active DESC, name`,
       );
       return rows;
@@ -158,6 +165,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       if (body.role === 'owner' && req.user.role !== 'owner') throw forbidden('Only owners can add owners');
       await assertUnique(db, body);
       await assertManager(db, null, body.manager_id);
+      if (body.business_unit_id) await getRow(db, 'business_units', body.business_unit_id, 'Company');
       body.data_scope ??= SEES_ALL_BY_DEFAULT.has(body.role) ? 'all' : 'team';
       if (body.is_active && body.email) {
         await assertSeat(db);
@@ -183,6 +191,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       const current = await getRow<{ email: string | null; is_active: boolean; password_hash: string | null }>(db, 'users', userId, 'User');
       await assertUnique(db, body, userId);
       if (body.manager_id !== undefined) await assertManager(db, userId, body.manager_id);
+      if (body.business_unit_id) await getRow(db, 'business_units', body.business_unit_id, 'Company');
       const email = body.email === undefined ? current.email : body.email;
       const active = body.is_active ?? current.is_active;
       if (active && email) {
@@ -299,7 +308,10 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   // ---- business units ----------------------------------------------------
   app.get('/business-units', { preHandler: authed }, (req) =>
-    tx(req, async (db) => (await db.query('SELECT * FROM business_units ORDER BY code')).rows),
+    tx(req, async (db) => (await db.query(
+      `SELECT id, tenant_id, code, name, is_active, created_at, accent,
+              (logo_light IS NOT NULL OR logo_dark IS NOT NULL) AS has_logo
+       FROM business_units ORDER BY code`)).rows),
   );
   app.post('/business-units', admin, (req) => tx(req, (db) => insertRow(db, 'business_units', buSchema.parse(req.body))));
   app.patch('/business-units/:id', admin, (req) =>

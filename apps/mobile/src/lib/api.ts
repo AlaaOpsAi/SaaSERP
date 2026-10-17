@@ -84,6 +84,9 @@ export interface Me {
   /** Contract fields hidden from this user's role (set by an admin in the web app). */
   hidden_fields?: string[];
   preferences?: Preferences | null;
+  /** Name card: "OWNER - E2021001" (the permission level shows only in the web app's Admin & IT). */
+  job_title?: string | null;
+  employee_no?: string | null;
 }
 
 export interface Preferences { locale?: string | null; theme?: 'light' | 'dark' | null; accent?: string | null; density?: string | null; fontScale?: number | null }

@@ -113,7 +113,7 @@ describe('deactivate instead of delete', () => {
     // Only managers see the deactivated list; only admins delete, and only deactivated records.
     expect((await sara.get('/deactivated')).status).toBe(403);
     const list = (await owner.get('/deactivated')).body;
-    expect(list.bookings[0]).toMatchObject({ name: 'Typo booking', deactivate_reason: 'Duplicate of W2026001', deactivated_by_name: 'Sara' });
+    expect(list.bookings[0]).toMatchObject({ name: 'Typo booking', deactivate_reason: 'Duplicate of W2026001', deactivated_by_name: expect.stringMatching(/^Sara \(E\d{7}\)$/) });
     expect((await sara.del(`/bookings/${mine.id}`)).status).toBe(403);
     expect((await owner.del(`/bookings/${def.id}`)).status).toBe(400);
 

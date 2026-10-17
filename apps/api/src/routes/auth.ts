@@ -8,6 +8,7 @@ import { seedTenantDefaults } from '../lib/defaults.js';
 import { badRequest, conflict, HttpError } from '../lib/errors.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { logAccess } from '../lib/access.js';
+import { logoUrls } from './branding.js';
 
 const signupSchema = z.object({
   company_name: z.string().trim().min(2).max(120),
@@ -31,8 +32,12 @@ const preferencesSchema = z.object({
   fontScale: z.number().min(0.85).max(1.3).nullable(),
 }).partial();
 
+/** The employee ID (E2021001) can be typed instead of the email. */
+const EMPLOYEE_NO = /^E\d{7,8}$/i;
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  // "email" keeps its name for the phone app; it also takes an employee ID.
+  email: z.string().trim().toLowerCase().refine((v) => EMPLOYEE_NO.test(v) || z.string().email().safeParse(v).success,
+    'Enter your email or employee ID'),
   password: z.string().min(1),
   workspace: z.string().trim().toLowerCase().optional(),
 });
@@ -106,7 +111,9 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/login', async (req) => {
     const body = loginSchema.parse(req.body);
     const matches = await withoutTenant(async (db) => {
-      const { rows } = await db.query('SELECT * FROM auth_find_users($1)', [body.email]);
+      const { rows } = EMPLOYEE_NO.test(body.email)
+        ? await db.query('SELECT * FROM auth_find_users_by_employee_no($1)', [body.email.toUpperCase()])
+        : await db.query('SELECT * FROM auth_find_users($1)', [body.email]);
       return rows as { user_id: string; tenant_id: string; tenant_slug: string; tenant_name: string;
                        password_hash: string | null; is_active: boolean; tenant_status: string; status_reason: string | null }[];
     });
@@ -118,9 +125,9 @@ export async function authRoutes(app: FastifyInstance) {
     for (const m of candidates) {
       if (await verifyPassword(body.password, m.password_hash)) verified.push(m);
     }
-    if (verified.length === 0) throw new HttpError(401, 'Invalid email or password');
+    if (verified.length === 0) throw new HttpError(401, 'Invalid email, employee ID or password');
     if (verified.length > 1) {
-      throw badRequest('This email belongs to several workspaces; choose one', {
+      throw badRequest(`This ${EMPLOYEE_NO.test(body.email) ? 'employee ID' : 'email'} belongs to several workspaces; choose one`, {
         workspaces: verified.map((v) => ({ slug: v.tenant_slug, name: v.tenant_name })),
       });
     }
@@ -160,6 +167,11 @@ export async function authRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const { rows } = await db.query(
         `SELECT u.id, u.email, u.name, u.code, u.role, u.data_scope, u.manager_id, u.preferences,
+                u.job_title, u.employee_no,
+                CASE WHEN bu.id IS NULL THEN NULL
+                     ELSE json_build_object('id', bu.id, 'code', bu.code, 'name', bu.name, 'accent', bu.accent) END AS company,
+                bu.id AS unit_id, bu.logo_light AS unit_light, bu.logo_dark AS unit_dark,
+                t.logo_light AS group_light, t.logo_dark AS group_dark,
                 app_sees_all() AS sees_all, app_team_ids() AS team_ids,
                 json_build_object('id', t.id, 'slug', t.slug, 'name', t.name, 'plan', t.plan,
                                   'currency', t.currency, 'timezone', t.timezone,
@@ -167,7 +179,9 @@ export async function authRoutes(app: FastifyInstance) {
                                   'credit_facility_pct', t.credit_facility_pct,
                                   'default_locale', t.default_locale, 'branding', t.branding,
                                   'home_order', t.home_order, 'field_visibility', t.field_visibility) AS tenant
-         FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE u.id = $1 AND u.is_active`,
+         FROM users u JOIN tenants t ON t.id = u.tenant_id
+         LEFT JOIN business_units bu ON bu.id = u.business_unit_id
+         WHERE u.id = $1 AND u.is_active`,
         [req.user.sub],
       );
       if (!rows[0]) throw new HttpError(401, 'Session expired');
@@ -185,7 +199,9 @@ export async function authRoutes(app: FastifyInstance) {
            AND (d.ends_on IS NULL OR d.ends_on >= (now() AT TIME ZONE t.timezone)::date)`,
         [req.user.sub],
       )).rows;
-      return { ...rows[0], team_ids: req.scope?.teamIds ?? rows[0].team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
+      const { unit_id, unit_light, unit_dark, group_light, group_dark, ...me } = rows[0];
+      const logo = logoUrls(req.user.tid, { unit_id, unit_light, unit_dark, group_light, group_dark });
+      return { ...me, logo, team_ids: req.scope?.teamIds ?? me.team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
     }),
   );
 }

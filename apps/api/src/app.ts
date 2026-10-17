@@ -23,6 +23,7 @@ import { deactivationRoutes } from './routes/deactivation.js';
 import { documentRoutes } from './routes/documents.js';
 import { itRoutes } from './routes/it.js';
 import { settingsRoutes } from './routes/settings.js';
+import { brandingRoutes } from './routes/branding.js';
 
 // Postgres error codes -> HTTP.
 const PG_ERRORS: Record<string, [number, string]> = {
@@ -78,6 +79,7 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     async (api) => {
       await api.register(authRoutes);
       await api.register(settingsRoutes);
+      await api.register(brandingRoutes);
       await api.register(crmRoutes);
       await api.register(bookingRoutes);
       await api.register(activityRoutes);

@@ -11,10 +11,9 @@ import { LANGUAGES, lang, t } from '../i18n';
 import { MODULES, openModule, ordered } from './modules';
 import { T } from './ui';
 
-const ROLE_NAMES: Record<string, string> = {
-  owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', marketing: 'Marketing',
-  finance: 'Finance', viewer: 'Viewer',
-};
+/** Name card under the name: job title and employee ID (customer request). */
+export const nameCard = (me: { job_title?: string | null; employee_no?: string | null } | null | undefined) =>
+  [me?.job_title?.toUpperCase(), me?.employee_no].filter(Boolean).join(' - ');
 
 /** Company logo and name, at the start of every header. */
 export function Brand() {
@@ -105,7 +104,7 @@ function MenuSheet({ visible, onClose, unread }: { visible: boolean; onClose: ()
             </View>
             <View style={{ flex: 1 }}>
               <T bold>{me?.name}</T>
-              <T small muted>{t(ROLE_NAMES[me?.role ?? ''] ?? me?.role ?? '')}</T>
+              {!!nameCard(me) && <T small muted>{nameCard(me)}</T>}
             </View>
             <Pressable onPress={onClose} accessibilityLabel={t('Close')} hitSlop={10}><Ionicons name="close" size={24} color={c.text} /></Pressable>
           </View>

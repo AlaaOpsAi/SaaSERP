@@ -131,7 +131,7 @@ export async function deactivationRoutes(app: FastifyInstance) {
       if (!hasRole(req, can.manage)) throw forbidden();
       await showDeactivated(db);
       const who = `LEFT JOIN users d ON d.id = x.deactivated_by`;
-      const pick = 'x.id, x.deactivated_at, x.deactivate_reason, d.name AS deactivated_by_name';
+      const pick = `x.id, x.deactivated_at, x.deactivate_reason, d.name || coalesce(' (' || d.employee_no || ')', '') AS deactivated_by_name`;
       const q = async (sql: string) => (await db.query(sql)).rows;
       return {
         bookings: await q(`SELECT ${pick}, x.booking_no AS code, x.name, x.status FROM bookings x ${who}

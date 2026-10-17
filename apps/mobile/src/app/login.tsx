@@ -60,8 +60,8 @@ export default function Login() {
           {inactive && <Notice>{inactive}</Notice>}
           <ErrorText error={error} />
           <Card style={{ gap: 14 }}>
-            <Field label={t("Email")} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email"
-              keyboardType="email-address" textContentType="username" />
+            <Field label={t("Email or employee ID")} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="username"
+              autoCorrect={false} textContentType="username" />
             <Field label={t("Password")} value={password} onChangeText={setPassword} secureTextEntry textContentType="password" />
             {workspaces && (
               <View style={{ gap: 8 }}>

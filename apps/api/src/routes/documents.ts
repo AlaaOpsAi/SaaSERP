@@ -48,7 +48,7 @@ const templateMeta = z.object({
 export async function documentsOf(db: Db, bookingId: string) {
   return (await db.query(
     `SELECT d.id, d.kind, d.doc_no, d.language, d.issued_at, d.pdf_key IS NOT NULL AS has_pdf,
-            u.name AS issued_by_name, t.name AS template_name, s.signed_at
+            u.name || coalesce(' (' || u.employee_no || ')', '') AS issued_by_name, t.name AS template_name, s.signed_at
      FROM documents d
      LEFT JOIN users u ON u.id = d.issued_by
      LEFT JOIN document_templates t ON t.id = d.template_id
@@ -60,7 +60,7 @@ export async function documentsOf(db: Db, bookingId: string) {
 export async function filesOf(db: Db, bookingId: string) {
   return (await db.query(
     `SELECT f.id, f.kind, f.file_name, f.mime, f.size_bytes, f.uploaded_at, f.uploaded_by, f.document_id,
-            u.name AS uploaded_by_name, d.doc_no
+            u.name || coalesce(' (' || u.employee_no || ')', '') AS uploaded_by_name, d.doc_no
      FROM booking_files f LEFT JOIN users u ON u.id = f.uploaded_by LEFT JOIN documents d ON d.id = f.document_id
      WHERE f.booking_id = $1 ORDER BY f.uploaded_at DESC`, [bookingId])).rows;
 }

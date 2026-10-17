@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
-import { api, getToken, setToken, type ContractField, type Me, type Role } from './api';
+import { api, companyAccent, getToken, setToken, type ContractField, type Me, type Role } from './api';
 import { applyAppearance } from './appearance';
 import { setTenantLocale } from './format';
 import { setLanguage, storedLanguage, storeLanguage, takePicked } from './i18n';
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (me) {
     const lang = setLanguage(me.preferences?.locale ?? me.tenant.default_locale ?? storedLanguage());
     storeLanguage(lang.code);
-    applyAppearance(me.preferences ?? {}, me.tenant.branding?.accent);
+    applyAppearance(me.preferences ?? {}, companyAccent(me));
   }
 
   const value: AuthState = {

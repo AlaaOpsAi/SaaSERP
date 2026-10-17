@@ -83,9 +83,56 @@ function Company() {
         </fieldset>
       </div>
       {can('admin') && <div><button className="primary" disabled={save.isPending}>{t("Save")}</button></div>}
+      <div>
+        <h3>{t('Group logo')}</h3>
+        <p className="secondary small" style={{ margin: '4px 0 12px' }}>{t('Shown in the top-left corner to everyone without a company (owners, admins), and to companies that have no logo of their own. Each company sets its own under Business units.')}</p>
+        <LogoSlots owner="group" />
+      </div>
     </form>
   );
 }
+
+/**
+ * The two versions of a logo: the black one for the light theme, the white one for the dark
+ * theme, each previewed on its own background. PNG, JPEG, WebP or SVG, up to 300 kB.
+ */
+function LogoSlots({ owner }: { owner: string }) {
+  const { can } = useAuth();
+  const { data } = useQuery({ queryKey: ['logos'], queryFn: () => api<{ group: Urls; units: Record<string, Urls> }>('/logos'), enabled: can('admin') });
+  const urls = owner === 'group' ? data?.group : data?.units[owner];
+  const inv: [string][] = [['logos'], ['me'], ['business-units']];
+  const upload = useSave((v: { variant: 'light' | 'dark'; file: File }) => {
+    const form = new FormData();
+    form.append('file', v.file);
+    return api(`/logos/${owner}/${v.variant}`, { method: 'PUT', form });
+  }, inv);
+  const remove = useSave((variant: 'light' | 'dark') => api(`/logos/${owner}/${variant}`, { method: 'DELETE' }), inv);
+  const slot = (variant: 'light' | 'dark', label: string) => (
+    <div className={`logo-slot ${variant}`}>
+      <div className="logo-slot-preview">{urls?.[variant] ? <img src={urls[variant]!} alt={label} /> : <span className="small">{t('No logo')}</span>}</div>
+      <div className="small secondary">{label}</div>
+      {can('admin') && (
+        <div className="row">
+          <label className="btn sm">{urls?.[variant] ? t('Replace') : t('Upload')}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden
+              onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) upload.mutate({ variant, file }); }} />
+          </label>
+          {urls?.[variant] && <button type="button" className="sm ghost danger" onClick={() => remove.mutate(variant)}>{t('Remove')}</button>}
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <ErrorNote error={upload.error ?? remove.error} />
+      <div className="logo-slots">
+        {slot('light', t('Light theme (black logo)'))}
+        {slot('dark', t('Dark theme (white logo)'))}
+      </div>
+    </div>
+  );
+}
+type Urls = { light: string | null; dark: string | null };
 
 const ROLES: [Role, string][] = [
   ['owner', 'Owner'], ['admin', 'Admin'], ['manager', 'Sales manager'], ['sales', 'Sales / account manager'],
@@ -112,6 +159,7 @@ function countBelow(id: string, kids: Map<string, User[]>): number {
 function Team() {
   const { can, me } = useAuth();
   const { data: users } = useUsers();
+  const { data: units } = useBusinessUnits();
   const [editing, setEditing] = useState<Partial<User> | null>(null);
   const [transferring, setTransferring] = useState<User | null>(null);
   // Managers can hand over the work of people in their team; admins anyone's (but never their own).
@@ -161,11 +209,12 @@ function Team() {
       ) : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{t("Name")}</th><th>{t("Employee ID")}</th><th>{t("Code")}</th><th>{t("Email")}</th><th>{t("Role")}</th><th>{t("Reports to")}</th><th>{t("Can see")}</th><th>{t("Status")}</th><th>{t("Last login")}</th><th /></tr></thead>
+            <thead><tr><th>{t("Name")}</th><th>{t("Company")}</th><th>{t("Employee ID")}</th><th>{t("Code")}</th><th>{t("Email")}</th><th>{t("Role")}</th><th>{t("Reports to")}</th><th>{t("Can see")}</th><th>{t("Status")}</th><th>{t("Last login")}</th><th /></tr></thead>
             <tbody>
               {users?.map((u) => (
                 <tr key={u.id}>
-                  <td>{u.name}</td>
+                  <td>{u.name}{u.job_title && <div className="small muted">{u.job_title}</div>}</td>
+                  <td>{units?.find((b) => b.id === u.business_unit_id)?.name ?? t('Group')}</td>
                   <td className="small">{u.employee_no ?? '—'}{u.hired_on && <div className="muted">{t('since')} {date(u.hired_on)}</div>}</td>
                   <td><span className="tag">{u.code ?? '—'}</span></td><td>{u.email ?? '—'}</td>
                   <td>{ROLE_LABEL[u.role]}</td>
@@ -243,7 +292,9 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
     name: user.name ?? '', email: user.email ?? null, code: user.code ?? null, role: user.role ?? 'sales',
     is_active: user.is_active ?? true, password: null as string | null,
     manager_id: user.manager_id ?? null, data_scope: user.data_scope ?? 'team', hired_on: user.hired_on?.slice(0, 10) ?? null,
+    job_title: user.job_title ?? null, business_unit_id: user.business_unit_id ?? null,
   });
+  const { data: units } = useBusinessUnits();
   // Who this user may report to: anyone except themselves and the people below them.
   const below = new Set<string>();
   if (user.id && users) {
@@ -295,6 +346,13 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
           <Field label={t("Initials code (AM)")}><input maxLength={6} {...bind('code')} placeholder={t("e.g. JOU")} /></Field>
           <Field label={user.employee_no ? `${t("Hiring date")} · ${user.employee_no}` : t("Hiring date (sets the employee ID year)")}>
             <input type="date" value={form.hired_on ?? ''} onChange={(e) => set('hired_on')(e.target.value || null)} />
+          </Field>
+          <Field label={t("Job title (shown under the name)")}><input maxLength={60} {...bind('job_title')} placeholder={t('e.g. Owner')} /></Field>
+          <Field label={t("Company (logo and colour)")}>
+            <select value={form.business_unit_id ?? ''} onChange={(e) => set('business_unit_id')(e.target.value || null)}>
+              <option value="">{t('— the group —')}</option>
+              {units?.filter((b) => b.is_active || b.id === form.business_unit_id).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
           </Field>
           <Field label={t("Email (for login)")}><input type="email" {...bind('email')} /></Field>
           <Field label={t("Role")}>
@@ -417,6 +475,30 @@ function Venues() {
   );
 }
 
+/** A company's colour and logo (customer comment 6). */
+function UnitIdentity({ unit }: { unit: import('../api').BusinessUnit }) {
+  const { can } = useAuth();
+  const [accent, setAccent] = useState(unit.accent ?? '');
+  const save = useSave((v: string | null) => api(`/business-units/${unit.id}`, { method: 'PATCH', body: { accent: v } }), [['business-units'], ['me']]);
+  return (
+    <div className="card stack" style={{ gap: 12 }}>
+      <div className="spread">
+        <div className="row"><span className="tag">{unit.code}</span><strong>{unit.name}</strong></div>
+        <div className="row">
+          <span className="small secondary">{t('Colour')}</span>
+          <input type="color" value={accent || '#2a78d6'} disabled={!can('admin')} aria-label={t('Colour')}
+            onChange={(e) => setAccent(e.target.value)} onBlur={() => accent !== (unit.accent ?? '') && save.mutate(accent || null)} />
+          <input value={accent} placeholder="#E6007E" maxLength={7} disabled={!can('admin')} style={{ width: 96 }} aria-label={t('Colour code')}
+            onChange={(e) => setAccent(e.target.value)} onBlur={() => /^#[0-9a-fA-F]{6}$|^$/.test(accent) && accent !== (unit.accent ?? '') && save.mutate(accent || null)} />
+          {save.isSuccess && <span className="small muted">{t('Saved.')}</span>}
+        </div>
+      </div>
+      <ErrorNote error={save.error} />
+      <LogoSlots owner={unit.id} />
+    </div>
+  );
+}
+
 function Units() {
   const { can } = useAuth();
   const { data } = useBusinessUnits();
@@ -424,13 +506,9 @@ function Units() {
   const add = useSave(() => api('/business-units', { body: form }), [['business-units']]);
   return (
     <div className="stack" style={{ maxWidth: 760 }}>
-      <p className="secondary" style={{ margin: 0 }}>{t("Brands or companies inside your workspace. The code prefixes booking numbers, e.g.")}{' '}<strong>W</strong>2026001.</p>
-      <div className="card flush">
-        <table>
-          <thead><tr><th>{t("Code")}</th><th>{t("Name")}</th></tr></thead>
-          <tbody>{data?.map((u) => <tr key={u.id}><td><span className="tag">{u.code}</span></td><td>{u.name}</td></tr>)}</tbody>
-        </table>
-      </div>
+      <p className="secondary" style={{ margin: 0 }}>{t("Companies inside your group. The code prefixes booking numbers, e.g.")}{' '}<strong>W</strong>2026001.</p>
+      <p className="secondary small" style={{ margin: 0 }}>{t("Each company's colour is used for highlights (the selected menu item, buttons, links) by the people who work for it, and its logo shows in their top-left corner.")}</p>
+      {data?.map((u) => <UnitIdentity key={u.id} unit={u} />)}
       {can('admin') && (
         <form className="card form-grid" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => setForm({ code: '', name: '' }) }); }}>
           <Field label={t("Code")}><input required maxLength={4} {...bind('code')} /></Field>

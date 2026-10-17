@@ -87,9 +87,9 @@ describe('CRM rules', () => {
     const year = new Date().getFullYear();
     const a = (await c.post('/users', { name: 'Glory Staff', code: 'GLO', role: 'sales', is_active: false, hired_on: '2025-03-01' })).body;
     const b = (await c.post('/users', { name: 'Lojine Staff', code: 'LJN', role: 'sales', is_active: false, hired_on: '2025-07-01' })).body;
-    expect([a.employee_no, b.employee_no]).toEqual(['E20250001', 'E20250002']);
+    expect([a.employee_no, b.employee_no]).toEqual(['E2025001', 'E2025002']);
     const users = (await c.get('/users')).body;
-    expect(users.find((u: any) => u.name === 'Owner Person').employee_no).toBe(`E${year}0001`);
+    expect(users.find((u: any) => u.name === 'Owner Person').employee_no).toBe(`E${year}001`);
   });
 });
 

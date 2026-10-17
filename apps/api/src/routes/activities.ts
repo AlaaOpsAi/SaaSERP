@@ -75,7 +75,7 @@ export async function activityRoutes(app: FastifyInstance) {
       if (q.from) where.push(`a.due_at >= ${p(q.from)}`);
       if (q.to) where.push(`a.due_at < ${p(q.to)}`);
       const { rows } = await db.query(
-        `SELECT a.*, u.name AS owner_name, u.code AS owner_code, cb.name AS completed_by_name, cob.name AS completed_on_behalf_of_name,
+        `SELECT a.*, u.name AS owner_name, u.code AS owner_code, cb.name || coalesce(' (' || cb.employee_no || ')', '') AS completed_by_name, cob.name || coalesce(' (' || cob.employee_no || ')', '') AS completed_on_behalf_of_name,
                 (a.owner_id <> ${p(req.user.sub)}) AS not_mine, b.booking_no, b.name AS booking_name, b.status AS booking_status,
                 c.name AS contact_name, c.phone AS contact_phone, ac.name AS account_name,
                 coalesce(ac.customer_no, c.customer_no) AS customer_no

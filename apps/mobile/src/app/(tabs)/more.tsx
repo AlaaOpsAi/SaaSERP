@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
+import { nameCard } from '../../components/topbar';
 import { Button, Card, Chips, H2, Screen, T, type IconName } from '../../components/ui';
 import { api, getServer, type Me, type Preferences } from '../../lib/api';
 import { applyUserSettings, useAuth } from '../../lib/auth';
@@ -9,9 +10,6 @@ import { date } from '../../lib/format';
 import { ACCENTS, useColors } from '../../lib/theme';
 import { LANGUAGES, lang, mirrored, t } from '../../i18n';
 
-const ROLE_NAMES: Record<string, string> = {
-  owner: 'Owner', admin: 'Admin', manager: 'Sales manager', sales: 'Sales / account manager', marketing: 'Marketing', finance: 'Finance', viewer: 'Viewer',
-};
 const STATE: Record<string, string> = { active: 'Active', upcoming: 'Upcoming', ended: 'Ended', revoked: 'Ended early' };
 
 interface Cover { id: string; delegator_name: string; delegate_name: string; starts_on: string; ends_on: string | null; access: string; state: string }
@@ -32,7 +30,7 @@ export default function More() {
           <View style={{ flex: 1 }}>
             <T bold>{me?.name}</T>
             <T small muted>{me?.email}</T>
-            <T small muted>{t(ROLE_NAMES[me?.role ?? ''] ?? me?.role ?? '')} · {me?.tenant.name} · {me?.sees_all ? t("sees whole company") : me && me.team_ids.length > 1 ? t('sees own + {n} in team', { n: me.team_ids.length - 1 }) : t("sees own records")}</T>
+            <T small muted>{[nameCard(me), me?.tenant.name].filter(Boolean).join(' · ')}</T>
           </View>
         </Card>
 

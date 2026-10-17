@@ -116,7 +116,17 @@ export interface Me {
   };
   /** Contract fields hidden from this user's role. */
   hidden_fields: ContractField[];
+  /** Shown under the name in the menu: "OWNER - E2021001". */
+  job_title: string | null;
+  employee_no: string | null;
+  /** The company the user works for (sets the logo and the highlight colour); null = the group. */
+  company: { id: string; code: string; name: string; accent: string | null } | null;
+  /** Logo addresses for the light and dark theme (the company's, else the group's). */
+  logo: { light: string | null; dark: string | null };
 }
+
+/** The colour highlights use: the user's company, else the workspace brand colour. */
+export const companyAccent = (me: Me) => me.company?.accent ?? me.tenant.branding?.accent ?? null;
 
 /** Contract fields an admin can hide per role (same keys as the API). */
 export type ContractField = 'business_unit' | 'branch' | 'design' | 'event_type' | 'pax' | 'rate' | 'contract_value'
@@ -128,12 +138,14 @@ export interface User {
   manager_id: string | null; data_scope: 'all' | 'team';
   /** Employee ID: E + year of hiring + serial (automatic), and the hiring date. */
   employee_no?: string | null; hired_on?: string | null;
+  /** Job title (name card) and company (logo and colour). */
+  job_title?: string | null; business_unit_id?: string | null;
   /** Whether the signed-in user can see this person's records (and assign to them). */
   in_my_team: boolean;
 }
 export interface Space { id: string; venue_id: string; name: string; capacity: number | null; allow_overlap: boolean; is_active: boolean }
 export interface Venue { id: string; name: string; kind: string; address: string | null; is_active: boolean; spaces: Space[] }
-export interface BusinessUnit { id: string; code: string; name: string; is_active: boolean }
+export interface BusinessUnit { id: string; code: string; name: string; is_active: boolean; accent?: string | null; has_logo?: boolean }
 
 export interface Booking {
   id: string; booking_no: string; name: string; status: Status; business_unit_id: string; business_unit_code: string;

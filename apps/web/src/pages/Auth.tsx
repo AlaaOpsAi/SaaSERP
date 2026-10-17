@@ -74,7 +74,7 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
           </div>
         )}
         <ErrorNote error={error} />
-        <Field label={t("Email")}><input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        <Field label={t("Email or employee ID")}><input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label={t("Password")}><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         {workspaces && (
           <Field label={t("Workspace")}>

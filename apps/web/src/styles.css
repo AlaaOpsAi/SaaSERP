@@ -556,6 +556,29 @@ details.schedule summary { cursor: pointer; color: var(--accent); font-weight: 5
 .topbar-brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; min-width: 0; }
 .topbar-brand:hover { text-decoration: none; }
 .topbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Company logo in a box framed by a thin line in the logo's colour (black on light, white on dark). */
+.logo-box {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  height: 44px; min-width: 44px; max-width: 160px; padding: 4px 8px;
+  border: 1px solid var(--text); border-radius: 8px; color: var(--text);
+}
+.logo-box img { display: block; height: 32px; width: auto; max-width: 142px; object-fit: contain; }
+.logo-box .logo-dark { display: none; }
+.logo-box.text { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .logo-box .logo-light { display: none; }
+  :root:not([data-theme='light']) .logo-box .logo-dark { display: block; }
+}
+:root[data-theme='dark'] .logo-box .logo-light { display: none; }
+:root[data-theme='dark'] .logo-box .logo-dark { display: block; }
+.name-card { letter-spacing: 0.02em; }
+/* Admin: the two versions of a logo, each on the background it is shown on. */
+.logo-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.logo-slot { display: flex; flex-direction: column; gap: 6px; }
+.logo-slot-preview { height: 72px; border-radius: 10px; display: grid; place-items: center; padding: 8px; border: 1px solid var(--border-strong); }
+.logo-slot.light .logo-slot-preview { background: #ffffff; color: #52514e; }
+.logo-slot.dark .logo-slot-preview { background: #0d0d0d; color: #c3c2b7; }
+.logo-slot-preview img { max-height: 56px; max-width: 100%; object-fit: contain; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .top-btn {
   position: relative; width: 38px; height: 38px; padding: 0; border-radius: 10px; display: grid; place-items: center;
@@ -570,10 +593,10 @@ details.schedule summary { cursor: pointer; color: var(--accent); font-weight: 5
 
 .menu-layer { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.32); animation: fade-in 0.15s ease; }
 .menu-panel {
-  position: absolute; top: 0; bottom: 0; inset-inline-end: 0; width: min(340px, 88vw); background: var(--surface);
+  position: absolute; top: 0; bottom: 0; right: 0; width: min(340px, 88vw); background: var(--surface);
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; animation: slide-in 0.18s ease;
 }
-:root[dir="rtl"] .menu-panel { animation-name: slide-in-rtl; }
+/* The menu opens from the right in every language, like the header it belongs to. */
 .menu-head { display: flex; align-items: center; gap: 10px; padding: 14px; border-bottom: 1px solid var(--border); }
 .menu-head .bell-panel { inset-inline-start: auto; inset-inline-end: -40px; width: 300px; }
 .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
@@ -591,11 +614,12 @@ details.schedule summary { cursor: pointer; color: var(--accent); font-weight: 5
 .menu-foot { border-top: 1px solid var(--border); padding: 8px; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes slide-in { from { transform: translateX(100%); } }
-@keyframes slide-in-rtl { from { transform: translateX(-100%); } }
 @media (prefers-reduced-motion: reduce) { .menu-layer, .menu-panel { animation: none; } }
 @media (max-width: 640px) {
   .topbar { padding: 8px 12px; }
   .topbar-name { max-width: 34vw; }
+  .logo-box { height: 38px; max-width: 120px; }
+  .logo-box img { height: 26px; max-width: 102px; }
   .main { padding: 16px; }
 }
 @media print {

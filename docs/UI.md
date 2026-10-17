@@ -55,6 +55,20 @@ Local changes to `number-ticker`: takes a `format` function (keeps money, %, "60
 re-animates from the current value when the figure changes, jumps straight to the value under reduced motion,
 and gives screen readers the final text only.
 
+## Header and company identity
+
+- **The header never mirrors** (`dir="ltr"` on `.topbar`): logo + the user's full name on the left, Home · Menu ·
+  EN | AR on the right, in every language. The menu always opens from the right. Only the page below switches
+  to right-to-left in Arabic.
+- **Logo box** (`LogoBox` in `components/TopBar.tsx`): the logo in a box framed by a thin line in the logo's own
+  colour (`var(--text)`: black on the light theme, white on the dark theme). Each company uploads a black version
+  (light theme) and a white version (dark theme) under Admin & IT → Business units; the group's logo is under
+  Admin & IT → Company and shows for users without a company. Until a logo is uploaded, the company code stands in.
+- **Highlight colour** follows the user's company (`companyAccent()` in `api.ts`): company colour → workspace brand
+  colour → default blue. A personal accent under Preferences still wins.
+- **Name card** at the top of the menu: full name, then "JOB TITLE - E2021001". The permission level is shown only
+  in Admin & IT → Team.
+
 ## Motion
 
 | Where | What moves | How |

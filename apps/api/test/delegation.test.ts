@@ -70,8 +70,8 @@ describe('delegation', () => {
     expect((await c.sami.patch(`/bookings/${jouBooking.id}`, { pax: 120 })).status).toBe(200);
     await c.sami.post(`/bookings/${jouBooking.id}/status`, { status: 'ACT' });
     const detail = (await c.owner.get(`/bookings/${jouBooking.id}`)).body;
-    expect(detail.log.find((l: any) => l.action === 'updated')).toMatchObject({ actor_name: 'Sami', on_behalf_of_name: 'Jou', details: { fields: ['pax'] } });
-    expect(detail.history.at(-1)).toMatchObject({ to_status: 'ACT', changed_by_name: 'Sami', on_behalf_of_name: 'Jou' });
+    expect(detail.log.find((l: any) => l.action === 'updated')).toMatchObject({ actor_name: expect.stringMatching(/^Sami \(E\d{7}\)$/), on_behalf_of_name: expect.stringMatching(/^Jou \(E\d{7}\)$/), details: { fields: ['pax'] } });
+    expect(detail.history.at(-1)).toMatchObject({ to_status: 'ACT', changed_by_name: expect.stringMatching(/^Sami \(E\d{7}\)$/), on_behalf_of_name: expect.stringMatching(/^Jou \(E\d{7}\)$/) });
     // Sami may create a booking for Jou while covering, but not for an outsider like Gha.
     expect((await c.sami.post('/bookings', { name: 'New enquiry for Jou', owner_id: u.jou.id })).status).toBe(201);
     expect((await c.sami.post('/bookings', { name: 'x', owner_id: u.gha.id })).status).toBe(403);
@@ -101,7 +101,7 @@ describe('delegation', () => {
     expect(mine.find((a: any) => a.id === jouTask.id).not_mine).toBe(true);
     await c.gha.post(`/activities/${jouTask.id}/complete`, { outcome: 'Confirmed menu' });
     const done = (await c.jou.get('/activities?scope=mine&state=done')).body[0];
-    expect(done).toMatchObject({ completed_by_name: 'Gha', completed_on_behalf_of_name: 'Jou', outcome: 'Confirmed menu' });
+    expect(done).toMatchObject({ completed_by_name: expect.stringMatching(/^Gha \(E\d{7}\)$/), completed_on_behalf_of_name: expect.stringMatching(/^Jou \(E\d{7}\)$/), outcome: 'Confirmed menu' });
     expect((await c.jou.post('/delegations', { delegate_id: u.gha.id, starts_on: day(0), access: 'view', handover_activities: true })).status).toBe(400);
   });
 

@@ -16,6 +16,7 @@ Complete the remaining development in a new local Claude Code session, so the in
 ## Decisions
 
 - Discussions live in `discussions/` inside the repository (tracked in git); the repository root is not changed.
+- `discussions/ALL_DISCUSSIONS.md` keeps every discussion in full; each folder keeps its own part. Rebuilt with `npm run discussions` (2026-10-17).
 - Development continues in this session (user chose "Do it here" over a new session).
 - First item: **enhance the web UI** using the *UI UX Pro Max* plugin (design guidance) and the *21st.dev Magic* MCP (ready-made components).
 
@@ -103,6 +104,60 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - The production Docker image now builds cleanly from the current code (checked locally).
 - [ ] Commit, push and deploy (the padding needs the new API on the server; without it the template still works, but the table shrinks to the number of services).
 - [ ] Upload both templates (Admin & IT → Templates, business type Weddings, Arabic) and paste the checklist.
+
+## Customer comment 6: header, magenta, name card, Employee ID, company logos (2026-10-17)
+
+**Customer (Melinda), summarised:**
+1. The header must not mirror when switching language; everything in it stays in place (logo coming).
+2. Highlighted text (e.g. "Contracts" selected in the menu) in **magenta**, the corporate colour.
+3. Top of the menu: full name, then **Job title – Employee ID** (e.g. "Melinda Molnar / OWNER - E2021001").
+4. Permission level not shown to users; only in the IT module.
+5. The Employee ID is the username and user ID, so every action is traceable by it.
+6. Upper-left corner: company logo + user's full name. The logo follows the user's company (Wedding → WED-X, …); logos white on black.
+7. Colour identity: WED-X and CONF-X black + magenta; DEAL-X dark brown + neon green; REAL-X dark brown + neon orange; SELL-X dark brown + bright turquoise.
+
+**What exists today:** Employee ID (E + hiring year + 4 digits, automatic); company brand colour for the whole workspace; business units (W = WEDX, X = CONFX …) on contracts only. Missing: job title on users, a user's company, logos, sign-in by Employee ID. The role shows in one place (menu header).
+
+**Recommendations:**
+1. **Fixed header** in every language: logo + full name on the left, Home · Menu · EN|AR on the right; the menu always opens from the right. Pages below still switch to right-to-left in Arabic.
+2. **Company per user** (Admin → Team): each user belongs to one company (business unit). It sets their logo and colours. Users who work for several pick a main one.
+3. **Company identity** per business unit (Admin & IT): logo (white-on-black file), dark colour, accent colour. The header shows the logo on its dark colour; highlights (selected menu item, active tab, buttons, links) use the accent. Neon green / orange / turquoise are too light for text on white, so text uses a darker shade of the same colour automatically, and the bright colour stays for fills and underlines.
+4. **Menu name card:** full name, then "Job title – E2021001". New *Job title* field under Admin → Team. Role and record scope move to Admin & IT → Team only.
+5. **Sign in with Employee ID or email.** Employee IDs repeat across workspaces in a SaaS, so if one matches several workspaces the sign-in asks which (as it already does for email). Email stays for password resets.
+6. **Traceability:** the Employee ID is shown next to the name everywhere actions are logged (history, audit log, exports, "on behalf of"). Internally the user's record stays the key, so a later ID correction never breaks the history.
+
+**Questions for the customer:**
+1. Employee ID format: today E + year + 4 digits (E20210001). The example has 3 (E2021001). Keep 4, or switch to 3 (max 999 hires per year)?
+2. "Real estate employees will see CONFX logo": is Real estate REAL-X, with CONF-X as the group / conferences company?
+3. Exact colour codes (hex) for magenta, neon green, neon orange, turquoise and dark brown, or take them from the logo files?
+4. Whole header dark (black / dark brown) with the white logo, or a light header with the logo in a dark tile?
+5. Owners and admins who manage all companies: group logo (CONF-X) in their header?
+
+**Answers (2026-10-17):**
+1. Colour codes: only WED-X and CONF-X for now (to be sent); the others later, so colours must be editable.
+2. Employee ID: **3 digits** (E2021001).
+3. **CONF-X GROUP is the mother company** of all the others.
+4. An Excel with the companies and their activities is coming; logos are coming.
+5. **Header stays as it is, no colour change.** Only the logo changes with the theme (light theme: the black version; dark theme: the white version).
+6. The logo sits in a **box framed by a thin line in the logo's own colour** (black on light, white on dark), a bit bigger than today's mark, not very big.
+
+**Build now (without logos / colour codes):** fixed header in every language, framed logo box (company code until logos are uploaded), company per user, logo + accent per company with group (CONF-X) fallback, job title, name card "JOB TITLE - E2021001", role hidden outside Admin & IT, 3-digit Employee IDs, sign-in with Employee ID or email, Employee ID next to names in history.
+
+**Delivered (2026-10-17):**
+- Header fixed in every language (logo + full name left, buttons right); the menu always opens from the right.
+- Framed logo box, black logo on the light theme and white on the dark theme, frame in the same colour; header colours unchanged. Company code shows until a logo is uploaded.
+- Admin & IT → Business units: colour (picker or code) and the two logo versions per company; Company tab: the group logo (CONF-X GROUP), shown to users without a company.
+- Admin & IT → Team: *Job title* and *Company* per user; the list shows both.
+- Menu name card "OWNER - E2026001"; permission level removed from the menu (web and phone).
+- Employee IDs now E + year + 3 digits; existing ones converted (E20260001 → E2026001).
+- Sign in with the employee ID or the email (web and phone); when an ID exists in several workspaces, the sign-in asks which.
+- History, audit trail, documents, deactivations and completed activities show "Name (E2026001)".
+- Fixed in passing: updating a user without sending the role reset it to Sales (the web form always sent it, so it never showed).
+- Checks: API tests 65/65; web typecheck; checked in the browser (sign-in with an employee ID, header in English and Arabic, light and dark, menu, Admin → Business units). Phone app: files syntax-checked only (its packages aren't installed here).
+
+- Committed and pushed with the combined discussion file (2026-10-17); VPS update pending (migration 010 runs on start).
+
+**Waiting for the customer:** logo files (black and white versions per company), colour codes (WED-X and CONF-X now, the rest later), the companies Excel, and job titles for the users.
 
 ## Local test setup used
 

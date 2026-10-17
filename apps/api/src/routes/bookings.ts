@@ -195,12 +195,12 @@ async function bookingDetail(db: Db, bookingId: string) {
   const payments = await q('SELECT * FROM payments WHERE booking_id = $1 ORDER BY paid_on, created_at');
   const payouts = await q('SELECT * FROM booking_payout_amounts WHERE booking_id = $1 ORDER BY kind, created_at');
   const history = await q(
-    `SELECT h.*, u.name AS changed_by_name, ob.name AS on_behalf_of_name FROM booking_status_history h
+    `SELECT h.*, u.name || coalesce(' (' || u.employee_no || ')', '') AS changed_by_name, ob.name || coalesce(' (' || ob.employee_no || ')', '') AS on_behalf_of_name FROM booking_status_history h
      LEFT JOIN users u ON u.id = h.changed_by LEFT JOIN users ob ON ob.id = h.on_behalf_of
      WHERE h.booking_id = $1 ORDER BY h.changed_at`,
   );
   const log = await q(
-    `SELECT l.id, l.action, l.details, l.created_at, u.name AS actor_name, ob.name AS on_behalf_of_name
+    `SELECT l.id, l.action, l.details, l.created_at, u.name || coalesce(' (' || u.employee_no || ')', '') AS actor_name, ob.name || coalesce(' (' || ob.employee_no || ')', '') AS on_behalf_of_name
      FROM booking_log l LEFT JOIN users u ON u.id = l.actor_id LEFT JOIN users ob ON ob.id = l.on_behalf_of
      WHERE l.booking_id = $1 ORDER BY l.created_at`,
   );
