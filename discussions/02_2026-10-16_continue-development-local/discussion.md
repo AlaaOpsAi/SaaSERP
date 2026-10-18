@@ -179,6 +179,14 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - New safe mode: `SEED_OWNER_EMAIL` + `SEED_OWNER_PASSWORD` + `SEED_WORKSPACE` + `SEED_USER_PASSWORD` fills an existing, approved workspace through the API (owner/admin only). It creates no operator and no other sign-up, refuses a workspace that already has contracts, and needs a staff password of at least 8 characters. The old local-demo mode refuses to run with `NODE_ENV=production`.
 - Tested locally: new workspace filled (96 contracts, 7 people, staff sign-in works); refused on a second run, on the existing demo workspace, without a staff password, and in production mode.
 
+**Passwords (2026-10-18):**
+- Question: how can a user reset their password? Answer at the time: only an admin can set a new one (Admin & IT → Team); there was no self-service and no email reset (correcting an earlier remark that email "stays for password resets").
+- Built: **Change password** under Preferences (current password required; new one 8+ characters, typed twice), recorded in Admin → IT as "Changed own password".
+- Built: server command `reset-user-password.js <workspace> <email or employee ID> <password>` for when nobody who could reset it can sign in; recorded as "Password reset on the server". Deactivated users are refused.
+- Admin → IT now labels every access-log entry properly (password entries were going to show as "Exported").
+- Checks: API tests 66/66; compiled command run locally; the Preferences card tried in the browser (mismatch blocked, change works, old password refused).
+- Later: **Forgot password?** by email, once a sending mailbox (e.g. no-reply@opsaibridge.eu on Hostinger) is chosen. The phone app has no Change password screen yet.
+
 **Waiting for the customer:** logo files (black and white versions per company), colour codes (WED-X and CONF-X now, the rest later), the companies Excel, and job titles for the users.
 
 ## Local test setup used

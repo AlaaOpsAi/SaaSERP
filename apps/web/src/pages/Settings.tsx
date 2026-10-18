@@ -833,6 +833,11 @@ interface ItStatusData {
   access_log: { created_at: string; action: string; detail: string | null; ip: string | null; user_name: string | null; role: string | null }[];
 }
 
+/** Access-log entries under Admin → IT. */
+const ACCESS_ACTIONS: Record<string, string> = {
+  sign_in: 'Signed in', export: 'Exported', password_change: 'Changed own password', password_reset: 'Password reset on the server',
+};
+
 function ItStatus() {
   const { data, isLoading } = useQuery({ queryKey: ['it-status'], queryFn: () => api<ItStatusData>('/it/status') });
   if (isLoading || !data) return <div className="empty">{t('Loading…')}</div>;
@@ -882,7 +887,7 @@ function ItStatus() {
                 <tr key={i}>
                   <td>{dateTime(l.created_at)}</td>
                   <td>{l.user_name ?? '—'}{l.role && <span className="muted small"> · {ROLE_LABEL[l.role as Role] ?? l.role}</span>}</td>
-                  <td>{l.action === 'sign_in' ? t('Signed in') : <>{t('Exported')}{l.detail ? <span className="muted"> · {l.detail}</span> : null}</>}</td>
+                  <td>{t(ACCESS_ACTIONS[l.action] ?? l.action)}{l.detail ? <span className="muted"> · {l.detail}</span> : null}</td>
                   <td className="small muted">{l.ip ?? '—'}</td>
                 </tr>
               ))}

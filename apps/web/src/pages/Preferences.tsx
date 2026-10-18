@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { api, companyAccent, type Me } from '../api';
 import { ACCENTS, applyAppearance, type Preferences as Prefs } from '../appearance';
 import { useAuth } from '../auth';
-import { ErrorNote, StatusBadge } from '../components/ui';
+import { ErrorNote, Field, StatusBadge } from '../components/ui';
 import { LANGUAGES, t } from '../i18n';
 
 /** Personal language & look; every change applies immediately and is saved to your account. */
@@ -105,7 +105,58 @@ export function Preferences() {
             <span className="small">{Math.round((prefs.fontScale ?? 1) * 100)}%</span>
           </label>
         </section>
+
+        <ChangePassword />
       </div>
     </>
+  );
+}
+
+/** Change your own password (the current one is asked for first). */
+function ChangePassword() {
+  const [form, setForm] = useState({ current: '', next: '', repeat: '' });
+  const [error, setError] = useState<unknown>(null);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => { setDone(false); setForm({ ...form, [k]: e.target.value }); };
+  const mismatch = form.repeat !== '' && form.next !== form.repeat;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (mismatch) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await api('/me/password', { method: 'POST', body: { current_password: form.current, new_password: form.next } });
+      setForm({ current: '', next: '', repeat: '' });
+      setDone(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card stack">
+      <h2>{t('Password')}</h2>
+      <p className="secondary small" style={{ margin: 0 }}>{t('Change the password you sign in with. Forgot it? Ask an admin to set a new one under Admin & IT → Team.')}</p>
+      <ErrorNote error={error} />
+      {done && <div className="alert info" role="status">{t('Password changed. Use the new one next time you sign in.')}</div>}
+      <form className="form-grid" onSubmit={submit}>
+        <Field label={t('Current password')} className="span-2">
+          <input type="password" autoComplete="current-password" required value={form.current} onChange={set('current')} />
+        </Field>
+        <Field label={t('New password (8+ characters)')}>
+          <input type="password" autoComplete="new-password" minLength={8} required value={form.next} onChange={set('next')} />
+        </Field>
+        <Field label={t('Repeat the new password')}>
+          <input type="password" autoComplete="new-password" minLength={8} required value={form.repeat} onChange={set('repeat')}
+            aria-invalid={mismatch} />
+        </Field>
+        {mismatch && <p className="small danger-text span-all" style={{ margin: 0 }}>{t('The two new passwords are not the same.')}</p>}
+        <div className="span-all"><button className="primary" disabled={busy || mismatch}>{t('Change password')}</button></div>
+      </form>
+    </section>
   );
 }

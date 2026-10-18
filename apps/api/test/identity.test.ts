@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
+import { resetUserPassword } from '../scripts/reset-user-password.js';
 import { client, login, makeApp, newTenant, type Client } from './helpers.js';
 
 let app: FastifyInstance;
@@ -82,5 +83,33 @@ describe('employee ID, name card and company identity', () => {
     expect(updated).toMatchObject({ job_title: 'Planner', role: 'sales', is_active: true });
     expect((await owner.patch(`/users/${user.id}`, { role: 'manager' })).body.role).toBe('manager');
     expect((await owner.patch(`/users/${user.id}`, { job_title: 'Lead planner' })).body.role).toBe('manager');
+  });
+
+  it('lets users change their own password, and the server reset a forgotten one', async () => {
+    const owner = await newTenant(app);
+    const email = `nora-${owner.slug}@example.com`;
+    const nora = (await owner.post('/users', { name: 'Nora', email, password: 'password123' })).body;
+    const c = client(app, (await login(app, email, 'password123', owner.slug)).json().token);
+
+    expect((await c.post('/me/password', { current_password: 'wrong-one', new_password: 'new-pass-2026' })).status).toBe(400);
+    expect((await c.post('/me/password', { current_password: 'password123', new_password: 'short' })).status).toBe(400);
+    expect((await c.post('/me/password', { current_password: 'password123', new_password: 'password123' })).status).toBe(400);
+    expect((await c.post('/me/password', { current_password: 'password123', new_password: 'new-pass-2026' })).status).toBe(200);
+    expect((await login(app, email, 'password123', owner.slug)).statusCode).toBe(401);
+    expect((await login(app, email, 'new-pass-2026', owner.slug)).statusCode).toBe(200);
+
+    // Forgotten: set from the server, by email or by employee ID.
+    await resetUserPassword(owner.slug, email, 'from-server-1');
+    expect((await login(app, email, 'from-server-1', owner.slug)).statusCode).toBe(200);
+    await resetUserPassword(owner.slug, nora.employee_no, 'from-server-2');
+    expect((await login(app, nora.employee_no, 'from-server-2', owner.slug)).statusCode).toBe(200);
+    await expect(resetUserPassword(owner.slug, email, 'short')).rejects.toThrow('at least 8');
+    await expect(resetUserPassword('no-such-workspace', email, 'long-enough-1')).rejects.toThrow('No user');
+
+    // Both show in the access log under Admin → IT.
+    const it = (await owner.get('/it/status')).body;
+    const actions = it.access_log.map((l: { action: string }) => l.action);
+    expect(actions).toContain('password_change');
+    expect(actions).toContain('password_reset');
   });
 });

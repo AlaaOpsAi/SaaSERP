@@ -151,6 +151,24 @@ export async function authRoutes(app: FastifyInstance) {
     return { token };
   });
 
+  // Change your own password: the current one is needed, so a borrowed open session can't take over the account.
+  app.post('/me/password', { preHandler: authed }, (req) =>
+    tx(req, async (db) => {
+      const body = z.object({
+        current_password: z.string().min(1),
+        new_password: z.string().min(8, 'Use at least 8 characters'),
+      }).parse(req.body);
+      const { rows } = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.sub]);
+      if (!(await verifyPassword(body.current_password, rows[0]?.password_hash ?? null))) {
+        throw badRequest('Your current password is not correct');
+      }
+      if (body.new_password === body.current_password) throw badRequest('Choose a password different from the current one');
+      await db.query('UPDATE users SET password_hash = $2 WHERE id = $1', [req.user.sub, await hashPassword(body.new_password)]);
+      await logAccess(db, req.user.sub, 'password_change', undefined, req.ip);
+      return { ok: true };
+    }),
+  );
+
   // Personal look & language. Only the keys sent are changed; null removes a key.
   app.patch('/me/preferences', { preHandler: authed }, (req) =>
     tx(req, async (db) => {

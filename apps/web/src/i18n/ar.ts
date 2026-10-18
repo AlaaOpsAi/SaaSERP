@@ -1004,6 +1004,15 @@ const ar: Record<string, string> = {
   "Colour": "اللون",
   "Colour code": "رمز اللون",
   "Each company's colour is used for highlights (the selected menu item, buttons, links) by the people who work for it, and its logo shows in their top-left corner.": "يُستخدم لون كل شركة في التمييز (عنصر القائمة المختار والأزرار والروابط) لموظفيها، ويظهر شعارها في الزاوية العليا اليسرى لديهم.",
+  "Change the password you sign in with. Forgot it? Ask an admin to set a new one under Admin & IT → Team.": "غيّر كلمة المرور التي تدخل بها. نسيتها؟ اطلب من المسؤول تعيين كلمة جديدة من الإدارة وتقنية المعلومات ← الفريق.",
+  "Password changed. Use the new one next time you sign in.": "تم تغيير كلمة المرور. استخدم الجديدة عند الدخول القادم.",
+  "Current password": "كلمة المرور الحالية",
+  "New password (8+ characters)": "كلمة المرور الجديدة (8 أحرف أو أكثر)",
+  "Repeat the new password": "أعد كتابة كلمة المرور الجديدة",
+  "The two new passwords are not the same.": "كلمتا المرور الجديدتان غير متطابقتين.",
+  "Change password": "تغيير كلمة المرور",
+  "Changed own password": "غيّر كلمة المرور بنفسه",
+  "Password reset on the server": "إعادة تعيين كلمة المرور من الخادم",
 };
 
 export default ar;
