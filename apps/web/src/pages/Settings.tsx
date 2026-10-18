@@ -1,6 +1,7 @@
 import { RotateCcw, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, download, type ContractField, type Role, type User } from '../api';
 import { useAuth } from '../auth';
 import { TemplatesAdmin } from '../components/TemplatesAdmin';
@@ -13,7 +14,10 @@ type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'templates' | 'fi
 
 export function Settings() {
   const { can } = useAuth();
-  const [tab, setTab] = useState<Tab>('company');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>((params.get('tab') as Tab | null) ?? 'company');
+  // Links from notifications (e.g. a password request) open a given tab.
+  useEffect(() => { const p = params.get('tab') as Tab | null; if (p) setTab(p); }, [params]);
   const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
   if (can('manage')) tabs.push(['templates', 'Templates'], ['deactivated', 'Deactivated records']);
   if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ['export', 'Export'], ['it', 'IT']);
@@ -161,6 +165,17 @@ function Team() {
   const { data: users } = useUsers();
   const { data: units } = useBusinessUnits();
   const [editing, setEditing] = useState<Partial<User> | null>(null);
+  // ?user=<id> (from a "forgot their password" notification) opens that person's form.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const id = params.get('user');
+    const found = id && users?.find((u) => u.id === id);
+    if (!found) return;
+    setEditing(found);
+    const next = new URLSearchParams(params);
+    next.delete('user');
+    setParams(next, { replace: true });
+  }, [params, users, setParams]);
   const [transferring, setTransferring] = useState<User | null>(null);
   // Managers can hand over the work of people in their team; admins anyone's (but never their own).
   const canTransfer = (u: User) => can('manage') && u.id !== me?.id && (me?.sees_all || me?.team_ids.includes(u.id));
@@ -836,6 +851,7 @@ interface ItStatusData {
 /** Access-log entries under Admin → IT. */
 const ACCESS_ACTIONS: Record<string, string> = {
   sign_in: 'Signed in', export: 'Exported', password_change: 'Changed own password', password_reset: 'Password reset on the server',
+  password_request: 'Asked for a new password (forgot it)',
 };
 
 function ItStatus() {

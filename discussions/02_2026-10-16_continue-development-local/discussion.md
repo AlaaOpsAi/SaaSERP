@@ -185,7 +185,10 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - Built: server command `reset-user-password.js <workspace> <email or employee ID> <password>` for when nobody who could reset it can sign in; recorded as "Password reset on the server". Deactivated users are refused.
 - Admin → IT now labels every access-log entry properly (password entries were going to show as "Exported").
 - Checks: API tests 66/66; compiled command run locally; the Preferences card tried in the browser (mismatch blocked, change works, old password refused).
-- Later: **Forgot password?** by email, once a sending mailbox (e.g. no-reply@opsaibridge.eu on Hostinger) is chosen. The phone app has no Change password screen yet.
+- Then asked for "Forgot password?" on the sign-in screen; chose **admins only** (no email).
+- Built: **Forgot password?** under the password field (web and phone). The user enters their email or employee ID; every active owner and admin of their workspace gets a bell notification "Name (E…) forgot their password…", whose link opens Admin & IT → Team with that person's form open to set a new password. Same answer whether or not the account exists; repeats within 15 minutes ignored; recorded in Admin → IT as "Asked for a new password". If the requester is the only admin, the page says to contact the SaaSERP provider (server reset command).
+- Checks: API tests 67/67; tried in the browser (request sent, owner notified, link opens the right person's form).
+- Later, if wanted: reset by email once a sending mailbox is chosen. The phone app has no Change password screen yet.
 
 **Waiting for the customer:** logo files (black and white versions per company), colour codes (WED-X and CONF-X now, the rest later), the companies Excel, and job titles for the users.
 

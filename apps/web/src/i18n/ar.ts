@@ -1013,6 +1013,12 @@ const ar: Record<string, string> = {
   "Change password": "تغيير كلمة المرور",
   "Changed own password": "غيّر كلمة المرور بنفسه",
   "Password reset on the server": "إعادة تعيين كلمة المرور من الخادم",
+  "Forgot password?": "نسيت كلمة المرور؟",
+  "Forgot your password?": "نسيت كلمة المرور؟",
+  "Enter your email or employee ID. Your company's admins will be told, and one of them will give you a new password.": "أدخل بريدك الإلكتروني أو رقمك الوظيفي. سيتم إبلاغ مسؤولي شركتك، وسيعطيك أحدهم كلمة مرور جديدة.",
+  "Request sent. If this account exists, your admins have been told and will give you a new password. If you are the only admin, contact your SaaSERP provider.": "تم إرسال الطلب. إذا كان هذا الحساب موجودًا، فقد تم إبلاغ المسؤولين وسيعطونك كلمة مرور جديدة. إذا كنت المسؤول الوحيد، فتواصل مع مزوّد SaaSERP.",
+  "Ask for a new password": "اطلب كلمة مرور جديدة",
+  "Asked for a new password (forgot it)": "طلب كلمة مرور جديدة (نسيها)",
 };
 
 export default ar;

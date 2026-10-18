@@ -382,6 +382,10 @@ const ar: Record<string, string> = {
   "Proposal": "عرض سعر",
   "Other": "أخرى",
   "Email or employee ID": "البريد الإلكتروني أو الرقم الوظيفي",
+  "Forgot password?": "نسيت كلمة المرور؟",
+  "Forgot your password?": "نسيت كلمة المرور؟",
+  "Type your email or employee ID first, then tap \"Forgot password?\" again.": "اكتب بريدك الإلكتروني أو رقمك الوظيفي أولاً، ثم اضغط \"نسيت كلمة المرور؟\" مرة أخرى.",
+  "Request sent. If this account exists, your admins have been told and will give you a new password. If you are the only admin, contact your SaaSERP provider.": "تم إرسال الطلب. إذا كان هذا الحساب موجودًا، فقد تم إبلاغ المسؤولين وسيعطونك كلمة مرور جديدة. إذا كنت المسؤول الوحيد، فتواصل مع مزوّد SaaSERP.",
 };
 
 export default ar;

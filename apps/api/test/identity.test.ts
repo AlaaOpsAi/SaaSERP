@@ -112,4 +112,29 @@ describe('employee ID, name card and company identity', () => {
     expect(actions).toContain('password_change');
     expect(actions).toContain('password_reset');
   });
+
+  it('"Forgot password?" tells the workspace admins, without revealing who has an account', async () => {
+    const owner = await newTenant(app);
+    const email = `omar-${owner.slug}@example.com`;
+    const omar = (await owner.post('/users', { name: 'Omar', email, password: 'password123', role: 'sales' })).body;
+    const colleague = (await owner.post('/users', { name: 'Huda', email: `huda-${owner.slug}@example.com`, password: 'password123', role: 'sales' })).body;
+    const forgot = (login: string) => app.inject({ method: 'POST', url: '/api/auth/forgot-password', payload: { email: login, workspace: owner.slug } });
+
+    const unknown = await forgot(`nobody-${owner.slug}@example.com`);
+    const known = await forgot(email);
+    expect(unknown.statusCode).toBe(200);
+    expect(known.json()).toEqual(unknown.json()); // same answer either way
+    await forgot(omar.employee_no); // a repeat within 15 minutes is ignored
+
+    const notes = (await owner.get('/notifications')).body.items.filter((n: { text: string }) => n.text.includes('forgot their password'));
+    expect(notes).toHaveLength(1);
+    expect(notes[0].text).toContain(`Omar (${omar.employee_no})`);
+    expect(notes[0].link).toBe(`/settings?tab=team&user=${omar.id}`);
+
+    // Only owners and admins are told.
+    const huda = client(app, (await login(app, colleague.email, 'password123', owner.slug)).json().token);
+    expect((await huda.get('/notifications')).body.items).toHaveLength(0);
+    expect((await owner.get('/it/status')).body.access_log.some((l: { action: string }) => l.action === 'password_request')).toBe(true);
+    expect((await forgot('not an email')).statusCode).toBe(400);
+  });
 });

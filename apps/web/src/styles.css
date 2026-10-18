@@ -576,6 +576,8 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 :root[data-theme='dark'] .logo-box .logo-light { display: none; }
 :root[data-theme='dark'] .logo-box .logo-dark { display: block; }
 .name-card { letter-spacing: 0.02em; }
+/* "Forgot password?" under the password field on the sign-in page. */
+.forgot-row { display: flex; justify-content: flex-end; margin-top: -8px; }
 /* Admin: the two versions of a logo, each on the background it is shown on. */
 .logo-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .logo-slot { display: flex; flex-direction: column; gap: 6px; }

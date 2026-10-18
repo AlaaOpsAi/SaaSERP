@@ -8,6 +8,7 @@ import { seedTenantDefaults } from '../lib/defaults.js';
 import { badRequest, conflict, HttpError } from '../lib/errors.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { logAccess } from '../lib/access.js';
+import { notify } from '../lib/notify.js';
 import { logoUrls } from './branding.js';
 
 const signupSchema = z.object({
@@ -149,6 +150,40 @@ export async function authRoutes(app: FastifyInstance) {
     });
     const token = app.jwt.sign({ sub: match.user_id, tid: match.tenant_id, role }, { expiresIn: '12h' });
     return { token };
+  });
+
+  // "Forgot password?" on the sign-in page: the workspace's owners and admins are told, and one
+  // of them sets a new password under Admin & IT → Team. The answer is always the same, so the
+  // page can't be used to find out who has an account; repeats within 15 minutes are ignored.
+  app.post('/auth/forgot-password', async (req) => {
+    const body = loginSchema.pick({ email: true, workspace: true }).parse(req.body);
+    const matches = await withoutTenant(async (db) => {
+      const { rows } = EMPLOYEE_NO.test(body.email)
+        ? await db.query('SELECT * FROM auth_find_users_by_employee_no($1)', [body.email.toUpperCase()])
+        : await db.query('SELECT * FROM auth_find_users($1)', [body.email]);
+      return rows as { user_id: string; tenant_id: string; tenant_slug: string; is_active: boolean; tenant_status: string }[];
+    });
+    const targets = matches.filter((m) => m.is_active && m.tenant_status === 'active'
+      && (!body.workspace || m.tenant_slug === body.workspace));
+    for (const m of targets) {
+      await withTenant(m.tenant_id, async (db) => {
+        const recent = await db.query(
+          `SELECT 1 FROM access_log WHERE user_id = $1 AND action = 'password_request' AND created_at > now() - interval '15 minutes'`,
+          [m.user_id],
+        );
+        if (recent.rows[0]) return;
+        const { rows: [who] } = await db.query('SELECT name, employee_no FROM users WHERE id = $1', [m.user_id]);
+        const admins = await db.query(
+          `SELECT id FROM users WHERE role IN ('owner', 'admin') AND is_active AND email IS NOT NULL AND id <> $1`, [m.user_id]);
+        const label = `${who.name}${who.employee_no ? ` (${who.employee_no})` : ''}`;
+        for (const a of admins.rows) {
+          await notify(db, a.id, `${label} forgot their password and asked for a new one. Set it under Team.`,
+            `/settings?tab=team&user=${m.user_id}`);
+        }
+        await logAccess(db, m.user_id, 'password_request', admins.rows.length ? undefined : 'no other admin to tell', req.ip);
+      });
+    }
+    return { ok: true };
   });
 
   // Change your own password: the current one is needed, so a borrowed open session can't take over the account.

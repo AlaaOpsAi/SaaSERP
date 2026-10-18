@@ -37,6 +37,7 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
     params.get('inactive') ? { status: params.get('inactive')! } : null,
   );
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -59,6 +60,10 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
     }
   }
 
+  if (forgot) {
+    return <ForgotPassword initial={email} workspace={workspace} onLanguage={onLanguage} onBack={() => setForgot(false)} />;
+  }
+
   return (
     <div className="auth-page">
       <form className="card auth-card stack" onSubmit={submit}>
@@ -76,6 +81,7 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
         <ErrorNote error={error} />
         <Field label={t("Email or employee ID")}><input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label={t("Password")}><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+        <div className="forgot-row"><button type="button" className="link small" onClick={() => setForgot(true)}>{t("Forgot password?")}</button></div>
         {workspaces && (
           <Field label={t("Workspace")}>
             <select required value={workspace} onChange={(e) => setWorkspace(e.target.value)}>
@@ -89,6 +95,62 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
           <span className="small secondary">{t("Your company is not on SaaSERP yet?")}</span>
           <Link to="/signup" className="btn">{t("New company")}</Link>
         </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * "Forgot password?": the workspace's owners and admins are told (bell notification) and one of
+ * them sets a new password. The answer is the same whether or not the account exists.
+ */
+function ForgotPassword({ initial, workspace, onBack, onLanguage }: {
+  initial: string; workspace: string; onBack: () => void; onLanguage?: (code: string) => void;
+}) {
+  const [login, setLogin] = useState(initial);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/auth/forgot-password', { body: { email: login, workspace: workspace || undefined } });
+      setSent(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <form className="card auth-card stack" onSubmit={submit}>
+        <LanguageSwitch onChange={onLanguage} />
+        <div>
+          <h1>{t("Forgot your password?")}</h1>
+          <p className="secondary" style={{ margin: 0 }}>
+            {t("Enter your email or employee ID. Your company's admins will be told, and one of them will give you a new password.")}
+          </p>
+        </div>
+        {sent ? (
+          <div className="alert info" role="status">
+            {t("Request sent. If this account exists, your admins have been told and will give you a new password. If you are the only admin, contact your SaaSERP provider.")}
+          </div>
+        ) : (
+          <>
+            <ErrorNote error={error} />
+            <Field label={t("Email or employee ID")}>
+              <input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus
+                value={login} onChange={(e) => setLogin(e.target.value)} />
+            </Field>
+            <button className="primary" disabled={busy}>{busy ? t("Sending…") : t("Ask for a new password")}</button>
+          </>
+        )}
+        <button type="button" className="ghost" onClick={onBack}>{t("Back to sign in")}</button>
       </form>
     </div>
   );

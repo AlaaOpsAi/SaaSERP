@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card, ErrorText, Field, H1, Notice, Screen, T } from '../components/ui';
 import { api, ApiError, getServer, setServer } from '../lib/api';
@@ -46,6 +46,21 @@ export default function Login() {
     }
   }
 
+  /** "Forgot password?": the workspace's owners and admins are told and set a new password. */
+  async function forgot() {
+    if (!email.trim()) {
+      Alert.alert(t('Forgot your password?'), t('Type your email or employee ID first, then tap "Forgot password?" again.'));
+      return;
+    }
+    try {
+      await setServer(server);
+      await api('/auth/forgot-password', { body: { email: email.trim(), workspace: workspace || undefined } });
+      Alert.alert(t('Forgot your password?'), t('Request sent. If this account exists, your admins have been told and will give you a new password. If you are the only admin, contact your SaaSERP provider.'));
+    } catch (err) {
+      setError(err);
+    }
+  }
+
   return (
     <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -63,6 +78,9 @@ export default function Login() {
             <Field label={t("Email or employee ID")} value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="username"
               autoCorrect={false} textContentType="username" />
             <Field label={t("Password")} value={password} onChangeText={setPassword} secureTextEntry textContentType="password" />
+            <Pressable onPress={forgot} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-end' }}>
+              <T small style={{ color: c.accent }}>{t('Forgot password?')}</T>
+            </Pressable>
             {workspaces && (
               <View style={{ gap: 8 }}>
                 <T small muted>{t("This email belongs to several workspaces. Choose one:")}</T>

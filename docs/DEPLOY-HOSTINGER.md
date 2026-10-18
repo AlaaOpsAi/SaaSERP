@@ -106,7 +106,7 @@ The restore keeps the server's new passwords, because the logins aren't part of 
 | A user forgot their password and no admin can sign in to reset it | `dc exec app node apps/api/dist/scripts/reset-user-password.js <workspace id> <email or employee ID> '<new password>'` |
 | Fill an empty, approved workspace with demo data | see the top of `apps/api/scripts/seed.ts` (`SEED_OWNER_EMAIL` mode); never run the plain seed on the server |
 
-**Passwords:** users change their own under ☰ Menu → Preferences → Password. An admin can set a new one for anyone under Admin & IT → Team. The server command above is the safety net when nobody can sign in. Tip: type passwords with `read -s -p "Password: " PW` and pass `"$PW"`, so they don't stay in the terminal history.
+**Passwords:** users change their own under ☰ Menu → Preferences → Password. Forgot it? **Forgot password?** on the sign-in page (web and phone) tells the workspace's owners and admins with a bell notification; its link opens that person's form under Admin & IT → Team, where an admin sets a new one. The server command above is the safety net when nobody can sign in. Tip: type passwords with `read -s -p "Password: " PW` and pass `"$PW"`, so they don't stay in the terminal history.
 
 **Backups:**
 - They run every night into `/root/SaaSERP/backups` and are kept for 14 days: the database dump and an `uploads-….tar.gz` with the signed contracts, templates and issued documents (folder `/root/SaaSERP/uploads`). They sit **on the same server**, though, so copy them somewhere else too.
