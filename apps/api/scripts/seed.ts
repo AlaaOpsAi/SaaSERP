@@ -1,7 +1,21 @@
 /**
- * Creates a demo workspace ("demo" / owner@demo.test / demo12345) with venues,
- * function spaces, a sales team and bookings across the whole pipeline.
- * Goes through the HTTP API so every business rule applies.
+ * Demo data: venues, function spaces, a 4-level sales team and ~100 contracts across the
+ * whole pipeline (18 months, so the dashboard has trends). Goes through the HTTP API so
+ * every business rule applies. All names and numbers are made up.
+ *
+ * Two ways to run it:
+ *
+ *  1. Local demo (default):  npm run seed
+ *     Creates the "demo" workspace (owner@demo.test / demo12345), a pending sign-up and a
+ *     platform operator (admin@platform.test / platform12345). Those passwords are published
+ *     in the README, so this mode refuses to run on a production server.
+ *
+ *  2. Fill an existing workspace (safe on a live server):
+ *       SEED_WORKSPACE=<workspace id> SEED_OWNER_EMAIL=<owner email> SEED_OWNER_PASSWORD=<…> \
+ *       SEED_USER_PASSWORD=<password for the demo staff> node dist/scripts/seed.js
+ *     Create and approve the workspace first (sign-up + operator console). The script signs in
+ *     as its owner and adds the demo data. It creates no operator and no other sign-up, and it
+ *     stops if the workspace already has contracts, so it never mixes into real data.
  */
 import { buildApp } from '../src/app.js';
 import { createPlatformAdmin } from './create-platform-admin.js';
@@ -20,35 +34,61 @@ async function call<T = any>(method: string, url: string, token: string | null, 
   return res.json() as T;
 }
 
-// A platform operator for the demo, so the approval console can be tried too.
-await createPlatformAdmin('admin@platform.test', 'platform12345', 'Platform Admin');
-
-const signup = await app.inject({
-  method: 'POST', url: '/api/auth/signup',
-  payload: { company_name: 'WEDX Events', slug: 'demo', name: 'Demo Owner', email: 'owner@demo.test',
-             password: 'demo12345', business_unit_code: 'W', phone: '+965 2222 0000', note: 'Demo workspace' },
-});
-if (signup.statusCode !== 200) {
-  console.log('Demo workspace already exists; nothing to do.');
+async function stop(message: string, code = 0): Promise<never> {
+  console.log(message);
   await app.close();
   await pool.end();
-  process.exit(0);
+  process.exit(code);
 }
-// Approve it as the operator would.
-const ops = (await call<{ token: string }>('POST', '/platform/login', null, { email: 'admin@platform.test', password: 'platform12345' })).token;
-const { tenants } = await call<{ tenants: { id: string; slug: string }[] }>('GET', '/platform/tenants', ops);
-await call('POST', `/platform/tenants/${tenants.find((t) => t.slug === 'demo')!.id}/approve`, ops, { plan: 'pro', max_users: 25 });
-const { token } = await call<{ token: string }>('POST', '/auth/login', null, { email: 'owner@demo.test', password: 'demo12345' });
 
-// A second sign-up left pending, to show the approval queue.
-await app.inject({
-  method: 'POST', url: '/api/auth/signup',
-  payload: { company_name: 'Gulf Catering Co', slug: 'gulf-catering', name: 'Sara Al-Mutairi', email: 'sara@gulfcatering.test',
-             password: 'demo12345', business_unit_code: 'G', phone: '+965 6000 1234',
-             note: 'Corporate catering, 12 sales staff, moving off spreadsheets' },
-});
+const existing = process.env.SEED_OWNER_EMAIL;
+/** Password of the demo staff (Melinda, Lojain, …). */
+const USER_PASSWORD = existing ? process.env.SEED_USER_PASSWORD ?? '' : 'demo12345';
+let token: string;
 
-await call('POST', '/business-units', token, { code: 'X', name: 'CONFX Group' });
+if (existing) {
+  // ---- 2. fill an existing, approved workspace ------------------------------------
+  const workspace = process.env.SEED_WORKSPACE;
+  const password = process.env.SEED_OWNER_PASSWORD;
+  if (!workspace || !password) await stop('Set SEED_WORKSPACE and SEED_OWNER_PASSWORD as well.', 1);
+  if (USER_PASSWORD.length < 8) await stop('Set SEED_USER_PASSWORD (at least 8 characters) for the demo staff.', 1);
+  const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: existing, password, workspace } });
+  if (login.statusCode !== 200) await stop(`Could not sign in to workspace "${workspace}": ${login.body}`, 1);
+  token = login.json().token;
+  const me = await call<{ role: string }>('GET', '/auth/me', token);
+  if (me.role !== 'owner' && me.role !== 'admin') await stop('Sign in as the workspace owner or an admin.', 1);
+  const { totals } = await call<{ totals: { count: string | number } }>('GET', '/bookings?limit=1', token);
+  if (Number(totals.count) > 0) await stop(`Workspace "${workspace}" already has contracts; demo data is only added to an empty workspace.`, 1);
+} else {
+  // ---- 1. local demo ----------------------------------------------------------------
+  if (process.env.NODE_ENV === 'production') {
+    await stop('Not on a production server: this mode creates accounts with published passwords. Use SEED_OWNER_EMAIL (see the top of this file).', 1);
+  }
+  // A platform operator for the demo, so the approval console can be tried too.
+  await createPlatformAdmin('admin@platform.test', 'platform12345', 'Platform Admin');
+  const signup = await app.inject({
+    method: 'POST', url: '/api/auth/signup',
+    payload: { company_name: 'WEDX Events', slug: 'demo', name: 'Demo Owner', email: 'owner@demo.test',
+               password: 'demo12345', business_unit_code: 'W', phone: '+965 2222 0000', note: 'Demo workspace' },
+  });
+  if (signup.statusCode !== 200) await stop('Demo workspace already exists; nothing to do.');
+  // Approve it as the operator would.
+  const ops = (await call<{ token: string }>('POST', '/platform/login', null, { email: 'admin@platform.test', password: 'platform12345' })).token;
+  const { tenants } = await call<{ tenants: { id: string; slug: string }[] }>('GET', '/platform/tenants', ops);
+  await call('POST', `/platform/tenants/${tenants.find((t) => t.slug === 'demo')!.id}/approve`, ops, { plan: 'pro', max_users: 25 });
+  token = (await call<{ token: string }>('POST', '/auth/login', null, { email: 'owner@demo.test', password: 'demo12345' })).token;
+
+  // A second sign-up left pending, to show the approval queue.
+  await app.inject({
+    method: 'POST', url: '/api/auth/signup',
+    payload: { company_name: 'Gulf Catering Co', slug: 'gulf-catering', name: 'Sara Al-Mutairi', email: 'sara@gulfcatering.test',
+               password: 'demo12345', business_unit_code: 'G', phone: '+965 6000 1234',
+               note: 'Corporate catering, 12 sales staff, moving off spreadsheets' },
+  });
+}
+
+const units = await call<{ code: string }[]>('GET', '/business-units', token);
+if (!units.some((u) => u.code === 'X')) await call('POST', '/business-units', token, { code: 'X', name: 'CONFX Group' });
 // A 4-level sales team plus a second branch, so team visibility can be tried:
 // Owner > Melinda (sales manager) > Lojain (team lead) > Joumana (account manager)
 //       > Ahmad (sales manager) > Ghada (account manager)
@@ -61,7 +101,7 @@ const team = [
 const users: Record<string, string> = {};
 for (const [name, code, role, manager] of team) {
   const u = await call('POST', '/users', token, {
-    name, code, role, email: `${code.toLowerCase()}@demo.test`, password: 'demo12345',
+    name, code, role, email: `${code.toLowerCase()}@demo.test`, password: USER_PASSWORD,
     manager_id: manager ? users[manager] : role === 'finance' ? null : ownerId,
   });
   users[code] = u.id;
@@ -173,7 +213,11 @@ for (let n = 0; n < 90; n++) {
   }
 }
 
-console.log('Seeded workspace "demo" (owner@demo.test / demo12345) and a pending sign-up.');
-console.log('Platform console: /platform with admin@platform.test / platform12345');
+if (existing) {
+  console.log(`Added demo data to workspace "${process.env.SEED_WORKSPACE}". Demo staff sign in as mel@demo.test, loj@demo.test, jou@demo.test, ahd@demo.test, gha@demo.test, ftm@demo.test with SEED_USER_PASSWORD.`);
+} else {
+  console.log('Seeded workspace "demo" (owner@demo.test / demo12345) and a pending sign-up.');
+  console.log('Platform console: /platform with admin@platform.test / platform12345');
+}
 await app.close();
 await pool.end();

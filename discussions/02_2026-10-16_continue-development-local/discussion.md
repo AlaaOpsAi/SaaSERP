@@ -166,6 +166,19 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - New: readable shades of the company colour for text (e.g. neon green links become #3D7E21 on white); filled buttons pick black or white text.
 - Still missing: REAL-X and SELL-X logos and colours.
 
+**Live site check and setup (2026-10-17):**
+- User: "something missing, it's not like the local interface". The live site serves exactly the same build as local (same file fingerprints), every page file loads, and migration 010 is applied with a clean start.
+- Differences were setup only: Melinda's personal accent (Navy #1F3A5F) overrode the company colour and was hard to read on the dark theme; no logos, company colours, job titles or companies were set.
+- With the user's go-ahead, done in Melinda's signed-in session: removed her personal accent; colours MelindaX (W) and CONFX HOLD (X) #EB028D, DEALX (D) #5EC232; logos (light + dark) for W = WED-X TwinFlame, X = CONF-X, D = DEAL-X, and CONF-X as the group logo; Melinda job title "Owner", company CONFX HOLD.
+- Checked live: CONF-X logo in the framed box, menu name card "OWNER - E2026001", magenta highlights, all home icons shown.
+- Left to the customer: rename company W "MelindaX" to "WED-X" if wanted; job titles and companies for the other 9 users; REALX, SELLX, AK Signature and Bi-TREND logos and colours.
+
+**Demo workspace on the live site (2026-10-18):**
+- Request: share the demo data to create a demo workspace on app.opsaibridge.eu.
+- The seed script (`apps/api/scripts/seed.ts`) was unsafe on a live server: it creates a platform operator `admin@platform.test` / `platform12345` and demo users with `demo12345`, both published in the README.
+- New safe mode: `SEED_OWNER_EMAIL` + `SEED_OWNER_PASSWORD` + `SEED_WORKSPACE` + `SEED_USER_PASSWORD` fills an existing, approved workspace through the API (owner/admin only). It creates no operator and no other sign-up, refuses a workspace that already has contracts, and needs a staff password of at least 8 characters. The old local-demo mode refuses to run with `NODE_ENV=production`.
+- Tested locally: new workspace filled (96 contracts, 7 people, staff sign-in works); refused on a second run, on the existing demo workspace, without a staff password, and in production mode.
+
 **Waiting for the customer:** logo files (black and white versions per company), colour codes (WED-X and CONF-X now, the rest later), the companies Excel, and job titles for the users.
 
 ## Local test setup used
