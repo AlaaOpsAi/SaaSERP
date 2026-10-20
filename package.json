@@ -16,5 +16,8 @@
     "test": "npm test -w apps/api",
     "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/web",
     "discussions": "node scripts/build-discussions.mjs"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

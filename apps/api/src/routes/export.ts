@@ -6,6 +6,7 @@ import { can, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { notify } from '../lib/notify.js';
 import { logAccess } from '../lib/access.js';
+import { requireRight } from '../lib/permissions.js';
 
 /**
  * Full workspace export for admins: every table of the workspace (as the admin
@@ -115,6 +116,7 @@ export async function exportRoutes(app: FastifyInstance) {
   app.get('/export/workspace', admin, async (req, reply) => {
     const { format } = q.parse(req.query);
     const { tables, slug } = await tx(req, async (db) => {
+      await requireRight(db, req.user.sub, 'export');
       const t = await collect(db);
       await audit(db, req, format);
       await logAccess(db, req.user.sub, 'export', `Full workspace (${format})`, req.ip);

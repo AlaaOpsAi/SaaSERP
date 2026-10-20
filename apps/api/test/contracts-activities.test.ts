@@ -70,6 +70,8 @@ describe('fields hidden per role', () => {
     expect(now.revenue).toBe(1000);
     expect(now.pax).toBe(90);
 
+    // Exporting needs the export right (level 5 has none by default), then hidden fields stay out of it.
+    expect((await owner.put('/permissions', { 5: { export: true } })).status).toBe(200);
     const xlsx = await app.inject({ method: 'GET', url: '/api/reports/contracts.xlsx?year=' + new Date().getFullYear(), headers: { authorization: `Bearer ${sara.token}` } });
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(xlsx.rawPayload as unknown as ArrayBuffer);

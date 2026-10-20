@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authed, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { logAccess } from '../lib/access.js';
+import { requireRight } from '../lib/permissions.js';
 
 /**
  * Daily activity report: for one day, what each salesperson did (calls, meetings,
@@ -154,6 +155,7 @@ export async function dailyRoutes(app: FastifyInstance) {
     const result = await tx(req, (db) =>
       dailyReport(db, req.scope?.seesAll ? null : req.scope?.teamIds ?? [req.user.sub], q.from ?? q.date, q.to ?? q.date, q.owner_id));
     if (q.format === 'json') return result;
+    await tx(req, (db) => requireRight(db, req.user.sub, 'export'));
     await tx(req, (db) => logAccess(db, req.user.sub, 'export', `Activity report ${result.from}${result.to !== result.from ? ` to ${result.to}` : ''} (xlsx)`, req.ip));
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

@@ -10,7 +10,7 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, CheckCircle2, Target, Wallet } from 'lucide-react';
 import { enter, stagger } from '../components/motion';
-import { date, greeting, longToday, money, monthNames, num, pct, statusLabel } from '../format';
+import { date, money, monthNames, num, pct, statusLabel } from '../format';
 import { useBusinessUnits, useLabel, useUsers } from '../hooks';
 import { t } from '../i18n';
 
@@ -73,13 +73,6 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="page-head dash-head">
-        <div>
-          <h1>{greeting()}, {me?.name.split(' ')[0]}</h1>
-          <p>{longToday()} · {me?.tenant.name}{' '}{t("· figures in")}{' '}{me?.tenant.currency}</p>
-        </div>
-      </div>
-
       <SignedMissing />
 
       <div className="filters dash-filters" role="group" aria-label={t("Dashboard filters")}>

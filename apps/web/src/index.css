@@ -81,3 +81,14 @@
 @layer base {
   * { @apply border-border outline-ring/50; }
 }
+
+/*
+ * Square corners everywhere (customer decision, 2026-10-20): boxes, buttons, inputs, cards,
+ * icons, menus. Things that are meant to be circles stay round: avatars, status dots,
+ * colour swatches, counters and numbered markers.
+ */
+*:not(.avatar, .org-avatar, .dot, .dot-key, .top-dot, .swatch, .bell-count, .app-badge, .group-no, input[type='radio']),
+*:not(.avatar, .org-avatar, .dot, .dot-key, .top-dot, .swatch, .bell-count, .app-badge, .group-no, input[type='radio'])::before,
+*:not(.avatar, .org-avatar, .dot, .dot-key, .top-dot, .swatch, .bell-count, .app-badge, .group-no, input[type='radio'])::after {
+  border-radius: 0 !important;
+}

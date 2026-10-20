@@ -12,6 +12,7 @@ export interface Client {
   get: <T = any>(url: string) => Promise<{ status: number; body: T }>;
   post: <T = any>(url: string, payload?: unknown) => Promise<{ status: number; body: T }>;
   patch: <T = any>(url: string, payload?: unknown) => Promise<{ status: number; body: T }>;
+  put: <T = any>(url: string, payload?: unknown) => Promise<{ status: number; body: T }>;
   del: <T = any>(url: string) => Promise<{ status: number; body: T }>;
 }
 
@@ -30,6 +31,7 @@ export function client(app: FastifyInstance, token: string): Client {
     get: (u) => call('GET', u),
     post: (u, p) => call('POST', u, p ?? {}),
     patch: (u, p) => call('PATCH', u, p),
+    put: (u, p) => call('PUT', u, p),
     del: (u) => call('DELETE', u),
   } as Client;
 }

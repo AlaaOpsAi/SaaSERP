@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, type Me } from '../api';
 import { useAuth } from '../auth';
+import { greeting, longToday } from '../format';
 import { LANGUAGES, lang, t } from '../i18n';
 import { MODULES, ordered } from '../modules';
 import { Bell } from './Bell';
@@ -27,7 +28,11 @@ export function TopBar() {
       <header className="topbar" dir="ltr">
         <Link to="/" className="topbar-brand" aria-label={t('Home')}>
           <LogoBox me={me} />
-          <span className="topbar-name" dir="auto">{me.name}</span>
+          {/* The greeting and today's date live in the bar, so pages start with their content. */}
+          <span className="topbar-greeting">
+            <span className="topbar-name" dir="auto">{greeting()}, {me.name}</span>
+            <span className="topbar-sub" dir="auto">{longToday()} · {me.tenant.name}{' '}{t('· figures in')}{' '}{me.tenant.currency}</span>
+          </span>
         </Link>
         <div className="topbar-actions">
           <button className={`top-btn ${location.pathname === '/' ? 'on' : ''}`} onClick={() => navigate('/')} aria-label={t('Home')} title={t('Home')}>

@@ -43,7 +43,7 @@ export function Bookings() {
           <p>{t("Every enquiry, from first contact to a paid event.")}</p>
         </div>
         <div className="row">
-          <button onClick={() => download(`/reports/contracts.xlsx?year=${filter('year') || year}`, `contracts-${filter('year') || year}.xlsx`)}>{t("Export Excel")}</button>
+          {me?.rights.export && <button onClick={() => download(`/reports/contracts.xlsx?year=${filter('year') || year}`, `contracts-${filter('year') || year}.xlsx`)}>{t("Export Excel")}</button>}
           {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t("New contract")}</button>}
         </div>
       </div>

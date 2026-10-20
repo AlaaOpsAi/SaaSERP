@@ -5,10 +5,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 import { api, getServer, type BookingDetail, type FileKind } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { date, dateTime } from '../lib/format';
 import { useColors } from '../lib/theme';
 import { t } from '../i18n';
 import { Button, Card, Chips, Empty, ErrorText, H2, Notice, T, Tag } from './ui';
+import { DocumentViewer, type ViewTarget } from './viewer';
 
 const FILE_KINDS: [FileKind, string][] = [['signed_contract', 'Signed contract'], ['signed_proposal', 'Signed proposal'], ['annex', 'Annex'], ['other', 'Other']];
 const DOC_KIND: Record<string, string> = { contract: 'Contract', proposal: 'Proposal', annex: 'Annex' };
@@ -67,6 +69,12 @@ export function Documents({ b, editable }: { b: BookingDetail; editable: boolean
   });
   const start = (source: 'camera' | 'photos' | 'pdf') => { setError(null); upload.mutate(source); };
   const open = (path: string) => { setError(null); openFile(path).catch(setError); };
+  // People without the download right see documents in the watermarked viewer instead of the file.
+  const { me } = useAuth();
+  const canDownload = me?.rights?.download ?? true;
+  const [viewing, setViewing] = useState<ViewTarget | null>(null);
+  const show = (target: ViewTarget, path: string) => (canDownload ? open(path) : (setError(null), setViewing(target)));
+  const openIcon = canDownload ? 'open-outline' : 'eye-outline';
 
   return (
     <>
@@ -75,25 +83,25 @@ export function Documents({ b, editable }: { b: BookingDetail; editable: boolean
       <Card style={{ gap: 10 }}>
         {b.documents.length === 0 && b.files.length === 0 && <Empty icon="document-text-outline">{t('No documents yet.')}</Empty>}
         {b.documents.map((d) => (
-          <Pressable key={d.id} onPress={() => open(`/documents/${d.id}/link?format=${d.has_pdf ? 'pdf' : 'docx'}`)} accessibilityRole="button"
+          <Pressable key={d.id} onPress={() => show({ kind: 'document', id: d.id }, `/documents/${d.id}/link?format=${d.has_pdf ? 'pdf' : 'docx'}`)} accessibilityRole="button"
             style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ionicons name="document-text-outline" size={22} color={c.accent} />
             <View style={{ flex: 1, gap: 2 }}>
               <T bold>{d.doc_no} <Tag>{t(DOC_KIND[d.kind])}</Tag></T>
               <T small muted>{dateTime(d.issued_at)} · {d.kind === 'annex' ? (d.template_name ?? '') : d.signed_at ? `${t('Signed')} ${date(d.signed_at)}` : t('Waiting for signature')}</T>
             </View>
-            <Ionicons name="open-outline" size={18} color={c.text2} />
+            <Ionicons name={openIcon} size={18} color={c.text2} />
           </Pressable>
         ))}
         {b.files.map((f) => (
-          <Pressable key={f.id} onPress={() => open(`/booking-files/${f.id}/link`)} accessibilityRole="button"
+          <Pressable key={f.id} onPress={() => show({ kind: 'file', id: f.id }, `/booking-files/${f.id}/link`)} accessibilityRole="button"
             style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ionicons name={f.mime === 'application/pdf' ? 'document-attach-outline' : 'image-outline'} size={22} color={c.accent} />
             <View style={{ flex: 1, gap: 2 }}>
               <T bold numberOfLines={1}>{f.file_name}</T>
               <T small muted>{t(FILE_KINDS.find(([k]) => k === f.kind)?.[1] ?? f.kind)} · {dateTime(f.uploaded_at)}{f.uploaded_by_name ? ` · ${f.uploaded_by_name}` : ''}</T>
             </View>
-            <Ionicons name="open-outline" size={18} color={c.text2} />
+            <Ionicons name={openIcon} size={18} color={c.text2} />
           </Pressable>
         ))}
       </Card>
@@ -111,6 +119,8 @@ export function Documents({ b, editable }: { b: BookingDetail; editable: boolean
           {upload.data === true && <T small style={{ color: c.good }}>{t('Uploaded.')}</T>}
         </Card>
       )}
+      {!editable && <ErrorText error={error} />}
+      {viewing && <DocumentViewer target={viewing} onClose={() => setViewing(null)} />}
     </>
   );
 }

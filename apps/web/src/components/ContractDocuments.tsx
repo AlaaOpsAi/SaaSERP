@@ -2,10 +2,11 @@ import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, openSigned, type AnnexLine, type BookingDetail, type BookingFile, type ContractLine, type DocKind, type DocTemplate, type FileKind } from '../api';
-import { useHidden } from '../auth';
+import { useAuth, useHidden } from '../auth';
 import { date, dateTime, money } from '../format';
 import { useSave } from '../hooks';
 import { t } from '../i18n';
+import { DocumentViewer, type ViewTarget } from './DocumentViewer';
 import { DeactivateButton } from './FormActions';
 import { confirmDiscard, Empty, ErrorNote, Field, Modal, useDirty } from './ui';
 
@@ -29,6 +30,10 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
   const [error, setError] = useState<unknown>(null);
   const canIssue = canSell && (b.status === 'TEN' || b.status === 'DEF');
   const open = (path: string) => { setError(null); openSigned(path).catch(setError); };
+  // Everyone can view on screen (watermarked); only people with the download right get the file.
+  const { me } = useAuth();
+  const canDownload = me?.rights.download ?? false;
+  const [viewing, setViewing] = useState<ViewTarget | null>(null);
   const inv = [['booking', b.id], ['bookings'], ['dashboard']];
 
   return (
@@ -63,8 +68,9 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
                       : <span className="muted">{t('Waiting for signature')}</span>}</td>
                     <td className="num">
                       <div className="row" style={{ justifyContent: 'flex-end' }}>
-                        {d.has_pdf && <button className="sm" onClick={() => open(`/documents/${d.id}/link?format=pdf`)}>PDF</button>}
-                        <button className="sm" onClick={() => open(`/documents/${d.id}/link?format=docx`)}>Word</button>
+                        <button className="sm" onClick={() => setViewing({ kind: 'document', id: d.id, download: `/documents/${d.id}/link?format=pdf` })}>{t('View')}</button>
+                        {canDownload && d.has_pdf && <button className="sm" onClick={() => open(`/documents/${d.id}/link?format=pdf`)}>PDF</button>}
+                        {canDownload && <button className="sm" onClick={() => open(`/documents/${d.id}/link?format=docx`)}>Word</button>}
                       </div>
                     </td>
                   </tr>
@@ -88,13 +94,14 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
               <tbody>
                 {b.files.map((f) => (
                   <tr key={f.id}>
-                    <td><button className="link" onClick={() => open(`/booking-files/${f.id}/link`)}>{f.file_name}</button>
+                    <td><button className="link" onClick={() => setViewing({ kind: 'file', id: f.id, download: `/booking-files/${f.id}/link` })}>{f.file_name}</button>
                       <div className="small muted">{size(f.size_bytes)}{f.doc_no ? ` · ${t('for')} ${f.doc_no}` : ''}</div></td>
                     <td><span className="tag">{fileKindLabel(f.kind)}</span></td>
                     <td>{dateTime(f.uploaded_at)}<div className="small muted">{f.uploaded_by_name}</div></td>
                     <td className="num">
                       <div className="row" style={{ justifyContent: 'flex-end' }}>
-                        <button className="sm" onClick={() => open(`/booking-files/${f.id}/link`)}>{t('Open')}</button>
+                        <button className="sm" onClick={() => setViewing({ kind: 'file', id: f.id, download: `/booking-files/${f.id}/link` })}>{t('View')}</button>
+                        {canDownload && <button className="sm" onClick={() => open(`/booking-files/${f.id}/link`)}>{t('Download')}</button>}
                         {canSell && <DeactivateButton kind="booking-files" id={f.id} name={f.file_name} invalidate={inv} onDone={() => undefined} label={t('Remove')} small />}
                       </div>
                     </td>
@@ -109,7 +116,9 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
       <ServicesEditor b={b} canSell={canSell} />
       <AnnexEditor b={b} canSell={canSell} />
 
-      {issuing && <IssueDialog b={b} onClose={() => setIssuing(false)} onIssued={(id, pdf) => open(`/documents/${id}/link?format=${pdf ? 'pdf' : 'docx'}`)} />}
+      {issuing && <IssueDialog b={b} onClose={() => setIssuing(false)}
+        onIssued={(id, pdf) => (canDownload ? open(`/documents/${id}/link?format=${pdf ? 'pdf' : 'docx'}`) : setViewing({ kind: 'document', id }))} />}
+      {viewing && <DocumentViewer target={viewing} onClose={() => setViewing(null)} />}
       {uploading && <UploadDialog b={b} kind={uploading} onClose={() => setUploading(null)} />}
     </div>
   );

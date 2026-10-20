@@ -1,6 +1,6 @@
 # SaaSERP — all discussions
 
-_Built 2026-10-18 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
+_Built 2026-10-20 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
 
 ## Index
 
@@ -1954,6 +1954,62 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - Later, if wanted: reset by email once a sending mailbox is chosen. The phone app has no Change password screen yet.
 
 **Waiting for the customer:** logo files (black and white versions per company), colour codes (WED-X and CONF-X now, the rest later), the companies Excel, and job titles for the users.
+
+### Customer comment 7: data security, permission levels, users screen, corners (2026-10-20)
+
+**Customer, summarised:**
+1. Export and attachment download only for people with that permission; others view on screen only. Prevent screenshots / printing for them, or else a strong watermark with their name.
+2. Six authority levels, each with defined access: Owner & Admin (IT), Partners, Directors / top management, Mid-managers, Sales & sales coordinators, Data entry (probation, secretaries, interns).
+3. Users screen: register with the Employee ID (it is the user ID); show totals of active and disabled users.
+4. Check whether straight lines look better than rounded ones for boxes, buttons and visuals.
+
+**Findings:** 7 roles today; the contracts Excel is open to everyone and the CRM Excel isn't blocked on the server; documents and attachments can be saved by anyone who can see the contract; there is no download permission.
+
+**Recommendations and questions:** [outputs/comment-7-security-permissions-proposal.md](02_2026-10-16_continue-development-local/outputs/comment-7-security-permissions-proposal.md): a draft permission table for the 6 levels (tick boxes under Admin & IT, enforced by the server); view-only documents as watermarked page images in an in-app viewer (no file to save, printing blocked, every view logged); Android screenshots blocked in the phone app; a tiled name + Employee ID + time watermark; user totals; Employee ID typed from HR with automatic fallback; square or 2–3 px corners (screenshots `outputs/corners-*.jpg`). Browsers can't block screenshots, so the watermark is the deterrent.
+
+**Answers (2026-10-20):**
+1. Asked to see the permission table (it is in the proposal file, section 2).
+2. **Finance, Marketing and Sales are departments**, with permissions set per department. Download and print rights can differ between two employees in the same department (e.g. juniors, seniors, people on probation), so they must also be settable per person.
+3. **Partners are a department** too; each partner can have 2 users with different permissions.
+4. Watermark on the **document viewer**. Decide which data is sensitive; consider **redacting sensitive fields** (e.g. contract value) for those who shouldn't see them.
+5. **No phone-specific screenshot blocking**; people can use the app in a mobile browser, and the watermark covers it.
+6–7. Employee ID changes: **not now**.
+8. Corners: **square**.
+- Extra comment: screens have a lot of empty space (top right, left side). Fill it or reorganise?
+
+**Status:** answers recorded; plan summarised to the user; **not building until the user confirms** (standing instruction).
+
+**Follow-up (2026-10-20):**
+- **Keep the 6 levels** as a "persona category" on each user. **Departments** are needed as well, for the org chart. So each user has: department (org chart) + level 1–6 (persona category) + personal exceptions (e.g. download / print for juniors or people on probation).
+- Sensitive-field list: the user will prepare it.
+- Empty space: the user will attach the screen. The greeting line ("Good morning, Melinda · Tuesday, 20 October 2026 · MelindaX · figures in KWD") can move into the top toolbar (with the logo, Home and language).
+
+- Screenshot received (Dashboard: greeting at the top, empty space left and right), and the **go-ahead** given (2026-10-20).
+
+**Delivered (2026-10-20):**
+- **Square corners** across the platform (avatars, dots, swatches and counters stay round).
+- **Greeting in the top bar** ("Good morning, Name · date · company · figures in KWD"); Dashboard and Home start with their content; pages use up to 1800 px; Home icons centred.
+- **Users screen:** totals of active users, disabled users and people without a login.
+- **Departments** (Admin & IT → Departments; default Management, Sales, Marketing, Finance, Operations, Partners) shown in the Team list and org chart.
+- **Level 1–6** per person, set from today's role on update (owners/admins 1, managers seeing all 3, other managers and finance 4, sales and marketing 5, others 6); shown in the Team list and org chart (replacing the old "level 2/3" reporting-depth label).
+- **Data rights per level** (Admin & IT → Permissions): export Excel, download documents & files, print documents. Defaults: export 1–3; download and print 1–4. **Personal exceptions** per person (As level / Yes / No). Owners always have all rights; nobody else changes their own.
+- **Enforced by the server:** all Excel exports (contracts, CRM, daily report, workspace) and document/file downloads.
+- **Watermarked viewer** for everyone ("View"): pages drawn on the server with name · employee ID · date and time; no file for people without download; printing only with the print right; every view logged. Uses pdf.js + @napi-rs/canvas (no system tools needed).
+- **Checks:** API tests 69/69 (new: levels, rights, viewer); web typecheck; all 888 Arabic strings; browser: Joumana (level 5) sees View only with her name on each page, the owner's Team totals, Permissions and person form; production Docker image builds and renders pages.
+- Note: three older tests assumed sales could export and download; updated to the new defaults (level 5 views only).
+- Follow-ups: sensitive-field redaction (waiting for the list); 3 moderate npm audit findings in existing libraries (fast-jwt via @fastify/jwt, uuid via exceljs).
+
+**Phone app viewer (2026-10-20):** done in this session at the user's request.
+- `apps/mobile/src/components/viewer.tsx`: full-screen viewer with the watermarked pages from `/api/viewer`, title, page count and the view-only notice; pinch to zoom on iPhone; no save or share.
+- `documents.tsx`: people without the download right open documents and files in the viewer (eye icon); people with it open the file as before. Open errors now also show for people who can't edit the contract.
+- `rights` added to the phone app's profile type; 4 Arabic strings (162/162 translated).
+- Checks: phone app typecheck (packages installed in apps/mobile, lock file unchanged); tried in the phone app's web build at phone size as Joumana (level 5): the sample contract opens with her name on both pages.
+- Needs a new phone app build to reach phones.
+
+**npm audit fixed (2026-10-20, not committed yet):**
+- `@fastify/jwt` 10.2.2 → 10.2.5 (patch release; brings fast-jwt 6.3.5, which fixes expired tokens without `iat` being accepted from the verifier cache).
+- `uuid` 8.3.2 → 11.1.1 through an `overrides` entry in the root `package.json`, because exceljs 4.4.0 is the latest release and still asks for uuid 8. exceljs only uses `v4()`, which uuid 11 still provides for `require`. Only exceljs uses uuid.
+- Result: `npm audit` shows 0 vulnerabilities; API tests 69/69; typecheck passes; an Excel file with conditional formatting (the code that uses uuid) still writes.
 
 ### Local test setup used
 

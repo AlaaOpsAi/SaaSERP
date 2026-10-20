@@ -5,9 +5,8 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { api, type Activity } from '../api';
 import { useAuth } from '../auth';
-import { EASE_OUT, enter, stagger } from '../components/motion';
+import { EASE_OUT, stagger } from '../components/motion';
 import { ErrorNote } from '../components/ui';
-import { greeting, longToday } from '../format';
 import { intlLocale, t } from '../i18n';
 import { ordered, type Module } from '../modules';
 
@@ -61,10 +60,6 @@ export function Home() {
 
   return (
     <div className="home">
-      <div className={`home-welcome ${enter}`}>
-        <h1>{greeting()}, {me?.name.split(' ')[0]}</h1>
-        <p>{longToday()} · {me?.tenant.name}</p>
-      </div>
 
       <ErrorNote error={error} />
       <div className={`home-grid ${editing ? 'arranging' : ''}`} role="list">

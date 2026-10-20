@@ -2,25 +2,25 @@ import { RotateCcw, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, download, type ContractField, type Role, type User } from '../api';
+import { api, download, LEVEL_NAMES, type ContractField, type DataRight, type Department, type Role, type User } from '../api';
 import { useAuth } from '../auth';
 import { TemplatesAdmin } from '../components/TemplatesAdmin';
 import { ErrorNote, Field, Modal, Tabs, useForm } from '../components/ui';
 import { date, dateTime } from '../format';
-import { useBusinessUnits, useLookups, useSave, useUsers, useVenues } from '../hooks';
+import { useBusinessUnits, useDepartments, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { LANGUAGES, t } from '../i18n';
 
-type Tab = 'company' | 'team' | 'venues' | 'units' | 'lists' | 'templates' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
+type Tab = 'company' | 'team' | 'departments' | 'permissions' | 'venues' | 'units' | 'lists' | 'templates' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
 
 export function Settings() {
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>((params.get('tab') as Tab | null) ?? 'company');
   // Links from notifications (e.g. a password request) open a given tab.
   useEffect(() => { const p = params.get('tab') as Tab | null; if (p) setTab(p); }, [params]);
-  const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
+  const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['departments', 'Departments'], ['permissions', 'Permissions'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
   if (can('manage')) tabs.push(['templates', 'Templates'], ['deactivated', 'Deactivated records']);
-  if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ['export', 'Export'], ['it', 'IT']);
+  if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ...(me?.rights.export ? [['export', 'Export'] as [Tab, string]] : []), ['it', 'IT']);
   return (
     <>
       <div className="page-head"><div><h1>{t("Admin & IT")}</h1><p>{t("Configure your workspace, team and sales pick-lists.")}</p></div></div>
@@ -28,6 +28,8 @@ export function Settings() {
       <Tabs value={tab} onChange={setTab} tabs={tabs} />
       {tab === 'company' && <Company />}
       {tab === 'team' && <Team />}
+      {tab === 'departments' && <Departments />}
+      {tab === 'permissions' && <Permissions />}
       {tab === 'venues' && <Venues />}
       {tab === 'units' && <Units />}
       {tab === 'lists' && <Lists />}
@@ -164,6 +166,7 @@ function Team() {
   const { can, me } = useAuth();
   const { data: users } = useUsers();
   const { data: units } = useBusinessUnits();
+  const { data: departments } = useDepartments();
   const [editing, setEditing] = useState<Partial<User> | null>(null);
   // ?user=<id> (from a "forgot their password" notification) opens that person's form.
   const [params, setParams] = useSearchParams();
@@ -196,7 +199,7 @@ function Team() {
               {!u.email && t(" · no login")}{!u.is_active && u.email ? t(" · inactive") : ''}
             </div>
           </div>
-          {depth > 0 && <span className="muted small">{t("level")}{' '}{depth + 1}</span>}
+          <span className="muted small">{[departments?.find((d) => d.id === u.department_id)?.name, u.level ? `${t('Level')} ${u.level}` : null].filter(Boolean).join(' · ')}</span>
           {canTransfer(u) && u.is_active && <button className="sm ghost" onClick={() => setTransferring(u)}>{t("Transfer…")}</button>}
           {can('admin') && <button className="sm ghost" onClick={() => setEditing(u)}>{t("Edit")}</button>}
         </div>
@@ -207,7 +210,18 @@ function Team() {
     );
   };
 
+  // Totals (customer request): people who can sign in, disabled ones, and active people without a login.
+  const activeUsers = users?.filter((u) => u.is_active && u.email).length ?? 0;
+  const disabledUsers = users?.filter((u) => !u.is_active).length ?? 0;
+  const noLogin = users?.filter((u) => u.is_active && !u.email).length ?? 0;
+
   return (
+    <div className="stack">
+    <div className="kpis user-totals" role="group" aria-label={t('Users')}>
+      <div className="kpi"><div className="kpi-label">{t('Active users')}</div><div className="kpi-value">{activeUsers}</div><div className="kpi-sub">{t('can sign in')}</div></div>
+      <div className="kpi"><div className="kpi-label">{t('Disabled users')}</div><div className="kpi-value">{disabledUsers}</div><div className="kpi-sub">{t('cannot sign in')}</div></div>
+      <div className="kpi"><div className="kpi-label">{t('Without a login')}</div><div className="kpi-value">{noLogin}</div><div className="kpi-sub">{t('e.g. imported account managers')}</div></div>
+    </div>
     <div className="card flush">
       <div className="card-head" style={{ padding: '14px 16px 0' }}>
         <span className="secondary small" style={{ maxWidth: 620 }}>{t("Set who reports to whom. A manager sees their own bookings plus everything owned by anyone below them, at every level. Owners, admins and anyone set to “whole company” see everything.")}</span>
@@ -224,11 +238,13 @@ function Team() {
       ) : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>{t("Name")}</th><th>{t("Company")}</th><th>{t("Employee ID")}</th><th>{t("Code")}</th><th>{t("Email")}</th><th>{t("Role")}</th><th>{t("Reports to")}</th><th>{t("Can see")}</th><th>{t("Status")}</th><th>{t("Last login")}</th><th /></tr></thead>
+            <thead><tr><th>{t("Name")}</th><th>{t("Department")}</th><th>{t("Level")}</th><th>{t("Company")}</th><th>{t("Employee ID")}</th><th>{t("Code")}</th><th>{t("Email")}</th><th>{t("Role")}</th><th>{t("Reports to")}</th><th>{t("Can see")}</th><th>{t("Status")}</th><th>{t("Last login")}</th><th /></tr></thead>
             <tbody>
               {users?.map((u) => (
                 <tr key={u.id}>
                   <td>{u.name}{u.job_title && <div className="small muted">{u.job_title}</div>}</td>
+                  <td>{departments?.find((d) => d.id === u.department_id)?.name ?? '—'}</td>
+                  <td>{u.level ? <span title={t(LEVEL_NAMES[u.level])}>{u.level} · {t(LEVEL_NAMES[u.level])}</span> : '—'}</td>
                   <td>{units?.find((b) => b.id === u.business_unit_id)?.name ?? t('Group')}</td>
                   <td className="small">{u.employee_no ?? '—'}{u.hired_on && <div className="muted">{t('since')} {date(u.hired_on)}</div>}</td>
                   <td><span className="tag">{u.code ?? '—'}</span></td><td>{u.email ?? '—'}</td>
@@ -249,6 +265,7 @@ function Team() {
       )}
       {editing && <UserModal user={editing} onClose={() => setEditing(null)} />}
       {transferring && <TransferModal user={transferring} onClose={() => setTransferring(null)} />}
+    </div>
     </div>
   );
 }
@@ -308,8 +325,18 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
     is_active: user.is_active ?? true, password: null as string | null,
     manager_id: user.manager_id ?? null, data_scope: user.data_scope ?? 'team', hired_on: user.hired_on?.slice(0, 10) ?? null,
     job_title: user.job_title ?? null, business_unit_id: user.business_unit_id ?? null,
+    department_id: user.department_id ?? null, level: user.level ?? null,
+    permission_overrides: (user.permission_overrides ?? {}) as Partial<Record<DataRight, boolean>>,
   });
   const { data: units } = useBusinessUnits();
+  const { data: departments } = useDepartments();
+  const { data: perms } = useQuery({ queryKey: ['permissions'], queryFn: () => api<PermissionsData>('/permissions') });
+  const levelRights = form.level ? perms?.rights[form.level] : undefined;
+  const setOverride = (r: DataRight, v: string) => {
+    const next = { ...form.permission_overrides };
+    if (v === '') delete next[r]; else next[r] = v === 'yes';
+    set('permission_overrides')(next);
+  };
   // Who this user may report to: anyone except themselves and the people below them.
   const below = new Set<string>();
   if (user.id && users) {
@@ -369,6 +396,33 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
               {units?.filter((b) => b.is_active || b.id === form.business_unit_id).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </Field>
+          <Field label={t("Department")}>
+            <select value={form.department_id ?? ''} onChange={(e) => set('department_id')(e.target.value || null)}>
+              <option value="">{t('— none —')}</option>
+              {departments?.filter((d) => d.is_active || d.id === form.department_id).map((d) => <option key={d.id} value={d.id}>{t(d.name)}</option>)}
+            </select>
+          </Field>
+          <Field label={t("Level (what they may do with data)")}>
+            <select value={form.level ?? ''} onChange={(e) => set('level')(e.target.value ? Number(e.target.value) : null)} disabled={user.id === me?.id && me?.role !== 'owner'}>
+              <option value="">{t('— from the role —')}</option>
+              {Object.entries(LEVEL_NAMES).map(([n, name]) => <option key={n} value={n}>{n} · {t(name)}</option>)}
+            </select>
+          </Field>
+          <div className="span-all exceptions">
+            <div className="small secondary">{t('Personal exceptions (e.g. a junior on probation): leave "As level" to follow the level.')}</div>
+            <div className="row">
+              {RIGHTS.map(([r, label]) => (
+                <Field key={r} label={t(label)}>
+                  <select value={form.permission_overrides[r] === undefined ? '' : form.permission_overrides[r] ? 'yes' : 'no'}
+                    onChange={(e) => setOverride(r, e.target.value)} disabled={user.id === me?.id && me?.role !== 'owner'}>
+                    <option value="">{t('As level')}{levelRights ? ` (${levelRights[r] ? t('yes') : t('no')})` : ''}</option>
+                    <option value="yes">{t('Yes')}</option>
+                    <option value="no">{t('No')}</option>
+                  </select>
+                </Field>
+              ))}
+            </div>
+          </div>
           <Field label={t("Email (for login)")}><input type="email" {...bind('email')} /></Field>
           <Field label={t("Role")}>
             <select value={form.role} onChange={(e) => set('role')(e.target.value as Role)}>
@@ -414,6 +468,90 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
         )}
       </form>
     </Modal>
+  );
+}
+
+type PermissionsData = { levels: Record<string, string>; rights: Record<number, Record<DataRight, boolean>>; defaults: Record<number, Record<DataRight, boolean>> };
+const RIGHTS: [DataRight, string][] = [['export', 'Export Excel'], ['download', 'Download documents & files'], ['print', 'Print documents']];
+
+/** Departments for the org chart. */
+function Departments() {
+  const { can } = useAuth();
+  const { data } = useDepartments();
+  const [name, setName] = useState('');
+  const inv: [string][] = [['departments']];
+  const add = useSave(() => api('/departments', { body: { name, sort_order: (data?.length ?? 0) + 1 } }), inv);
+  const update = useSave((v: { id: string; body: Partial<Department> }) => api(`/departments/${v.id}`, { method: 'PATCH', body: v.body }), inv);
+  return (
+    <div className="stack" style={{ maxWidth: 760 }}>
+      <p className="secondary" style={{ margin: 0 }}>{t('Departments group people in the org chart. Set each person\'s department under Team.')}</p>
+      <ErrorNote error={add.error ?? update.error} />
+      <div className="card flush">
+        <table>
+          <thead><tr><th>{t('Department')}</th><th>{t('Status')}</th><th /></tr></thead>
+          <tbody>
+            {data?.map((d) => (
+              <tr key={d.id} style={{ opacity: d.is_active ? 1 : 0.55 }}>
+                <td>{can('admin')
+                  ? <input defaultValue={d.name} aria-label={t('Department')} onBlur={(e) => e.target.value.trim() && e.target.value !== d.name && update.mutate({ id: d.id, body: { name: e.target.value.trim() } })} />
+                  : t(d.name)}</td>
+                <td>{d.is_active ? t('Active') : t('Inactive')}</td>
+                <td className="num">{can('admin') && <button className="sm ghost" onClick={() => update.mutate({ id: d.id, body: { is_active: !d.is_active } })}>{d.is_active ? t('Deactivate') : t('Activate')}</button>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {can('admin') && (
+        <form className="card row" onSubmit={(e) => { e.preventDefault(); add.mutate(undefined, { onSuccess: () => setName('') }); }}>
+          <Field label={t('New department')}><input required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <div style={{ alignSelf: 'end' }}><button className="primary">{t('Add')}</button></div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** What each level may do with data: export Excel, download and print documents. */
+function Permissions() {
+  const { can } = useAuth();
+  const { data } = useQuery({ queryKey: ['permissions'], queryFn: () => api<PermissionsData>('/permissions') });
+  const [draft, setDraft] = useState<Record<number, Record<DataRight, boolean>> | null>(null);
+  const rights = draft ?? data?.rights;
+  const save = useSave(() => api('/permissions', { method: 'PUT', body: draft }), [['permissions'], ['me']]);
+  const toggle = (level: number, r: DataRight) => rights && setDraft({ ...rights, [level]: { ...rights[level], [r]: !rights[level][r] } });
+  return (
+    <div className="stack permissions-tab">
+      <p className="secondary" style={{ margin: 0 }}>
+        {t('What each level may do with data. People without "Download" view documents on screen only, with their name on every page. Personal exceptions are set per person under Team. Owners can always do everything.')}
+      </p>
+      <ErrorNote error={save.error} />
+      <div className="card flush table-wrap">
+        <table>
+          <thead><tr><th>{t('Right')}</th>{Object.entries(LEVEL_NAMES).map(([n, name]) => <th key={n} className="num">{n}<div className="small muted">{t(name)}</div></th>)}</tr></thead>
+          <tbody>
+            {RIGHTS.map(([r, label]) => (
+              <tr key={r}>
+                <td>{t(label)}</td>
+                {Object.keys(LEVEL_NAMES).map(Number).map((n) => (
+                  <td key={n} className="num">
+                    <input type="checkbox" aria-label={`${t(label)} · ${t(LEVEL_NAMES[n])}`} checked={rights?.[n]?.[r] ?? false}
+                      disabled={!can('admin')} onChange={() => toggle(n, r)} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {can('admin') && (
+        <div className="row">
+          <button className="primary" disabled={!draft || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => setDraft(null) })}>{t('Save')}</button>
+          {draft && <button className="ghost" onClick={() => setDraft(null)}>{t('Cancel')}</button>}
+          {save.isSuccess && !draft && <span className="small muted">{t('Saved.')}</span>}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -852,6 +990,7 @@ interface ItStatusData {
 const ACCESS_ACTIONS: Record<string, string> = {
   sign_in: 'Signed in', export: 'Exported', password_change: 'Changed own password', password_reset: 'Password reset on the server',
   password_request: 'Asked for a new password (forgot it)',
+  view_document: 'Viewed a document',
 };
 
 function ItStatus() {

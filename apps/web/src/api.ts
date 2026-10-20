@@ -123,6 +123,11 @@ export interface Me {
   company: { id: string; code: string; name: string; accent: string | null } | null;
   /** Logo addresses for the light and dark theme (the company's, else the group's). */
   logo: { light: string | null; dark: string | null };
+  /** Level 1–6 (persona category) and department. */
+  level: number;
+  department: string | null;
+  /** Data rights from the level and personal exceptions: export Excel, download and print documents. */
+  rights: { export: boolean; download: boolean; print: boolean };
 }
 
 /** The colour highlights use: the user's company, else the workspace brand colour. */
@@ -140,11 +145,19 @@ export interface User {
   employee_no?: string | null; hired_on?: string | null;
   /** Job title (name card) and company (logo and colour). */
   job_title?: string | null; business_unit_id?: string | null;
+  /** Department (org chart), level 1–6 and personal exceptions to the level's data rights. */
+  department_id?: string | null; level?: number | null; permission_overrides?: Partial<Record<DataRight, boolean>>;
   /** Whether the signed-in user can see this person's records (and assign to them). */
   in_my_team: boolean;
 }
 export interface Space { id: string; venue_id: string; name: string; capacity: number | null; allow_overlap: boolean; is_active: boolean }
 export interface Venue { id: string; name: string; kind: string; address: string | null; is_active: boolean; spaces: Space[] }
+export type DataRight = 'export' | 'download' | 'print';
+export interface Department { id: string; name: string; sort_order: number; is_active: boolean }
+export const LEVEL_NAMES: Record<number, string> = {
+  1: 'Owner & Admin (IT)', 2: 'Partners', 3: 'Directors / top management', 4: 'Mid-managers', 5: 'Sales & sales coordinators', 6: 'Data entry',
+};
+
 export interface BusinessUnit { id: string; code: string; name: string; is_active: boolean; accent?: string | null; has_logo?: boolean }
 
 export interface Booking {

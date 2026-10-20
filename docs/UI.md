@@ -57,6 +57,10 @@ and gives screen readers the final text only.
 
 ## Header and company identity
 
+- **Square corners** everywhere (customer decision, 2026-10-20): one rule at the end of `src/index.css`; avatars, status dots, swatches and counters stay round.
+- **The greeting is in the top bar** ("Good morning, Name · date · company · figures in KWD"); pages start with their content. On a phone only the greeting line shows.
+- Pages use up to 1800 px of width; the Home icons are centred.
+
 - **The header never mirrors** (`dir="ltr"` on `.topbar`): logo + the user's full name on the left, Home · Menu ·
   EN | AR on the right, in every language. The menu always opens from the right. Only the page below switches
   to right-to-left in Arabic.

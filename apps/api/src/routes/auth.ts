@@ -9,6 +9,7 @@ import { badRequest, conflict, HttpError } from '../lib/errors.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { logAccess } from '../lib/access.js';
 import { notify } from '../lib/notify.js';
+import { rightsOf } from '../lib/permissions.js';
 import { logoUrls } from './branding.js';
 
 const signupSchema = z.object({
@@ -220,7 +221,8 @@ export async function authRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const { rows } = await db.query(
         `SELECT u.id, u.email, u.name, u.code, u.role, u.data_scope, u.manager_id, u.preferences,
-                u.job_title, u.employee_no,
+                u.job_title, u.employee_no, u.level,
+                (SELECT name FROM departments WHERE id = u.department_id) AS department,
                 CASE WHEN bu.id IS NULL THEN NULL
                      ELSE json_build_object('id', bu.id, 'code', bu.code, 'name', bu.name, 'accent', bu.accent) END AS company,
                 bu.id AS unit_id, bu.logo_light AS unit_light, bu.logo_dark AS unit_dark,
@@ -254,7 +256,8 @@ export async function authRoutes(app: FastifyInstance) {
       )).rows;
       const { unit_id, unit_light, unit_dark, group_light, group_dark, ...me } = rows[0];
       const logo = logoUrls(req.user.tid, { unit_id, unit_light, unit_dark, group_light, group_dark });
-      return { ...me, logo, team_ids: req.scope?.teamIds ?? me.team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
+      const rights = await rightsOf(db, req.user.sub);
+      return { ...me, logo, level: rights.level, rights: { export: rights.export, download: rights.download, print: rights.print }, team_ids: req.scope?.teamIds ?? me.team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
     }),
   );
 }

@@ -7,6 +7,7 @@ import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { redactBooking } from '../lib/fields.js';
 import { logChange, writable } from '../lib/guard.js';
 import { cleanName, fileLink, MIME, openLink, readStored, removeStored, saveFile, sniff } from '../lib/storage.js';
+import { requireRight } from '../lib/permissions.js';
 
 /**
  * Contract documents (customer comment 5):
@@ -332,6 +333,7 @@ export async function documentRoutes(app: FastifyInstance) {
       const { format } = z.object({ format: z.enum(['pdf', 'docx']).default('pdf') }).parse(req.query);
       const d = (await db.query('SELECT doc_no, docx_key, pdf_key FROM documents WHERE id = $1', [docId])).rows[0];
       if (!d) throw notFound('Document');
+      await requireRight(db, req.user.sub, 'download');
       if (format === 'pdf' && d.pdf_key) return { url: fileLink(d.pdf_key, `${d.doc_no}.pdf`, MIME.pdf) };
       return { url: fileLink(d.docx_key, `${d.doc_no}.docx`, MIME.docx, { download: true }) };
     }),
@@ -372,6 +374,7 @@ export async function documentRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const f = (await db.query('SELECT storage_key, file_name, mime FROM booking_files WHERE id = $1', [id.parse(req.params).id])).rows[0];
       if (!f) throw notFound('File');
+      await requireRight(db, req.user.sub, 'download');
       return { url: fileLink(f.storage_key, f.file_name, f.mime) };
     }),
   );

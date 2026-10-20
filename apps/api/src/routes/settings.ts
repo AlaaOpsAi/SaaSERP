@@ -6,6 +6,7 @@ import type { Db } from '../db.js';
 import { badRequest, conflict, forbidden } from '../lib/errors.js';
 import { hashPassword } from '../lib/password.js';
 import { notify } from '../lib/notify.js';
+import { DEFAULT_LEVEL_RIGHTS, LEVELS, levelForRole, levelRights } from '../lib/permissions.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
@@ -25,6 +26,9 @@ const tenantPatch = z.object({
   home_order: z.array(z.string().regex(/^[a-z_]+$/)).max(40).nullable(),
 }).partial();
 
+/** Yes / no per data right; a right left out keeps its default. */
+const rightsSchema = z.object({ export: z.boolean(), download: z.boolean(), print: z.boolean() }).partial();
+
 const roles = z.enum(['owner', 'admin', 'manager', 'sales', 'marketing', 'finance', 'viewer']);
 const userCreate = z.object({
   name: z.string().trim().min(2),
@@ -41,6 +45,12 @@ const userCreate = z.object({
   job_title: z.string().trim().max(60).nullish(),
   /** The company the employee works for: sets their logo and colour. */
   business_unit_id: z.string().uuid().nullish(),
+  /** Department, for the org chart. */
+  department_id: z.string().uuid().nullish(),
+  /** Level 1–6 (persona category): sets their default data rights. */
+  level: z.number().int().min(1).max(6).nullish(),
+  /** Personal exceptions to the level's rights, e.g. {"download": false} for someone on probation. */
+  permission_overrides: rightsSchema.optional(),
 });
 // No defaults on an update: a field left out stays as it is (role and status included).
 const userPatch = userCreate.extend({ role: roles.optional(), is_active: z.boolean().optional() }).partial();
@@ -152,7 +162,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const { rows } = await db.query(
         `SELECT id, email, name, code, role, is_active, last_login_at, created_at, manager_id, data_scope, employee_no, hired_on,
-                job_title, business_unit_id, (app_sees_all() OR id = ANY (app_write_ids())) AS in_my_team
+                job_title, business_unit_id, department_id, level, permission_overrides, (app_sees_all() OR id = ANY (app_write_ids())) AS in_my_team
          FROM users ORDER BY is_active DESC, name`,
       );
       return rows;
@@ -166,13 +176,16 @@ export async function settingsRoutes(app: FastifyInstance) {
       await assertUnique(db, body);
       await assertManager(db, null, body.manager_id);
       if (body.business_unit_id) await getRow(db, 'business_units', body.business_unit_id, 'Company');
+      if (body.department_id) await getRow(db, 'departments', body.department_id, 'Department');
       body.data_scope ??= SEES_ALL_BY_DEFAULT.has(body.role) ? 'all' : 'team';
+      body.level ??= levelForRole(body.role, body.data_scope);
       if (body.is_active && body.email) {
         await assertSeat(db);
         if (!password) throw badRequest('Set a password so this user can sign in');
       }
       const user = await insertRow<Record<string, unknown>>(db, 'users', {
         ...body,
+        permission_overrides: body.permission_overrides ? JSON.stringify(body.permission_overrides) : undefined,
         password_hash: password ? await hashPassword(password) : undefined,
       });
       delete user.password_hash;
@@ -188,10 +201,18 @@ export async function settingsRoutes(app: FastifyInstance) {
       if (userId === req.user.sub && (body.is_active === false || (body.role && body.role !== req.user.role))) {
         throw badRequest('You cannot deactivate yourself or change your own role');
       }
-      const current = await getRow<{ email: string | null; is_active: boolean; password_hash: string | null }>(db, 'users', userId, 'User');
+      const current = await getRow<{ email: string | null; is_active: boolean; password_hash: string | null; level: number | null; permission_overrides: Record<string, boolean> }>(db, 'users', userId, 'User');
       await assertUnique(db, body, userId);
       if (body.manager_id !== undefined) await assertManager(db, userId, body.manager_id);
       if (body.business_unit_id) await getRow(db, 'business_units', body.business_unit_id, 'Company');
+      if (body.department_id) await getRow(db, 'departments', body.department_id, 'Department');
+      const sameRights = (a: Record<string, unknown> = {}, b: Record<string, unknown> = {}) =>
+        ['export', 'download', 'print'].every((k) => a[k] === b[k]);
+      if (userId === req.user.sub && req.user.role !== 'owner'
+        && ((body.level !== undefined && body.level !== current.level)
+          || (body.permission_overrides !== undefined && !sameRights(body.permission_overrides, current.permission_overrides)))) {
+        throw badRequest('You cannot change your own level or permissions');
+      }
       const email = body.email === undefined ? current.email : body.email;
       const active = body.is_active ?? current.is_active;
       if (active && email) {
@@ -201,6 +222,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
       const user = await updateRow<Record<string, unknown>>(db, 'users', userId, {
         ...body,
+        permission_overrides: body.permission_overrides ? JSON.stringify(body.permission_overrides) : undefined,
         password_hash: password ? await hashPassword(password) : undefined,
       }, 'User');
       delete user.password_hash;
@@ -316,6 +338,35 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.post('/business-units', admin, (req) => tx(req, (db) => insertRow(db, 'business_units', buSchema.parse(req.body))));
   app.patch('/business-units/:id', admin, (req) =>
     tx(req, (db) => updateRow(db, 'business_units', id.parse(req.params).id, buSchema.partial().parse(req.body), 'Business unit')),
+  );
+
+  // ---- departments (org chart) ---------------------------------------------
+  const deptSchema = z.object({ name: z.string().trim().min(1).max(60), sort_order: z.number().int().optional(), is_active: z.boolean().optional() });
+  app.get('/departments', { preHandler: authed }, (req) =>
+    tx(req, async (db) => (await db.query('SELECT * FROM departments ORDER BY is_active DESC, sort_order, name')).rows),
+  );
+  app.post('/departments', admin, (req) => tx(req, async (db) => {
+    const body = deptSchema.parse(req.body);
+    if ((await db.query('SELECT 1 FROM departments WHERE lower(name) = lower($1)', [body.name])).rows[0]) throw conflict('That department already exists');
+    return insertRow(db, 'departments', body);
+  }));
+  app.patch('/departments/:id', admin, (req) =>
+    tx(req, (db) => updateRow(db, 'departments', id.parse(req.params).id, deptSchema.partial().parse(req.body), 'Department')),
+  );
+
+  // ---- data rights per level (export, download, print) -----------------------
+  app.get('/permissions', { preHandler: authed }, (req) =>
+    tx(req, async (db) => {
+      const t = (await db.query('SELECT level_permissions FROM tenants WHERE id = $1', [req.user.tid])).rows[0];
+      return { levels: LEVELS, rights: levelRights(t?.level_permissions), defaults: DEFAULT_LEVEL_RIGHTS };
+    }),
+  );
+  app.put('/permissions', admin, (req) =>
+    tx(req, async (db) => {
+      const body = z.record(z.string().regex(/^[1-6]$/), rightsSchema).parse(req.body);
+      await db.query('UPDATE tenants SET level_permissions = $2 WHERE id = $1', [req.user.tid, JSON.stringify(body)]);
+      return { rights: levelRights(body) };
+    }),
   );
 
   // ---- lookups -----------------------------------------------------------

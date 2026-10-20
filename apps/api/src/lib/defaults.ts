@@ -92,7 +92,13 @@ Object.assign(DEFAULT_LOOKUPS, CRM_LOOKUPS);
  * Fill the starter pick-lists of the current tenant. A list the company already has
  * entries in is left alone, so values an admin removed never come back.
  */
+/** Departments for the org chart; a workspace adds or renames its own under Admin & IT. */
+const DEFAULT_DEPARTMENTS = ['Management', 'Sales', 'Marketing', 'Finance', 'Operations', 'Partners'];
+
 export async function seedTenantDefaults(db: Pick<Db, 'query'>) {
+  for (const [i, name] of DEFAULT_DEPARTMENTS.entries()) {
+    await db.query('INSERT INTO departments (name, sort_order) VALUES ($1, $2) ON CONFLICT DO NOTHING', [name, i + 1]);
+  }
   for (const [type, values] of Object.entries(DEFAULT_LOOKUPS)) {
     const { rows } = await db.query('SELECT 1 FROM lookups WHERE tenant_id = current_tenant_id() AND type = $1 LIMIT 1', [type]);
     if (rows[0]) continue;

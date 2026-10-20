@@ -111,7 +111,7 @@ h3 { font-size: 14px; }
   width: 30px; height: 30px; border-radius: 8px; background: var(--brand); color: var(--brand-ink);
   display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none;
 }
-.main { padding: 24px 28px 48px; min-width: 0; width: 100%; max-width: 1440px; margin: 0 auto; }
+.main { padding: 24px 28px 48px; min-width: 0; width: 100%; max-width: 1800px; margin: 0 auto; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
 .page-head p { margin: 4px 0 0; color: var(--text-2); }
 .mobile-bar { display: none; }
@@ -442,12 +442,12 @@ input[type='range'] { width: 220px; }
 input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--accent); }
 
 /* ---- Home screen: modules as iPhone-style icons ---------------------------- */
-.home { max-width: 820px; margin: 0 auto; padding-top: 8px; }
+.home { max-width: 1120px; margin: 0 auto; padding-top: 24px; }
 .home-welcome { text-align: center; margin: 12px 0 32px; }
 .home-welcome h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.01em; }
 .home-welcome p { color: var(--text-2); margin: 0; }
 .home-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 26px 12px;
+  display: grid; grid-template-columns: repeat(auto-fit, 104px); justify-content: center; gap: 26px 20px;
   justify-items: center; padding: 8px 0 12px;
 }
 .app-slot { display: flex; justify-content: center; width: 100%; }
@@ -559,7 +559,9 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 }
 .topbar-brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; min-width: 0; }
 .topbar-brand:hover { text-decoration: none; }
-.topbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-greeting { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.topbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.topbar-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; color: var(--text-2); }
 /* Company logo in a box framed by a thin line in the logo's colour (black on light, white on dark). */
 .logo-box {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
@@ -576,6 +578,24 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 :root[data-theme='dark'] .logo-box .logo-light { display: none; }
 :root[data-theme='dark'] .logo-box .logo-dark { display: block; }
 .name-card { letter-spacing: 0.02em; }
+
+/* ---- Document viewer: watermarked pages, no file to save (customer comment 7) ---- */
+.viewer-layer { position: fixed; inset: 0; z-index: 90; background: rgba(20, 20, 20, 0.92); display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
+.viewer-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text); }
+.viewer-note { margin: 0; padding: 6px 16px; background: var(--surface-2); color: var(--text-2); text-align: center; }
+.viewer-pages { flex: 1; overflow: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.viewer-pages img { width: min(900px, 100%); height: auto; background: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.print-blocked { display: none; }
+@media print {
+  /* While a document is open, print only its pages … */
+  body.viewing-document .shell, body.viewing-document .viewer-bar, body.viewing-document .viewer-note { display: none !important; }
+  body.viewing-document .viewer-layer { position: static; background: none; display: block; }
+  body.viewing-document .viewer-pages { overflow: visible; padding: 0; display: block; }
+  body.viewing-document .viewer-pages img { width: 100%; box-shadow: none; page-break-after: always; }
+  /* … or nothing but a notice, for people who may not print. */
+  body.no-print .viewer-pages { display: none !important; }
+  body.no-print .print-blocked { display: block; padding: 40px; font: 600 18px sans-serif; text-align: center; }
+}
 /* "Forgot password?" under the password field on the sign-in page. */
 .forgot-row { display: flex; justify-content: flex-end; margin-top: -8px; }
 /* Admin: the two versions of a logo, each on the background it is shown on. */
@@ -623,7 +643,8 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 @media (prefers-reduced-motion: reduce) { .menu-layer, .menu-panel { animation: none; } }
 @media (max-width: 640px) {
   .topbar { padding: 8px 12px; }
-  .topbar-name { max-width: 34vw; }
+  .topbar-name { max-width: 46vw; font-size: 14px; }
+  .topbar-sub { display: none; } /* a phone shows just the greeting */
   .logo-box { height: 42px; min-width: 42px; max-width: 120px; }
   .logo-box img { height: 34px; max-width: 106px; }
   .main { padding: 16px; }
@@ -658,3 +679,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .print-head h2 { margin: 0 0 2px; }
 @media print { .timeline li { break-inside: avoid; } .card { box-shadow: none; } }
 .kv dd { overflow-wrap: anywhere; min-width: 0; }
+/* Admin → Permissions: one column per level, checkboxes centred. */
+.permissions-tab th:not(:first-child), .permissions-tab td:not(:first-child) { text-align: center; text-transform: none; min-width: 110px; }

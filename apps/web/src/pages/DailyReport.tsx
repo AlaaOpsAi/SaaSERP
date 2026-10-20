@@ -96,9 +96,11 @@ export function DailyReport() {
           </select>
         )}
         <button onClick={() => window.print()}>{t('Print')}</button>
-        <button onClick={() => { setError(null); download(`/reports/daily-activity?${qs}&format=xlsx`, `activity-${range.from}${period === 'month' ? `_${range.to}` : ''}.xlsx`).catch(setError); }}>
-          {t('Download Excel')}
-        </button>
+        {me?.rights.export && (
+          <button onClick={() => { setError(null); download(`/reports/daily-activity?${qs}&format=xlsx`, `activity-${range.from}${period === 'month' ? `_${range.to}` : ''}.xlsx`).catch(setError); }}>
+            {t('Download Excel')}
+          </button>
+        )}
       </div>
       <div className="print-only print-head">
         <h2>{period === 'day' ? t('Daily activity report') : t('Monthly activity report')}</h2>

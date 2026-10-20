@@ -87,6 +87,8 @@ export interface Me {
   /** Name card: "OWNER - E2021001" (the permission level shows only in the web app's Admin & IT). */
   job_title?: string | null;
   employee_no?: string | null;
+  /** Data rights from the level and personal exceptions; without "download", documents open in the watermarked viewer. */
+  rights?: { export: boolean; download: boolean; print: boolean };
 }
 
 export interface Preferences { locale?: string | null; theme?: 'light' | 'dark' | null; accent?: string | null; density?: string | null; fontScale?: number | null }

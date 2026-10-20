@@ -386,6 +386,10 @@ const ar: Record<string, string> = {
   "Forgot your password?": "نسيت كلمة المرور؟",
   "Type your email or employee ID first, then tap \"Forgot password?\" again.": "اكتب بريدك الإلكتروني أو رقمك الوظيفي أولاً، ثم اضغط \"نسيت كلمة المرور؟\" مرة أخرى.",
   "Request sent. If this account exists, your admins have been told and will give you a new password. If you are the only admin, contact your SaaSERP provider.": "تم إرسال الطلب. إذا كان هذا الحساب موجودًا، فقد تم إبلاغ المسؤولين وسيعطونك كلمة مرور جديدة. إذا كنت المسؤول الوحيد، فتواصل مع مزوّد SaaSERP.",
+  "Loading…": "جارٍ التحميل…",
+  "Page {n}": "صفحة {n}",
+  "{n} pages": "{n} صفحات",
+  "View only: your name is shown on every page. Downloading is not allowed for your account.": "عرض فقط: يظهر اسمك على كل صفحة. التنزيل غير مسموح لحسابك.",
 };
 
 export default ar;

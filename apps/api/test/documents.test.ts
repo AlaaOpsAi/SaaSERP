@@ -66,8 +66,9 @@ describe('signed contract upload', () => {
     expect(detail.signed_missing).toBe(false);
     expect(detail.files.map((f: any) => f.kind).sort()).toEqual(['signed_contract', 'signed_proposal']);
 
-    // Opened through a short-lived link, without a login header.
-    const { url } = (await sara.get(`/booking-files/${up.body.id}/link`)).body;
+    // Downloading needs the download right (level 5 views on screen only); then it is a short-lived link without a login header.
+    expect((await sara.get(`/booking-files/${up.body.id}/link`)).status).toBe(403);
+    const { url } = (await owner.get(`/booking-files/${up.body.id}/link`)).body;
     const file = await app.inject({ method: 'GET', url });
     expect(file.statusCode).toBe(200);
     expect(file.headers['content-type']).toBe('application/pdf');
@@ -111,6 +112,7 @@ describe('issuing contracts, proposals and annexes', () => {
     const annex = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'annex', template_id: 'builtin' })).body;
     expect(annex.doc_no).toBe(`${b.booking_no}-A1`);
 
+    await owner.put('/permissions', { 5: { download: true } });
     const { url } = (await sara.get(`/documents/${p1.id}/link?format=docx`)).body;
     const docx = (await app.inject({ method: 'GET', url })).rawPayload;
     const body = text(docx);

@@ -38,7 +38,7 @@ export function Clients() {
   const [segment, setSegment] = useState('');
   const [open, setOpen] = useState<{ kind: Kind; id?: string } | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const { data: lookups } = useLookups();
   const relationLabel = useLabel('relation');
   const qs = new URLSearchParams({ q, ...(relation ? { relation } : {}), ...(segment ? { segment } : {}) });
@@ -49,7 +49,7 @@ export function Clients() {
       <div className="page-head">
         <div><h1>{t("CRM")}</h1><p>{t("Individuals and companies you sell to, with their booking history.")}</p></div>
         <div className="row">
-          {can('manage') && <button onClick={() => { setError(null); download('/reports/crm.xlsx', `crm-${today()}.xlsx`).catch(setError); }}>{t('Export Excel')}</button>}
+          {me?.rights.export && <button onClick={() => { setError(null); download('/reports/crm.xlsx', `crm-${today()}.xlsx`).catch(setError); }}>{t('Export Excel')}</button>}
           {can('sell') && <button className="primary" onClick={() => setOpen({ kind: tab })}>{t("New")}{' '}{tab === 'contacts' ? t("contact") : t("company")}</button>}
         </div>
       </div>

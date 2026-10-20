@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type BusinessUnit, type Lookup, type User, type Venue } from './api';
+import { api, type BusinessUnit, type Department, type Lookup, type User, type Venue } from './api';
 import { lookupLabel } from './i18n';
 
 export function useLookups() {
@@ -13,6 +13,11 @@ export function useVenues() {
 }
 export function useBusinessUnits() {
   return useQuery({ queryKey: ['business-units'], queryFn: () => api<BusinessUnit[]>('/business-units'), staleTime: 60_000 });
+}
+
+/** Departments for the org chart (Sales, Marketing, Finance, Partners …). */
+export function useDepartments() {
+  return useQuery({ queryKey: ['departments'], queryFn: () => api<Department[]>('/departments'), staleTime: 60_000 });
 }
 
 /** Label for a lookup code, falling back to the raw code. */
