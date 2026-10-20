@@ -588,7 +588,7 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 .print-blocked { display: none; }
 @media print {
   /* While a document is open, print only its pages … */
-  body.viewing-document .shell, body.viewing-document .viewer-bar, body.viewing-document .viewer-note { display: none !important; }
+  body.viewing-document #root, body.viewing-document .viewer-bar, body.viewing-document .viewer-note { display: none !important; }
   body.viewing-document .viewer-layer { position: static; background: none; display: block; }
   body.viewing-document .viewer-pages { overflow: visible; padding: 0; display: block; }
   body.viewing-document .viewer-pages img { width: 100%; box-shadow: none; page-break-after: always; }

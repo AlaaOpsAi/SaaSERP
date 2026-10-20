@@ -2006,6 +2006,12 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - Checks: phone app typecheck (packages installed in apps/mobile, lock file unchanged); tried in the phone app's web build at phone size as Joumana (level 5): the sample contract opens with her name on both pages.
 - Needs a new phone app build to reach phones.
 
+**Print from the viewer was blank (2026-10-20):**
+- User: printing a document showed an empty page (screenshot). Sensitive fields: set aside for now.
+- Cause: the print rule hides the app area so only the document prints, but the viewer was drawn inside that area, so it was hidden too.
+- Fix: the viewer is drawn directly on the page body (outside the app); printing hides the whole app area; all pages load straight away (not only when scrolled to), so every page is there when printing.
+- Checked with the page's print rules applied: both pages print from the top of the sheet with the watermark; without the print right only "Printing is not allowed for this document." prints.
+
 **npm audit fixed (2026-10-20, not committed yet):**
 - `@fastify/jwt` 10.2.2 → 10.2.5 (patch release; brings fast-jwt 6.3.5, which fixes expired tokens without `iat` being accepted from the verifier cache).
 - `uuid` 8.3.2 → 11.1.1 through an `overrides` entry in the root `package.json`, because exceljs 4.4.0 is the latest release and still asks for uuid 8. exceljs only uses `v4()`, which uuid 11 still provides for `require`. Only exceljs uses uuid.

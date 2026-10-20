@@ -1,5 +1,6 @@
 import { Download, Printer, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api, openSigned } from '../api';
 import { t } from '../i18n';
 import { ErrorNote } from './ui';
@@ -38,7 +39,8 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget; onClos
     };
   }, [doc, onClose]);
 
-  return (
+  // Drawn straight on <body>, outside the app: printing hides the app (.shell) and keeps only these pages.
+  return createPortal(
     <div className="viewer-layer" role="dialog" aria-modal="true" aria-label={doc?.title ?? t('Document')}
       onContextMenu={(e) => e.preventDefault()}>
       <header className="viewer-bar">
@@ -57,10 +59,11 @@ export function DocumentViewer({ target, onClose }: { target: ViewTarget; onClos
       <div className="viewer-pages">
         {doc && Array.from({ length: doc.pages }, (_, i) => (
           <img key={i} src={`/api/viewer/page?t=${encodeURIComponent(doc.token)}&n=${i + 1}`} alt={t('Page {n}', { n: i + 1 })}
-            draggable={false} loading="lazy" />
+            draggable={false} />
         ))}
       </div>
       <div className="print-blocked">{t('Printing is not allowed for this document.')}</div>
-    </div>
+    </div>,
+    document.body,
   );
 }
