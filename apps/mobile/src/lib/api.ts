@@ -72,7 +72,7 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
 
 // ---- types shared with the web app -------------------------------------------
 
-export type Status = 'INQ' | 'TEN' | 'DEF' | 'ACT' | 'LOS' | 'CXL';
+export type Status = 'ENQ' | 'TEN' | 'DEF' | 'ACT' | 'PAID' | 'LOS' | 'CXL';
 export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'finance' | 'viewer';
 
 export interface Me {

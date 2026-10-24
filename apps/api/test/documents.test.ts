@@ -47,8 +47,9 @@ describe('signed contract upload', () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
     const b = (await sara.post('/bookings', { name: 'Hessa wedding', status: 'TEN' })).body;
-    // Any status: a tentative contract takes a signed proposal.
-    expect((await upload(sara, `/bookings/${b.id}/files?kind=signed_proposal`, PNG, 'proposal.png')).status).toBe(200);
+    // Any status: a contract takes other files without changing its status.
+    expect((await upload(sara, `/bookings/${b.id}/files?kind=other`, PNG, 'venue.png')).status).toBe(200);
+    expect((await sara.get(`/bookings/${b.id}`)).body.status).toBe('TEN');
     // Only real pictures or PDFs, whatever the name says.
     const fake = await upload(sara, `/bookings/${b.id}/files`, Buffer.from('MZ not a pdf'), 'contract.pdf');
     expect(fake.status).toBe(400);
@@ -64,7 +65,7 @@ describe('signed contract upload', () => {
     expect(up.body).toMatchObject({ kind: 'signed_contract', mime: 'application/pdf', file_name: 'signed.pdf' });
     const detail = (await sara.get(`/bookings/${b.id}`)).body;
     expect(detail.signed_missing).toBe(false);
-    expect(detail.files.map((f: any) => f.kind).sort()).toEqual(['signed_contract', 'signed_proposal']);
+    expect(detail.files.map((f: any) => f.kind).sort()).toEqual(['other', 'signed_contract']);
 
     // Downloading needs the download right (level 5 views on screen only); then it is a short-lived link without a login header.
     expect((await sara.get(`/booking-files/${up.body.id}/link`)).status).toBe(403);
@@ -88,7 +89,7 @@ describe('issuing contracts, proposals and annexes', () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
     const b = (await sara.post('/bookings', {
-      name: 'Hessa wedding', status: 'INQ', event_date: '2026-12-03', pax: 350, contract_value: 2370,
+      name: 'Hessa wedding', status: 'ENQ', event_date: '2026-12-03', pax: 350, contract_value: 2370,
       contact: { first_name: 'حصة', family_name: 'العتيبي', phone: '96528423' },
     })).body;
     const put = (url: string, payload: unknown) => app.inject({ method: 'PUT', url: `/api${url}`, payload: payload as object, headers: { authorization: `Bearer ${sara.token}` } });
@@ -98,15 +99,14 @@ describe('issuing contracts, proposals and annexes', () => {
     ] })).statusCode).toBe(200);
     expect((await put(`/bookings/${b.id}/annex-lines`, { lines: [{ service: 'مدخل العروس', service_alt: 'Bride Entrance', quantity: 1, notes: 'VIP' }] })).statusCode).toBe(200);
 
-    // Not from an enquiry: only Tentative or Definite.
-    const early = await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin' });
-    expect(early.status).toBe(400);
-    await sara.post(`/bookings/${b.id}/status`, { status: 'TEN' });
-
     const options = (await sara.get(`/bookings/${b.id}/templates`)).body;
     expect(options.proposal[0]).toMatchObject({ id: 'builtin', language: 'bilingual' });
     const p1 = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin', notes: 'Valid 14 days' })).body;
     expect(p1.doc_no).toBe(`${b.booking_no}-P1`);
+    // Issuing the offer moves the enquiry to TEN (customer comment 8).
+    const sent = (await sara.get(`/bookings/${b.id}`)).body;
+    expect(sent.status).toBe('TEN');
+    expect(sent.history.at(-1)).toMatchObject({ from_status: 'ENQ', to_status: 'TEN', reason: 'Automatic: offer issued' });
     const p2 = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin' })).body;
     expect(p2.doc_no).toBe(`${b.booking_no}-P2`);
     const annex = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'annex', template_id: 'builtin' })).body;
@@ -176,5 +176,41 @@ describe('issuing contracts, proposals and annexes', () => {
     });
     expect(amountInWords(2000, 'KWD').ar).toBe('ألفان دينار كويتي فقط لا غير');
     expect(amountInWords(3000, 'KWD').ar).toBe('ثلاثة آلاف دينار كويتي فقط لا غير');
+  });
+});
+
+describe('statuses that follow the customer (comment 8)', () => {
+  it('moves ENQ → TEN → DEF → ACT → PAID from documents and money, and back when money is removed', async () => {
+    const owner = await newTenant(app);
+    const sara = await member(owner, 'Sara', 'sales');
+    const b = (await sara.post('/bookings', { name: 'Noor wedding', contract_value: 1000 })).body;
+    expect(b.status).toBe('ENQ');
+    const status = async () => (await owner.get(`/bookings/${b.id}`)).body;
+
+    await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin' });
+    expect((await status()).status).toBe('TEN');
+
+    // The client's signed proposal confirms it, and counts as the signed copy.
+    expect((await upload(sara, `/bookings/${b.id}/files?kind=signed_proposal`, PDF, 'signed.pdf')).status).toBe(200);
+    expect(await status()).toMatchObject({ status: 'DEF', signed_missing: false });
+
+    const dp = (await sara.post(`/bookings/${b.id}/down-payment`, { paid_on: '2026-10-01', amount: 400, method: 'CASH' })).body;
+    expect((await status()).status).toBe('ACT');
+    await owner.post(`/bookings/${b.id}/payments`, { paid_on: '2026-10-10', amount: 600, method: 'BANK' });
+    const paid = await status();
+    expect(paid).toMatchObject({ status: 'PAID', fully_paid_date: '2026-10-10' });
+    expect(paid.history.map((h: any) => h.reason).slice(-3)).toEqual(['Automatic: signed copy uploaded', 'Automatic: part paid', 'Automatic: fully paid']);
+
+    // The value goes up: part paid again; a payment removed: back down.
+    await owner.patch(`/bookings/${b.id}`, { contract_value: 1200 });
+    expect(await status()).toMatchObject({ status: 'ACT', fully_paid_date: null });
+    await owner.del(`/payments/${dp.id}`);
+    expect((await status()).status).toBe('ACT');
+
+    // By hand still works; documents never move a contract back.
+    expect((await owner.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(200);
+    await sara.post(`/bookings/${b.id}/documents`, { kind: 'contract', template_id: 'builtin' });
+    expect((await status()).status).toBe('DEF');
+    expect((await owner.post(`/bookings/${b.id}/status`, { status: 'CXL', reason: 'Postponed' })).status).toBe(200);
   });
 });

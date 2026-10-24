@@ -87,7 +87,7 @@ export async function download(path: string, filename: string, body?: unknown) {
 
 // ---- shared types ------------------------------------------------------
 
-export type Status = 'INQ' | 'TEN' | 'DEF' | 'ACT' | 'LOS' | 'CXL';
+export type Status = 'ENQ' | 'TEN' | 'DEF' | 'ACT' | 'PAID' | 'LOS' | 'CXL';
 export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'marketing' | 'finance' | 'viewer';
 
 export interface Me {
@@ -182,7 +182,7 @@ export interface Booking {
   fixed_cost: number; cf_cost: number; net_profit: number; commission: number; shares: number;
   paid: number; outstanding: number; aging_days: number;
   business_unit_name?: string;
-  /** Definite, and the client's signed contract has not been uploaded yet. */
+  /** Confirmed (DEF / ACT / PAID), and the client's signed contract or proposal has not been uploaded yet. */
   signed_missing: boolean;
 }
 

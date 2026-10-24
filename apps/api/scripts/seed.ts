@@ -132,7 +132,7 @@ const samples = [
   { name: 'Latifa wedding', contact: { name: 'Latifa', phone: '66230001', nationality: 'KUWAIT' }, status: 'DEF', event_type: 'W', source: 'INSTA', owner: 'JOU', venue: ['FOUR SEASONS', 'MIRQAB Ballroom'], date: d(11, 12), pax: 250, lines: [['F&B', 'Buffet dinner', 250, 18, 11], ['DECOR', 'Kosha & stage flowers', 1, 3200, 1900]], pay: 4000, cf: false },
   { name: 'Ministry annual conference', contact: { name: 'Hessa Ruqaibi', phone: '97970002' }, status: 'DEF', event_type: 'C', source: 'MINISTRY', owner: 'LOJ', venue: ['JUMEIRAH', 'Grand Ballroom'], date: d(10, 20), pax: 400, lines: [['F&B', 'Coffee breaks & lunch', 400, 12, 7.5], ['AV', 'Stage, LED & sound', 1, 5500, 3900]], pay: 0, cf: true },
   { name: 'Sara engagement at home', contact: { name: 'Sara', phone: '55490003' }, status: 'TEN', event_type: 'E', source: 'SNAPCHAT', owner: 'JOU', venue: ['HOME', 'Client location'], date: d(12, 5), pax: 60, lines: [['DECOR', 'Bride sofa & flowers', 1, 950, 520]] },
-  { name: 'Graduation party', contact: { name: 'Al Shareef', phone: '97960004' }, status: 'INQ', event_type: 'G', source: 'TIKTOK', owner: 'LOJ', venue: ['RADISSON', 'Sky Lounge'], date: d(12, 18), pax: 70 },
+  { name: 'Graduation party', contact: { name: 'Al Shareef', phone: '97960004' }, status: 'ENQ', event_type: 'G', source: 'TIKTOK', owner: 'LOJ', venue: ['RADISSON', 'Sky Lounge'], date: d(12, 18), pax: 70 },
   { name: 'Wedding – shopping around', contact: { name: 'Noura', phone: '99020005' }, status: 'LOS', lost: 'BUDGET', event_type: 'W', source: 'INSTA', owner: 'LOJ', venue: ['RADISSON', 'LAILATI Ballroom'], date: d(9, 3), pax: 200 },
   { name: 'Corporate gala dinner', contact: { name: 'Bader', phone: '66000006' }, status: 'DEF', event_type: 'D', source: 'CALL', owner: 'MEL', venue: ['GOV. HALL', 'MESSILA Ballroom'], date: d(6, 14), pax: 180, lines: [['F&B', 'Set menu dinner', 180, 22, 13]], pay: 3960, cf: false },
 ] as const;
@@ -142,7 +142,7 @@ for (const s of samples) {
   const b = await call('POST', '/bookings', token, {
     name: s.name, contact: s.contact, event_type: s.event_type, source: s.source, owner_id: users[s.owner],
     function_space_id: venues[venueName].spaces[spaceName], event_date: s.date, pax: s.pax,
-    inquiry_date: d(1, 10), status: s.status === 'LOS' ? 'INQ' : s.status,
+    inquiry_date: d(1, 10), status: s.status === 'LOS' ? 'ENQ' : s.status,
     credit_facility: 'cf' in s ? s.cf : false,
   });
   if (s.status === 'LOS') await call('POST', `/bookings/${b.id}/status`, token, { status: 'LOS', reason: 'lost' in s ? s.lost : 'OTHER' });
@@ -179,7 +179,7 @@ for (let n = 0; n < 90; n++) {
   const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
   const past = ev < now;
   const roll = rand();
-  const status = past ? (roll < 0.38 ? 'DEF' : roll < 0.9 ? 'LOS' : 'CXL') : (roll < 0.3 ? 'DEF' : roll < 0.65 ? 'TEN' : 'INQ');
+  const status = past ? (roll < 0.38 ? 'DEF' : roll < 0.9 ? 'LOS' : 'CXL') : (roll < 0.3 ? 'DEF' : roll < 0.65 ? 'TEN' : 'ENQ');
   const type = pick(types);
   const pax = 40 + Math.floor(rand() * 260);
   const owner = pick(['JOU', 'JOU', 'LOJ', 'LOJ', 'MEL', 'AHD', 'GHA', 'GHA']);
@@ -188,10 +188,10 @@ for (let n = 0; n < 90; n++) {
     name: `${who} ${type === 'W' ? 'wedding' : type === 'C' ? 'conference' : type === 'G' ? 'graduation' : type === 'D' ? 'dinner' : 'reception'}`,
     contact: { name: who, phone: `9${String(1000000 + Math.floor(rand() * 8999999))}` },
     event_type: type, source: pick(sources), owner_id: users[owner], venue_id: pick(venueList).id,
-    event_date: iso(ev), inquiry_date: iso(enq), pax, status: status === 'LOS' || status === 'CXL' ? 'INQ' : status,
+    event_date: iso(ev), inquiry_date: iso(enq), pax, status: status === 'LOS' || status === 'CXL' ? 'ENQ' : status,
     credit_facility: rand() < 0.2,
   });
-  if (status === 'DEF' || status === 'TEN' || status === 'INQ') {
+  if (status === 'DEF' || status === 'TEN' || status === 'ENQ') {
     const price = 9 + Math.floor(rand() * 16);
     await call('POST', `/bookings/${b.id}/items`, token, { category: 'F&B', description: 'Dinner per guest', quantity: pax, unit_price: price, unit_cost: Math.round(price * (0.5 + rand() * 0.2) * 10) / 10 });
     if (rand() < 0.6) {

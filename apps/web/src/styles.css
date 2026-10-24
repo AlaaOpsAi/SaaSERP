@@ -183,10 +183,11 @@ tfoot td { font-weight: 650; border-top: 1px solid var(--border-strong); }
   font-size: 12px; font-weight: 600; background: var(--surface-2); color: var(--text-2); white-space: nowrap;
 }
 .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.badge.INQ .dot { background: var(--muted); }
+.badge.ENQ .dot { background: var(--muted); }
 .badge.TEN .dot { background: var(--status-warning); }
 .badge.DEF .dot { background: var(--status-good); }
 .badge.ACT .dot { background: var(--series-1); }
+.badge.PAID .dot { background: var(--series-3); }
 .badge.LOS .dot { background: var(--status-critical); }
 .badge.CXL .dot { background: var(--status-serious); }
 .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--surface-2); color: var(--text-2); font-weight: 600; }
@@ -346,6 +347,7 @@ svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; borde
 .diary-ev.TEN { border-inline-start-color: var(--status-warning); }
 .diary-ev.DEF { border-inline-start-color: var(--status-good); }
 .diary-ev.ACT { border-inline-start-color: var(--series-1); }
+.diary-ev.PAID { border-inline-start-color: var(--series-3); }
 .diary-ev.clash { outline: 2px solid var(--status-critical); outline-offset: -1px; }
 .diary-ev.LOS, .diary-ev.CXL { opacity: 0.5; text-decoration: line-through; }
 

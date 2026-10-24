@@ -87,15 +87,16 @@ export function fromLocalInput(local: string): string {
 
 /** English status names (also the translation keys); use statusLabel() for display. */
 export const STATUS_LABEL: Record<Status, string> = {
-  INQ: 'Inquiry', TEN: 'Tentative', DEF: 'Definite', ACT: 'Actualised', LOS: 'Lost', CXL: 'Cancelled',
+  ENQ: 'Enquiry', TEN: 'Offer sent', DEF: 'Signed', ACT: 'Actualised', PAID: 'Fully paid', LOS: 'Lost', CXL: 'Cancelled',
 };
 
 export const TRANSITIONS: Record<Status, Status[]> = {
-  INQ: ['TEN', 'DEF', 'LOS', 'CXL'],
-  TEN: ['INQ', 'DEF', 'LOS', 'CXL'],
-  DEF: ['TEN', 'ACT', 'CXL'],
-  ACT: ['DEF'],
-  LOS: ['INQ', 'TEN'],
+  ENQ: ['TEN', 'DEF', 'LOS', 'CXL'],
+  TEN: ['ENQ', 'DEF', 'LOS', 'CXL'],
+  DEF: ['TEN', 'ACT', 'PAID', 'CXL'],
+  ACT: ['DEF', 'PAID', 'CXL'],
+  PAID: ['DEF', 'ACT', 'CXL'],
+  LOS: ['ENQ', 'TEN'],
   CXL: ['TEN'],
 };
 

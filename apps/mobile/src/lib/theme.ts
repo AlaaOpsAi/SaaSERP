@@ -62,5 +62,5 @@ export function useColors(): Colors {
 
 /** Status dots use the fixed status palette, always paired with a text label. */
 export const STATUS_COLOR: Record<Status, string> = {
-  INQ: '#898781', TEN: '#fab219', DEF: '#0ca30c', ACT: '#2a78d6', LOS: '#d03b3b', CXL: '#ec835a',
+  ENQ: '#898781', TEN: '#fab219', DEF: '#0ca30c', ACT: '#2a78d6', PAID: '#6b4fd8', LOS: '#d03b3b', CXL: '#ec835a',
 };

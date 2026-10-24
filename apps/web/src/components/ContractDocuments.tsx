@@ -28,7 +28,7 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
   const [issuing, setIssuing] = useState(false);
   const [uploading, setUploading] = useState<FileKind | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const canIssue = canSell && (b.status === 'TEN' || b.status === 'DEF');
+  const canIssue = canSell && b.status !== 'LOS' && b.status !== 'CXL';
   const open = (path: string) => { setError(null); openSigned(path).catch(setError); };
   // Everyone can view on screen (watermarked); only people with the download right get the file.
   const { me } = useAuth();
@@ -51,7 +51,7 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
           <h3>{t('Issued documents')}</h3>
           {canSell && (canIssue
             ? <button className="sm primary" onClick={() => setIssuing(true)}>{t('Issue contract / proposal')}</button>
-            : <span className="small muted">{t('Contracts and proposals are issued from Tentative or Definite.')}</span>)}
+            : <span className="small muted">{t('Documents are not issued for lost or cancelled contracts.')}</span>)}
         </div>
         {b.documents.length === 0 ? <Empty>{t('Nothing issued yet.')}</Empty> : (
           <div className="table-wrap">
@@ -149,7 +149,7 @@ export function UploadDialog({ b, kind: initialKind, onClose, prompt }: {
       </>}>
       <form id="upload-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined, { onSuccess: onClose }); }}>
         <ErrorNote error={save.error} />
-        {prompt && <p className="secondary" style={{ margin: 0 }}>{t('{no} is now Definite. Upload the contract the client signed, or do it later: the contract stays flagged until then.', { no: b.booking_no })}</p>}
+        {prompt && <p className="secondary" style={{ margin: 0 }}>{t('{no} is now Signed. Upload the contract the client signed, or do it later: the contract stays flagged until then.', { no: b.booking_no })}</p>}
         <Field label={t('Kind')}>
           <select value={kind} onChange={(e) => setKind(e.target.value as FileKind)}>
             {FILE_KINDS.map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authed, can, hiddenFields, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
 import { BUILTIN, checkTemplate, docNoFor, fillTemplate, PLACEHOLDERS, readBuiltin, templateData, toPdf, type DocKind } from '../lib/docgen.js';
+import { syncStatus } from '../lib/booking.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import { redactBooking } from '../lib/fields.js';
 import { logChange, writable } from '../lib/guard.js';
@@ -11,8 +12,9 @@ import { requireRight } from '../lib/permissions.js';
 
 /**
  * Contract documents (customer comment 5):
- *  - upload the client's signed contract (JPEG, PNG or PDF) at any status; DEF without one is flagged
- *  - issue a contract or proposal (TEN or DEF) and its annexes from the company's Word templates,
+ *  - upload the client's signed contract or proposal (JPEG, PNG or PDF) at any status; it moves ENQ / TEN to DEF,
+ *    and a confirmed contract without one is flagged
+ *  - issue a contract or proposal (any open or confirmed contract; an enquiry moves to TEN) and its annexes from the company's Word templates,
  *    one set per business type and language, filled with the contract's data
  *  - the services & prices of the contract and the annex details (e.g. Wedding Specifications)
  */
@@ -280,7 +282,7 @@ export async function documentRoutes(app: FastifyInstance) {
          LEFT JOIN users u ON u.id = b.owner_id LEFT JOIN contacts c ON c.id = b.contact_id LEFT JOIN accounts a ON a.id = b.account_id
          LEFT JOIN venues v ON v.id = b.venue_id LEFT JOIN function_spaces s ON s.id = b.function_space_id
          WHERE b.id = $1`, [bookingId]);
-      if (!['TEN', 'DEF'].includes(raw.status)) throw badRequest('Contracts, proposals and annexes are issued from Tentative or Definite contracts');
+      if (['LOS', 'CXL'].includes(raw.status)) throw badRequest('Documents are not issued for lost or cancelled contracts');
       const booking = redactBooking(raw, hidden);
 
       let template: Buffer;
@@ -323,6 +325,7 @@ export async function documentRoutes(app: FastifyInstance) {
          VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, doc_no, kind`,
         [bookingId, prepared.templateId, body.kind, prepared.docNo, prepared.language, docxKey, pdfKey, JSON.stringify(prepared.data), req.user.sub]);
       await logChange(db, req, ctx, 'document issued', { doc_no: prepared.docNo, kind: body.kind });
+      if (body.kind !== 'annex') await syncStatus(db, bookingId, 'document_issued', req.user.sub, ctx.onBehalfOf);
       return { ...doc, has_pdf: Boolean(pdfKey) };
     });
   });
@@ -366,6 +369,7 @@ export async function documentRoutes(app: FastifyInstance) {
          VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, kind, file_name, mime, size_bytes, uploaded_at, document_id`,
         [bookingId, q.kind, documentId, name, MIME[type], file.data.length, key, req.user.sub]);
       await logChange(db, req, ctx, 'file uploaded', { kind: q.kind, file: name });
+      if (signs[q.kind]) await syncStatus(db, bookingId, 'signed_uploaded', req.user.sub, ctx.onBehalfOf);
       return row;
     });
   });

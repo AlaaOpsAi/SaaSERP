@@ -1,6 +1,6 @@
 # Customer comment 8 — Excel-like contract list, statuses that follow the customer
 
-Date: 2026-10-23 · Status: **item 1 built (2026-10-24); item 2 final plan waiting for go-ahead**
+Date: 2026-10-23 · Status: **item 1 and item 2 built (2026-10-24)**
 
 ## 1. Today
 
@@ -58,7 +58,7 @@ How: the list loads the whole year's contracts the person may see (thousands are
 - Filter on every column; column chooser; personal saved views.
 - Pivot: rows / columns / values, totals, click-through, Excel export.
 
-**Item 2: final plan, waiting for go-ahead.**
+**Item 2: built after the go-ahead (2026-10-24).**
 
 | Code | Meaning | Gets there automatically when … |
 |---|---|---|

@@ -16,7 +16,7 @@ import { useColors } from '../../lib/theme';
 import { lookupLabel, mirrored, t } from '../../i18n';
 
 const ACTION_LABEL: Partial<Record<Status, string>> = {
-  TEN: 'Tentative', DEF: 'Confirm', ACT: 'Actualise', LOS: 'Lost', CXL: 'Cancel', INQ: 'Back to inquiry',
+  TEN: 'Offer sent', DEF: 'Signed', ACT: 'Part paid', PAID: 'Fully paid', LOS: 'Lost', CXL: 'Cancel', ENQ: 'Back to enquiry',
 };
 
 export default function BookingScreen() {

@@ -58,21 +58,34 @@ The formulas come from the workbook, with the percentages configurable per tenan
 | net profit | gross margin − fixed cost − CF cost |
 | commission | net profit × commission % |
 | shares | (net profit − commission) × share % |
-| outstanding | (contract value or revenue) − payments, for DEF/ACT only |
+| outstanding | (contract value or revenue) − payments, for DEF/ACT/PAID only |
 | aging days | event date → fully-paid date (or today) |
 
 Amounts are `numeric(14,3)`, because KWD has three decimals.
 
 ### Status workflow
 
-```
-INQ ⇄ TEN → DEF → ACT
- ↓     ↓     ↓
-LOS   LOS   CXL        LOS → INQ/TEN (reactivate), CXL → TEN (reinstate), ACT → DEF (managers only)
-```
+Statuses follow what the customer does (customer comment 8); staff can still change them by hand.
 
-- LOS needs a lost reason and CXL needs a cancellation reason; the database enforces this with `CHECK` constraints.
-- Moving to DEF or ACT checks the function diary for clashes: an overlapping DEF/ACT event in the same non-shareable room returns `409` with the conflicting bookings. Owners, admins and managers can pass `force: true`.
+| Code | Meaning | Set automatically when … |
+|---|---|---|
+| ENQ | Enquiry, no offer sent | the contract is created |
+| TEN | Offer sent | a proposal or contract is issued (from ENQ) |
+| DEF | Signed | the client's signed contract or proposal is uploaded (from ENQ / TEN) |
+| ACT | Actualised: part paid | money received > 0 but below the contract value (or the revenue lines without one) |
+| PAID | Fully paid | money received ≥ that amount; the fully-paid date is filled in |
+| LOS / CXL | Lost / cancelled | by hand only, with a reason |
+
+- **Payments:** a confirmed contract (DEF / ACT / PAID) moves between these three, both ways, when payments, the contract value or the revenue lines change.
+- **Documents:** issuing or uploading only moves a contract forward.
+- **History:** each automatic move is written as "Automatic: …".
+- **Code:** `syncStatus` in `apps/api/src/lib/booking.ts`.
+- **By hand:**
+  - ENQ ⇄ TEN; ENQ / TEN → DEF; DEF ⇄ ACT ⇄ PAID; any open or confirmed contract → LOS / CXL;
+  - LOS → ENQ / TEN (reactivate), CXL → TEN (reinstate);
+  - only managers move a PAID contract back.
+- **Reasons:** LOS needs a lost reason and CXL needs a cancellation reason; the database enforces this with `CHECK` constraints.
+- **Clashes:** DEF, ACT and PAID hold the room. Confirming by hand checks the function diary: an overlapping confirmed event in the same non-shareable room returns `409` with the conflicting bookings, and owners, admins and managers can pass `force: true`. An automatic move never double-books: it waits for someone to confirm by hand.
 
 ## API
 

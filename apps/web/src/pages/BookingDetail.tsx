@@ -120,7 +120,7 @@ function CoverNote({ b }: { b: BookingDetail }) {
 }
 
 function Pipeline({ status }: { status: Status }) {
-  const steps: Status[] = ['INQ', 'TEN', 'DEF', 'ACT'];
+  const steps: Status[] = ['ENQ', 'TEN', 'DEF', 'ACT', 'PAID'];
   const idx = steps.indexOf(status);
   return (
     <div className="pipeline" style={{ marginBottom: 16 }}>
@@ -161,14 +161,14 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
     } });
   };
   const labels: Partial<Record<Status, string>> = {
-    TEN: 'Mark tentative', DEF: 'Confirm (definite)', ACT: 'Actualise', LOS: 'Mark lost', CXL: 'Cancel', INQ: 'Back to inquiry',
+    TEN: 'Mark offer sent', DEF: 'Mark signed', ACT: 'Mark part paid', PAID: 'Mark fully paid', LOS: 'Mark lost', CXL: 'Cancel', ENQ: 'Back to enquiry',
   };
 
   return (
     <div className="stack" style={{ alignItems: 'flex-end', gap: 8 }}>
       <div className="row">
         {TRANSITIONS[booking.status].map((s) => (
-          <button key={s} className={s === 'DEF' ? 'primary' : needsReason(s) ? 'danger' : ''} disabled={change.isPending}
+          <button key={s} className={s === 'DEF' && (booking.status === 'ENQ' || booking.status === 'TEN') ? 'primary' : needsReason(s) ? 'danger' : ''} disabled={change.isPending}
             onClick={() => go(s)}>
             {t(labels[s] ?? s)}
           </button>

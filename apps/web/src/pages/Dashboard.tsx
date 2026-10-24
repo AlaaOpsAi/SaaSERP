@@ -31,7 +31,7 @@ interface DashboardData {
 type Metric = 'revenue' | 'gross_margin' | 'net_profit' | 'bookings';
 const METRICS: [Metric, string][] = [['revenue', 'Revenue'], ['gross_margin', 'Gross margin'], ['net_profit', 'Net profit'], ['bookings', 'Bookings']];
 const STATUS_COLOR: Record<Status, string> = {
-  INQ: 'var(--muted)', TEN: 'var(--status-warning)', DEF: 'var(--status-good)', ACT: 'var(--series-1)',
+  ENQ: 'var(--muted)', TEN: 'var(--status-warning)', DEF: 'var(--status-good)', ACT: 'var(--series-1)', PAID: 'var(--series-3)',
   LOS: 'var(--status-critical)', CXL: 'var(--status-serious)',
 };
 
@@ -114,11 +114,11 @@ export function Dashboard() {
               <div className="hero-spark">
                 <div className="small muted" style={{ marginBottom: 4 }}>{t("Cumulative definite revenue by event month, including future events already confirmed")}</div>
                 <TrendChart current={cumulative(series('revenue'))} previous={cumulative(series('prev_revenue'))} currentLabel={t('{year} booked', { year })}
-                  previousLabel={prevLabel} format={compact} height={150} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT' })} />
+                  previousLabel={prevLabel} format={compact} height={150} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT,PAID' })} />
               </div>
             </div>
             <div className="attention">
-              <Link to="/bookings?followup_due=true&status=INQ,TEN" className={`card attn ${data.followups.overdue ? 'warn' : ''} ${enter}`} style={stagger(1, 70)}>
+              <Link to="/bookings?followup_due=true&status=ENQ,TEN" className={`card attn ${data.followups.overdue ? 'warn' : ''} ${enter}`} style={stagger(1, 70)}>
                 <span className="attn-icon" aria-hidden>{data.followups.overdue ? <AlertTriangle /> : <CheckCircle2 />}</span>
                 <div>
                   <div className="attn-value"><NumberTicker value={data.followups.overdue} format={whole} /></div>
@@ -134,7 +134,7 @@ export function Dashboard() {
                   <div className="small muted">{t("Open receivables and aging →")}</div>
                 </div>
               </Link>
-              <button type="button" className={`card attn ${enter}`} style={stagger(3, 70)} onClick={() => drill({ status: 'INQ,TEN' })}>
+              <button type="button" className={`card attn ${enter}`} style={stagger(3, 70)} onClick={() => drill({ status: 'ENQ,TEN' })}>
                 <span className="attn-icon" aria-hidden><Target /></span>
                 <div>
                   <div className="attn-value"><NumberTicker value={k.pipeline_value} format={compact} /></div>
@@ -149,7 +149,7 @@ export function Dashboard() {
           <div className="kpis kpi-tiles">
             <Tile i={0} label={t("Bookings")} value={<NumberTicker value={k.total} format={whole} />} spark={series('total')} upTo={upTo} onClick={() => drill({})}
               delta={<Delta current={k.total} previous={prev.total} label={prevLabel} />} />
-            <Tile i={1} label={t("Conversion")} value={<NumberTicker value={k.conversion_rate} format={(v) => pct(v)} />} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF,ACT' })}
+            <Tile i={1} label={t("Conversion")} value={<NumberTicker value={k.conversion_rate} format={(v) => pct(v)} />} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF,ACT,PAID' })}
               delta={<Delta current={k.conversion_rate} previous={prev.conversion_rate} label={prevLabel} asPoints />} />
             <Tile i={2} label={t("Win rate")} value={<NumberTicker value={k.win_rate} format={(v) => pct(v)} />} sub={t("definite ÷ decided")} onClick={() => drill({ status: 'LOS' })}
               delta={<Delta current={k.win_rate} previous={prev.win_rate} label={prevLabel} asPoints />} />
@@ -190,12 +190,12 @@ export function Dashboard() {
                 onSelect={(i) => drill({ month: String(i + 1) })}
                 series={[
                   { key: 'definite', label: t('Definite'), color: 'var(--series-1)' },
-                  { key: 'open', label: t('Open (INQ/TEN)'), color: 'var(--series-2)' },
+                  { key: 'open', label: t('Open (ENQ/TEN)'), color: 'var(--series-2)' },
                   { key: 'lost', label: t('Lost / cancelled'), color: 'var(--muted)' },
                 ]} />
             ) : (
               <TrendChart current={series(metric)} previous={series(`prev_${metric}` as keyof Month)} currentLabel={String(year)} previousLabel={prevLabel}
-                format={compact} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT' })} />
+                format={compact} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT,PAID' })} />
             )}
           </div>
 

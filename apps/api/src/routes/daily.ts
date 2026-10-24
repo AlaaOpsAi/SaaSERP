@@ -72,7 +72,7 @@ async function dailyReport(db: Db, people: string[] | null, from: string | undef
     `WITH tz AS (SELECT timezone FROM tenants WHERE id = current_tenant_id())
      SELECT h.changed_by AS user_id,
             count(*) FILTER (WHERE h.from_status IS NULL) AS new_contracts,
-            count(*) FILTER (WHERE h.to_status = 'DEF' AND h.from_status IS NOT NULL) AS won,
+            count(*) FILTER (WHERE h.to_status IN ('DEF', 'ACT', 'PAID') AND h.from_status IN ('ENQ', 'TEN')) AS won,
             count(*) FILTER (WHERE h.to_status IN ('LOS', 'CXL')) AS lost
      FROM booking_status_history h CROSS JOIN tz
      WHERE h.changed_by = ANY($1) AND (h.changed_at AT TIME ZONE tz.timezone)::date BETWEEN $2 AND $3

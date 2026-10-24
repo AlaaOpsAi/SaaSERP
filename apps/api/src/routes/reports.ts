@@ -25,8 +25,9 @@ const EXPORT_ALIASES: Partial<Record<ContractField, string[]>> = {
 // Period basis: the event date, or the enquiry date while no date is set
 // (the Y/M/D columns of the daily report).
 const PERIOD = 'coalesce(b.event_date, b.inquiry_date)';
-const WON = `b.status IN ('DEF','ACT')`;
-const OPEN = `b.status IN ('INQ','TEN')`;
+const WON = `b.status IN ('DEF','ACT','PAID')`;
+const CONFIRMED = ['DEF', 'ACT', 'PAID'];
+const OPEN = `b.status IN ('ENQ','TEN')`;
 
 /** WHERE clause shared by every dashboard figure: year + optional unit + optional account manager. */
 function scope(q: Query, year = q.year) {
@@ -148,7 +149,7 @@ async function dashboard(db: Db, q: Query) {
   const byStatus = (
     await db.query(
       `SELECT s.status, count(b.id) AS total, coalesce(sum(coalesce(b.contract_value, f.revenue)), 0) AS value
-       FROM unnest(ARRAY['INQ','TEN','DEF','ACT','LOS','CXL']) WITH ORDINALITY s(status, ord)
+       FROM unnest(ARRAY['ENQ','TEN','DEF','ACT','PAID','LOS','CXL']) WITH ORDINALITY s(status, ord)
        LEFT JOIN bookings b ON b.status = s.status AND ${where}
        LEFT JOIN booking_finance f ON f.booking_id = b.id
        GROUP BY s.status, s.ord ORDER BY s.ord`,
@@ -181,7 +182,7 @@ async function dashboard(db: Db, q: Query) {
       `SELECT b.id, b.booking_no, b.name, b.status, b.event_date, b.pax, v.name AS venue_name, f.revenue, f.outstanding,
               b.event_date - current_date AS days_until
        ${FROM} LEFT JOIN venues v ON v.id = b.venue_id
-       WHERE b.status IN ('TEN','DEF') AND b.event_date BETWEEN current_date AND current_date + 30 AND ${unitOwner}
+       WHERE b.status IN ('TEN','DEF','ACT','PAID') AND b.event_date BETWEEN current_date AND current_date + 30 AND ${unitOwner}
        ORDER BY b.event_date LIMIT 8`,
       [q.business_unit_id ?? null, q.owner_id ?? null],
     )
@@ -192,7 +193,7 @@ async function dashboard(db: Db, q: Query) {
       `SELECT count(*) FILTER (WHERE next_followup_date < current_date) AS overdue,
               count(*) FILTER (WHERE next_followup_date = current_date) AS today,
               count(*) FILTER (WHERE next_followup_date IS NULL) AS unscheduled
-       FROM bookings b WHERE b.status IN ('INQ','TEN') AND ${unitOwner}`,
+       FROM bookings b WHERE b.status IN ('ENQ','TEN') AND ${unitOwner}`,
       [q.business_unit_id ?? null, q.owner_id ?? null],
     )
   ).rows[0];
@@ -224,7 +225,7 @@ async function payoutsDue(db: Db) {
     `SELECT p.id, p.kind, p.payee_name, p.pct, p.amount, p.status, p.paid_on,
             b.id AS booking_id, b.booking_no, b.name AS booking_name, b.event_date, b.fully_paid_date
      FROM booking_payout_amounts p JOIN bookings b ON b.id = p.booking_id
-     WHERE b.status IN ('DEF','ACT')
+     WHERE b.status IN ('DEF','ACT','PAID')
      ORDER BY p.status, b.event_date`,
   );
   return rows;
@@ -311,7 +312,7 @@ async function exportWorkbook(db: Db, q: Query, hidden: readonly ContractField[]
       hall: r.space_name ?? r.hall_text,
       cf: r.credit_facility ? 'CF' : '',
       paid_dp: r.paid,
-      diff_ctrl: (r.status === 'DEF' || r.status === 'ACT') && r.contract_value != null ? Number(r.paid) - Number(r.contract_value) : null,
+      diff_ctrl: CONFIRMED.includes(r.status) && r.contract_value != null ? Number(r.paid) - Number(r.contract_value) : null,
       payouts: (byBooking.get(r.booking_id) ?? [])
         .map((p) => `${p.payee_name} ${Math.round(p.pct * 100)}% = ${p.amount} (${p.status})`)
         .join('; '),
@@ -335,11 +336,11 @@ async function exportWorkbook(db: Db, q: Query, hidden: readonly ContractField[]
   if (present.has('margin_pct')) ws.getColumn('margin_pct').numFmt = '0.0%';
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columns.length } };
 
-  const total = ws.addRow({ booking_no: 'TOTAL DEF/ACT' });
+  const total = ws.addRow({ booking_no: 'TOTAL DEF/ACT/PAID' });
   total.font = { bold: true };
   for (const key of ['revenue', 'cost', 'gross_margin', 'net_profit', 'commission', 'shares', 'paid', 'outstanding'].filter((k) => present.has(k))) {
     total.getCell(key).value = rows
-      .filter((r) => r.status === 'DEF' || r.status === 'ACT')
+      .filter((r) => CONFIRMED.includes(r.status))
       .reduce((s, r) => s + Number(r[key] ?? 0), 0);
   }
 

@@ -42,7 +42,7 @@ const ar: Record<string, string> = {
   "Activities": "الأنشطة",
   "Activity": "النشاط",
   "Actualise": "تحقيق",
-  "Actualised": "منفَّذ",
+  "Actualised": "مدفوع جزئيًا",
   "Add": "إضافة",
   "Add event": "إضافة فعالية",
   "Add function space / room": "إضافة قاعة / غرفة",
@@ -1100,6 +1100,18 @@ const ar: Record<string, string> = {
   "e.g. My open enquiries": "مثال: استفساراتي المفتوحة",
   "{n} of {total}": "{n} من {total}",
   "{n} values": "{n} قيم",
+  "Enquiry": "استفسار",
+  "Offer sent": "تم إرسال العرض",
+  "Part paid": "مدفوع جزئيًا",
+  "Mark offer sent": "تحديد: تم إرسال العرض",
+  "Mark signed": "تحديد: موقَّع",
+  "Mark part paid": "تحديد: مدفوع جزئيًا",
+  "Mark fully paid": "تحديد: مدفوع بالكامل",
+  "Back to enquiry": "العودة إلى استفسار",
+  "Documents are not issued for lost or cancelled contracts.": "لا تصدر المستندات للعقود المفقودة أو الملغاة.",
+  "{no} is now Signed. Upload the contract the client signed, or do it later: the contract stays flagged until then.": "أصبح {no} موقَّعًا. ارفع العقد الذي وقّعه العميل، أو لاحقًا: يبقى العقد مُعلَّمًا حتى ذلك الحين.",
+  "No signed copy": "لا توجد نسخة موقَّعة",
+  "Open (ENQ/TEN)": "مفتوحة (استفسار/عرض)",
 };
 
 export default ar;

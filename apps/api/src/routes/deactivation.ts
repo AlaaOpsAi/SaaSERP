@@ -44,7 +44,7 @@ async function assertMayDeactivate(db: Db, req: FastifyRequest, kind: Kind, id: 
        FROM bookings b WHERE b.id = $1`, [id]);
     const b = rows[0];
     if (b.owner_id !== req.user.sub && b.created_by !== req.user.sub) throw forbidden('You can only deactivate your own contracts');
-    if (!['INQ', 'TEN'].includes(b.status)) throw forbidden('Only enquiries and tentative contracts can be deactivated; ask a manager');
+    if (!['ENQ', 'TEN'].includes(b.status)) throw forbidden('Only enquiries and tentative contracts can be deactivated; ask a manager');
     if (Number(b.payments) > 0) throw forbidden('This contract has payments; ask a manager');
     return ctx;
   }

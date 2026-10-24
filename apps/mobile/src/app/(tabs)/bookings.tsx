@@ -12,7 +12,7 @@ import { useColors } from '../../lib/theme';
 import { t } from '../../i18n';
 
 type Filter = 'open' | 'won' | 'lost' | 'all';
-const STATUS: Record<Filter, string> = { open: 'INQ,TEN', won: 'DEF,ACT', lost: 'LOS,CXL', all: '' };
+const STATUS: Record<Filter, string> = { open: 'ENQ,TEN', won: 'DEF,ACT,PAID', lost: 'LOS,CXL', all: '' };
 const PAGE = 40;
 
 export default function Bookings() {

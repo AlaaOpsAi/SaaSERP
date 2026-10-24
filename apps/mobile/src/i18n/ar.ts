@@ -10,7 +10,7 @@ const ar: Record<string, string> = {
   "Active users": "المستخدمون النشطون",
   "Activities": "الأنشطة",
   "Actualise": "تحقيق",
-  "Actualised": "منفَّذ",
+  "Actualised": "مدفوع جزئيًا",
   "Add follow-up": "إضافة متابعة",
   "Address details": "تفاصيل العنوان",
   "Admin": "الإدارة",
@@ -390,6 +390,18 @@ const ar: Record<string, string> = {
   "Page {n}": "صفحة {n}",
   "{n} pages": "{n} صفحات",
   "View only: your name is shown on every page. Downloading is not allowed for your account.": "عرض فقط: يظهر اسمك على كل صفحة. التنزيل غير مسموح لحسابك.",
+  "Offer sent": "تم إرسال العرض",
+  "Fully paid": "مدفوع بالكامل",
+  "Part paid": "مدفوع جزئيًا",
+  "Mark offer sent": "تحديد: تم إرسال العرض",
+  "Mark signed": "تحديد: موقَّع",
+  "Mark part paid": "تحديد: مدفوع جزئيًا",
+  "Mark fully paid": "تحديد: مدفوع بالكامل",
+  "Back to enquiry": "العودة إلى استفسار",
+  "Documents are not issued for lost or cancelled contracts.": "لا تصدر المستندات للعقود المفقودة أو الملغاة.",
+  "{no} is now Signed. Upload the contract the client signed, or do it later: the contract stays flagged until then.": "أصبح {no} موقَّعًا. ارفع العقد الذي وقّعه العميل، أو لاحقًا: يبقى العقد مُعلَّمًا حتى ذلك الحين.",
+  "No signed copy": "لا توجد نسخة موقَّعة",
+  "Open (ENQ/TEN)": "مفتوحة (استفسار/عرض)",
 };
 
 export default ar;

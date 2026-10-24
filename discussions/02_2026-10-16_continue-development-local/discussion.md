@@ -286,7 +286,15 @@ Not building until the user confirms (standing instruction).
 - **Code:** `components/ContractGrid.tsx`, `components/ContractPivot.tsx`, `pages/Bookings.tsx`.
 - **Checks:** tested in the browser; API tests 70/70.
 
-**Item 2:** the final status plan is in the proposal (section 5), waiting for go-ahead.
+**Built (2026-10-24), item 2 after the go-ahead:** statuses that follow the customer:
+- **Statuses:** ENQ (was INQ) → TEN when an offer or contract is issued (now possible from ENQ) → DEF when a signed contract or proposal is uploaded → ACT when partly paid → PAID when fully paid. Payments, contract value and revenue lines move DEF / ACT / PAID both ways.
+- **By hand:** manual changes are kept; only managers move a PAID contract back.
+- **Clashes:** an automatic move never double-books a room.
+- **Existing data:** migration `012_customer_statuses.sql` renames INQ to ENQ and sets existing DEF / ACT contracts from the money received; locally that gave 21 DEF, 33 ACT and 42 PAID. Old `status=INQ` links and Excel imports still work.
+- **Everywhere else:** labels Enquiry / Offer sent / Signed / Actualised / Fully paid in web, phone app and Arabic. Reports, the dashboard, the diary, daily "won" counts, the signed-copy flag (either signed copy counts) and the docs follow.
+- **Checks:** API tests 71/71, including a full flow test; checked in the browser.
+
+**Employee / HR module:** go-ahead noted, but its 5 questions need answers before building (salary visibility, alert days, self-service, HR department, phase 1 scope).
 
 ## Local test setup used
 

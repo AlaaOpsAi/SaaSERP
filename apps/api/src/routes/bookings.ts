@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { assertCanAssign, authed, can, hasRole, hiddenFields, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
-import { assertTransition, BLOCKING, findConflicts, nextBookingNo, type BookingStatus } from '../lib/booking.js';
+import { assertTransition, BLOCKING, findConflicts, nextBookingNo, syncStatus, type BookingStatus } from '../lib/booking.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { contactName } from '../lib/contact.js';
 import { redactBooking, stripHidden } from '../lib/fields.js';
@@ -13,7 +13,7 @@ import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 const id = z.object({ id: z.string().uuid() });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const money = z.number().finite();
-const status = z.enum(['INQ', 'TEN', 'DEF', 'ACT', 'LOS', 'CXL']);
+const status = z.enum(['ENQ', 'TEN', 'DEF', 'ACT', 'PAID', 'LOS', 'CXL']);
 
 const inlineContact = z.object({
   name: z.string().trim().min(1).optional(),
@@ -62,7 +62,7 @@ const bookingFields = z.object({
 
 const bookingCreate = bookingFields.partial().extend({
   name: bookingFields.shape.name,
-  status: status.default('INQ'),
+  status: status.default('ENQ'),
   contact: inlineContact.optional(),
   force: z.boolean().optional(),
 });
@@ -145,7 +145,7 @@ const SORTS: Record<string, string> = {
 };
 
 /** A confirmed contract whose signed copy has not been uploaded (flagged, never blocked). */
-export const SIGNED_MISSING = `b.status = 'DEF' AND NOT EXISTS (SELECT 1 FROM booking_files sf WHERE sf.booking_id = b.id AND sf.kind = 'signed_contract')`;
+export const SIGNED_MISSING = `b.status IN ('DEF', 'ACT', 'PAID') AND NOT EXISTS (SELECT 1 FROM booking_files sf WHERE sf.booking_id = b.id AND sf.kind IN ('signed_contract', 'signed_proposal'))`;
 
 /** Shared SELECT for booking rows with display names and finance figures. */
 const BOOKING_SELECT = `
@@ -159,7 +159,7 @@ const BOOKING_SELECT = `
          f.revenue, f.cost, f.gross_margin, f.margin_pct, f.diff, f.fixed_cost, f.cf_cost,
          f.net_profit, f.commission, f.shares, f.paid, f.outstanding, f.aging_days,
          -- DIFF CTRL of the daily report: money received less the contract value, for confirmed bookings.
-         CASE WHEN b.status IN ('DEF', 'ACT') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl,
+         CASE WHEN b.status IN ('DEF', 'ACT', 'PAID') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl,
          -- A confirmed contract without the client's signed copy uploaded.
          (${SIGNED_MISSING}) AS signed_missing
   FROM bookings b
@@ -260,7 +260,8 @@ export async function bookingRoutes(app: FastifyInstance) {
         params.push(v);
         return `$${params.length}`;
       };
-      if (q.status) where.push(`b.status = ANY(${p(q.status.split(',').map((s) => s.trim().toUpperCase()))})`);
+      // INQ was renamed ENQ (customer comment 8); old links still work.
+      if (q.status) where.push(`b.status = ANY(${p(q.status.split(',').map((s) => s.trim().toUpperCase().replace(/^INQ$/, 'ENQ')))})`);
       if (q.year) where.push(`extract(year FROM coalesce(b.event_date, b.inquiry_date)) = ${p(q.year)}`);
       if (q.month) where.push(`extract(month FROM coalesce(b.event_date, b.inquiry_date)) = ${p(q.month)}`);
       if (q.owner_id) where.push(`b.owner_id = ${p(q.owner_id)}`);
@@ -271,7 +272,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       if (q.business_unit_id) where.push(`b.business_unit_id = ${p(q.business_unit_id)}`);
       if (q.from) where.push(`b.event_date >= ${p(q.from)}`);
       if (q.to) where.push(`b.event_date <= ${p(q.to)}`);
-      if (q.followup_due) where.push(`b.status IN ('INQ','TEN') AND b.next_followup_date <= current_date`);
+      if (q.followup_due) where.push(`b.status IN ('ENQ','TEN') AND b.next_followup_date <= current_date`);
       if (q.signed_missing) where.push(SIGNED_MISSING);
       if (q.q) {
         const like = p(`%${q.q}%`);
@@ -289,10 +290,10 @@ export async function bookingRoutes(app: FastifyInstance) {
       const totals = (
         await db.query(
           `SELECT count(*) AS count,
-                  count(*) FILTER (WHERE b.status IN ('DEF','ACT')) AS definite,
-                  coalesce(sum(f.revenue) FILTER (WHERE b.status IN ('DEF','ACT')), 0) AS revenue,
-                  coalesce(sum(f.gross_margin) FILTER (WHERE b.status IN ('DEF','ACT')), 0) AS gross_margin,
-                  coalesce(sum(f.net_profit) FILTER (WHERE b.status IN ('DEF','ACT')), 0) AS net_profit,
+                  count(*) FILTER (WHERE b.status IN ('DEF','ACT','PAID')) AS definite,
+                  coalesce(sum(f.revenue) FILTER (WHERE b.status IN ('DEF','ACT','PAID')), 0) AS revenue,
+                  coalesce(sum(f.gross_margin) FILTER (WHERE b.status IN ('DEF','ACT','PAID')), 0) AS gross_margin,
+                  coalesce(sum(f.net_profit) FILTER (WHERE b.status IN ('DEF','ACT','PAID')), 0) AS net_profit,
                   coalesce(sum(f.outstanding), 0) AS outstanding,
                   count(*) FILTER (WHERE ${SIGNED_MISSING}) AS signed_missing
            FROM bookings b JOIN booking_finance f ON f.booking_id = b.id
@@ -392,6 +393,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       await updateRow(db, 'bookings', bookingId, body, 'Booking');
       const changed = Object.keys(body).filter((k) => String(before[k] ?? '') !== String((body as Record<string, unknown>)[k] ?? ''));
       if (changed.length) await logChange(db, req, ctx, 'updated', { fields: changed });
+      if (changed.includes('contract_value') || changed.includes('manual_revenue')) await syncStatus(db, bookingId, 'money_changed', req.user.sub, ctx.onBehalfOf);
       return redactBooking(await bookingDetail(db, bookingId), hiddenFields(req));
     }),
   );
@@ -407,7 +409,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       if ((to === 'LOS' || to === 'CXL') && !reason) {
         throw badRequest(to === 'LOS' ? 'A lost reason is required' : 'A cancellation reason is required');
       }
-      if (from === 'ACT' && !hasRole(req, can.manage)) throw badRequest('Only managers can reopen an actualised booking');
+      if (from === 'PAID' && !hasRole(req, can.manage)) throw badRequest('Only managers can move a fully paid contract back');
 
       if (BLOCKING.includes(to)) {
         const conflicts = await findConflicts(db, bookingId);
@@ -505,6 +507,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       const ctx = await writable(db, req, bookingId);
       const item = await insertRow(db, 'booking_items', { ...body, booking_id: bookingId });
       await logChange(db, req, ctx, 'line added', { description: body.description, amount: body.quantity * body.unit_price });
+      await syncStatus(db, bookingId, 'money_changed', req.user.sub, ctx.onBehalfOf);
       return item;
     }),
   );
@@ -512,18 +515,22 @@ export async function bookingRoutes(app: FastifyInstance) {
     tx(req, async (db) => {
       const itemId = id.parse(req.params).id;
       const body = itemSchema.partial().parse(req.body);
-      const ctx = await writable(db, req, await bookingOf(db, 'booking_items', itemId, 'Line'));
+      const bookingId = await bookingOf(db, 'booking_items', itemId, 'Line');
+      const ctx = await writable(db, req, bookingId);
       const item = await updateRow(db, 'booking_items', itemId, body, 'Line');
       await logChange(db, req, ctx, 'line changed', { fields: Object.keys(body) });
+      await syncStatus(db, bookingId, 'money_changed', req.user.sub, ctx.onBehalfOf);
       return item;
     }),
   );
   app.delete('/booking-items/:id', sell, (req) =>
     tx(req, async (db) => {
       const itemId = id.parse(req.params).id;
-      const ctx = await writable(db, req, await bookingOf(db, 'booking_items', itemId, 'Line'));
+      const bookingId = await bookingOf(db, 'booking_items', itemId, 'Line');
+      const ctx = await writable(db, req, bookingId);
       await deleteRow(db, 'booking_items', itemId, 'Line');
       await logChange(db, req, ctx, 'line removed');
+      await syncStatus(db, bookingId, 'money_changed', req.user.sub, ctx.onBehalfOf);
       return { ok: true };
     }),
   );
@@ -539,7 +546,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       if (body.amount <= 0) throw badRequest('A down payment must be more than zero');
       const ctx = await writable(db, req, bookingId, { money: true });
       const payment = await insertRow(db, 'payments', { ...body, kind: 'deposit', booking_id: bookingId, created_by: req.user.sub });
-      await syncFullyPaid(db, bookingId);
+      await syncStatus(db, bookingId, 'money_changed', req.user.sub, ctx.onBehalfOf);
       await logChange(db, req, ctx, 'down payment recorded', { amount: body.amount, paid_on: body.paid_on });
       return payment;
     }),
@@ -551,7 +558,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       const body = paymentSchema.parse(req.body);
       const ctx = await writable(db, req, bookingId, { money: true });
       const payment = await insertRow(db, 'payments', { ...body, booking_id: bookingId, created_by: req.user.sub });
-      await syncFullyPaid(db, bookingId);
+      await syncStatus(db, bookingId, 'money_changed', req.user.sub, ctx.onBehalfOf);
       await logChange(db, req, ctx, 'payment recorded', { amount: body.amount, paid_on: body.paid_on });
       return payment;
     }),
@@ -562,7 +569,7 @@ export async function bookingRoutes(app: FastifyInstance) {
       const payment = await getRow<{ booking_id: string; amount: number }>(db, 'payments', paymentId, 'Payment');
       const ctx = await writable(db, req, payment.booking_id, { money: true });
       await deleteRow(db, 'payments', paymentId, 'Payment');
-      await syncFullyPaid(db, payment.booking_id);
+      await syncStatus(db, payment.booking_id, 'money_changed', req.user.sub, ctx.onBehalfOf);
       await logChange(db, req, ctx, 'payment deleted', { amount: payment.amount });
       return { ok: true };
     }),
@@ -603,12 +610,3 @@ export async function bookingRoutes(app: FastifyInstance) {
 }
 
 /** Stamp (or clear) the fully-paid date once receipts cover the billable amount. */
-async function syncFullyPaid(db: Db, bookingId: string) {
-  await db.query(
-    `UPDATE bookings b
-     SET fully_paid_date = CASE WHEN f.outstanding <= 0 AND f.paid > 0 THEN f.last_paid_on ELSE NULL END
-     FROM booking_finance f
-     WHERE f.booking_id = b.id AND b.id = $1 AND b.status IN ('DEF', 'ACT')`,
-    [bookingId],
-  );
-}

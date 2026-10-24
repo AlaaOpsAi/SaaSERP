@@ -62,10 +62,10 @@ export function BookingForm({ initial, isNew, onSubmit, id, onDirty }: {
           <Field label={t('Contract name')} className="span-2"><input required {...bind('name')} placeholder={t('e.g. Latifa wedding')} /></Field>
           {isNew && (
             <Field label={t('Status')}>
-              <select value={form.status ?? 'INQ'} onChange={(e) => set('status')(e.target.value as Booking['status'])}>
-                <option value="INQ">{t('Inquiry')}</option>
-                <option value="TEN">{t('Tentative')}</option>
-                <option value="DEF">{t('Definite')}</option>
+              <select value={form.status ?? 'ENQ'} onChange={(e) => set('status')(e.target.value as Booking['status'])}>
+                <option value="ENQ">{t('Enquiry')}</option>
+                <option value="TEN">{t('Offer sent')}</option>
+                <option value="DEF">{t('Signed')}</option>
               </select>
             </Field>
           )}

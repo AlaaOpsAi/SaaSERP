@@ -75,14 +75,14 @@ describe('status workflow', () => {
   it('requires reasons, blocks invalid moves and records history', async () => {
     const c = await newTenant(app);
     const b = (await c.post('/bookings', { name: 'Lead' })).body;
-    expect(b.status).toBe('INQ');
+    expect(b.status).toBe('ENQ');
     expect((await c.post(`/bookings/${b.id}/status`, { status: 'LOS' })).status).toBe(400);
     const lost = await c.post(`/bookings/${b.id}/status`, { status: 'LOS', reason: 'BUDGET' });
     expect(lost.body.lost_reason).toBe('BUDGET');
     expect((await c.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(400);
     await c.post(`/bookings/${b.id}/status`, { status: 'TEN' });
     const def = (await c.post(`/bookings/${b.id}/status`, { status: 'DEF' })).body;
-    expect(def.history.map((h: any) => h.to_status)).toEqual(['INQ', 'LOS', 'TEN', 'DEF']);
+    expect(def.history.map((h: any) => h.to_status)).toEqual(['ENQ', 'LOS', 'TEN', 'DEF']);
   });
 });
 
@@ -161,7 +161,7 @@ describe('activities and reports', () => {
     expect(dash.kpis.win_rate).toBe(0.5);
     expect(dash.lost_reasons).toEqual([{ code: 'PRICE', reason: 'Price too high', total: 1 }]);
     expect(dash.by_status.map((s: any) => [s.status, s.total])).toEqual(
-      [['INQ', 1], ['TEN', 0], ['DEF', 1], ['ACT', 0], ['LOS', 1], ['CXL', 0]]);
+      [['ENQ', 1], ['TEN', 0], ['DEF', 1], ['ACT', 0], ['PAID', 0], ['LOS', 1], ['CXL', 0]]);
     expect(dash.top_deals[0]).toMatchObject({ name: 'Won', revenue: 1000 });
     expect((await c.get('/bookings?status=LOS&lost_reason=PRICE')).body.rows).toHaveLength(1);
     expect(dash.by_month[8].total).toBe(3);

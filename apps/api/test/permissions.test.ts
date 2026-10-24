@@ -125,7 +125,7 @@ describe('levels, departments and data rights', () => {
     expect((await sara.get('/bookings?limit=5000')).status).toBe(200);
 
     // Saved views live with the person's own preferences.
-    const views = { layout: { mode: 'pivot' }, views: [{ name: 'My open enquiries', filters: [{ id: 'status', value: ['INQ'] }] }] };
+    const views = { layout: { mode: 'pivot' }, views: [{ name: 'My open enquiries', filters: [{ id: 'status', value: ['ENQ'] }] }] };
     expect((await sara.patch('/me/preferences', { contract_list: views })).body.contract_list).toEqual(views);
     expect((await sara.get('/auth/me')).body.preferences.contract_list).toEqual(views);
     expect((await owner.get('/auth/me')).body.preferences.contract_list).toBeUndefined();

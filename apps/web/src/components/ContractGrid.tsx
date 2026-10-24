@@ -57,7 +57,7 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     { id: 'phone', label: t('Phone'), kind: 'text', get: (b) => orUndef(b.contact_phone) },
     {
       id: 'status', label: t('Status'), kind: 'text', get: (b) => b.status, fmt: (v) => (blank(v) ? '' : statusLabel(v as Booking['status'])), standard: true,
-      cell: (b) => <><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}><AlertTriangle className="ico" aria-hidden /> {t('Not signed')}</span></div>}</>,
+      cell: (b) => <><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}><AlertTriangle className="ico" aria-hidden /> {t('No signed copy')}</span></div>}</>,
     },
     {
       id: 'event_date', label: t('Event date'), kind: 'date', get: (b) => orUndef(b.event_date), standard: true,
@@ -89,7 +89,7 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     { id: 'aging_days', label: t('Days outstanding'), kind: 'number', field: 'finance', get: (b) => orUndef(b.aging_days) },
     {
       id: 'next_followup_date', label: t('Next follow-up'), kind: 'date', standard: true,
-      get: (b) => (b.status === 'INQ' || b.status === 'TEN' ? orUndef(b.next_followup_date) : undefined),
+      get: (b) => (b.status === 'ENQ' || b.status === 'TEN' ? orUndef(b.next_followup_date) : undefined),
     },
     { id: 'signed_missing', label: t('Signed contract missing'), kind: 'text', get: (b) => (b.signed_missing ? t('Yes') : t('No')) },
   ];
@@ -106,7 +106,7 @@ export function showValue(c: GridColumn, v: Value): string {
 }
 
 /** Order of values in filter lists and pivots: statuses in workflow order, months and years in time order, the rest A → Z. */
-const STATUS_ORDER = ['INQ', 'TEN', 'DEF', 'ACT', 'LOS', 'CXL'];
+const STATUS_ORDER = ['ENQ', 'TEN', 'DEF', 'ACT', 'PAID', 'LOS', 'CXL'];
 export function compareKeys(c: GridColumn, a: string, b: string, aLabel: string, bLabel: string) {
   if ((a === '') !== (b === '')) return a === '' ? 1 : -1;
   if (c.id === 'status') return STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b);

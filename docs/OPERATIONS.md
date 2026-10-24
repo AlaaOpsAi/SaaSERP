@@ -59,7 +59,7 @@ SELECT t.name, t.status, t.plan, (SELECT count(*) FROM bookings b WHERE b.tenant
 -- One workspace's definite revenue by month (finance figures come from the booking_finance view)
 SELECT date_trunc('month', b.event_date) AS month, sum(f.revenue) AS revenue, sum(f.net_profit) AS net_profit
 FROM bookings b JOIN booking_finance f ON f.booking_id = b.id JOIN tenants t ON t.id = b.tenant_id
-WHERE t.slug = 'demo' AND b.status IN ('DEF','ACT') GROUP BY 1 ORDER BY 1;
+WHERE t.slug = 'demo' AND b.status IN ('DEF','ACT','PAID') GROUP BY 1 ORDER BY 1;
 ```
 
 Every table, column, view and function is described in [DATABASE.md](DATABASE.md). Inside a SQL tool you can also read the descriptions: `\d+ bookings` in psql, or the "Comment" column in TablePlus or DBeaver.
