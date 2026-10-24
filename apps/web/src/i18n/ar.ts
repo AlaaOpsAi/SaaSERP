@@ -1229,6 +1229,22 @@ const ar: Record<string, string> = {
   "Employee records, documents with expiry alerts, change requests from employees.": "سجلات الموظفين، ومستندات مع تنبيهات الانتهاء، وطلبات التعديل من الموظفين.",
   "Invoices, payments and accounts. Planned.": "الفواتير والمدفوعات والحسابات. مخطط لها.",
   "Sales & Contracts": "المبيعات والعقود",
+  "Directory": "دليل الموظفين",
+  "Work contact": "تواصل العمل",
+  "Work phone": "هاتف العمل",
+  "No HR record yet: click to add": "لا يوجد سجل موارد بشرية بعد: اضغط للإضافة",
+  "Employee directory and org chart.": "دليل الموظفين والهيكل التنظيمي.",
+  "HR basic: the employee directory and org chart. The full HR module adds personal records, pay, documents with expiry alerts, change requests and the Excel import.": "الموارد البشرية الأساسية: دليل الموظفين والهيكل التنظيمي. تضيف الوحدة الكاملة السجلات الشخصية والرواتب والمستندات مع تنبيهات الانتهاء وطلبات التعديل والاستيراد من Excel.",
+  "Request full HR": "طلب الموارد البشرية الكاملة",
+  "Without a subscription": "بدون اشتراك",
+  "With a subscription": "مع الاشتراك",
+  "Not available": "غير متاح",
+  "Subscribed": "مشترك",
+  "Contracts, CRM, activities, the function diary, documents, dashboard and reports.": "العقود وإدارة العملاء والأنشطة ومفكرة الفعاليات والمستندات ولوحة المؤشرات والتقارير.",
+  "Full employee records (personal data, pay), documents with expiry alerts, change requests, Excel import and the printed form.": "سجلات الموظفين الكاملة (البيانات الشخصية والرواتب)، والمستندات مع تنبيهات الانتهاء، وطلبات التعديل، والاستيراد من Excel، والنموذج المطبوع.",
+  "Payments and finance figures on contracts.": "المدفوعات والأرقام المالية في العقود.",
+  "Invoices, accounts and payroll. Planned.": "الفواتير والحسابات والرواتب. مخطط لها.",
+  "SaaSERP is made of modules, each a subscription. HR and Finance also work in a basic form without one; subscribe for the full module. Modules work together.": "يتكوّن SaaSERP من وحدات، لكل منها اشتراك. تعمل الموارد البشرية والمالية بشكل أساسي دون اشتراك؛ اشترك للحصول على الوحدة الكاملة. الوحدات تعمل معًا.",
 };
 
 export default ar;

@@ -2,6 +2,10 @@
  * HR module, phase 1: who sees which part of an employee record, the expiry alerts,
  * and the one-time import of the employee register (EMPLOYEE_DB.xlsx).
  *
+ * Every workspace has HR basic, the employee directory (BASIC_FIELDS); the HR subscription
+ * adds the rest of the record, documents, alerts, requests and the import. Without it the
+ * extra data stays stored but is not shown.
+ *
  *   see        HR right or levels 1–3: everyone · managers: their team · everyone: their own record
  *   pay        HR right, levels 1–3, and the employee themselves
  *   sensitive  health and criminal record: HR right, owners, and the employee themselves
@@ -13,6 +17,17 @@ import type { Db } from '../db.js';
 import { withoutTenant, withTenant } from '../db.js';
 import { notify } from './notify.js';
 import { rightsOf } from './permissions.js';
+
+export const BASIC_FIELDS = [
+  'id', 'user_id', 'employee_no', 'first_name', 'last_name', 'initials', 'company', 'branch', 'department_id', 'department',
+  'position', 'manager_id', 'manager_name', 'manager_user_id', 'reports_to_text', 'employment_type', 'status',
+  'joining_date', 'end_date', 'work_phone', 'work_email', 'user_name', 'user_email', 'created_at', 'updated_at',
+] as const;
+
+/** HR basic: only the directory fields. */
+export function basicOnly<T extends Record<string, unknown>>(e: T): Partial<T> {
+  return Object.fromEntries(Object.entries(e).filter(([k]) => (BASIC_FIELDS as readonly string[]).includes(k))) as Partial<T>;
+}
 
 export const PAY_FIELDS = ['salary', 'allowance_extra', 'allowance_housing', 'allowance_ticket', 'allowance_transport'] as const;
 export const SENSITIVE_FIELDS = ['chronic_illness', 'allergies', 'criminal_record'] as const;

@@ -105,3 +105,32 @@ Their employee numbers (E2016001) already use the app's Employee ID format: E + 
 - **Departments:** **HR** is added to the default departments.
 
 **Not in phase 1:** attendance, leave, end of service and payroll (phase 2), and Finance (its own module later).
+
+## 6. Change after the first build (2026-10-24): basic vs full
+
+**Feedback:** without the HR subscription, Melinda saw "no subscription"; she should get HR with limited functionality.
+
+**Proposed model:**
+- **Subscriptions:** every module is a subscription. **Contracts (Sales)** is the one Melinda's workspace has today.
+- **Basic tier:** every other module is available in a **basic** form without a subscription.
+- **Full tier:** "Request full module" asks for the subscription.
+
+**HR basic, no subscription**
+- **Employee directory:**
+  - everyone with a sign-in, plus records HR adds;
+  - fields: name, employee ID, position, department, reports to, company / branch, work phone and email, status, joined;
+  - an org-chart view.
+- **Who edits:** HR (levels 1–2 + HR department) adds and edits these basic fields. Everyone else views: the directory follows the existing team visibility, and each person sees their own record.
+
+**HR full, subscription**
+- **Records:** personal and identity data (civil ID, passport, residency, family, health, criminal record), emergency contacts and pay.
+- **Documents:** uploads with expiry dates, and expiry alerts to HR and the manager.
+- **Requests:** "Ask HR to update".
+- **Import and print:** the EMPLOYEE_DB.xlsx import and the printable joining form.
+- **Later:** attendance and leave (phase 2).
+
+**When HR full ends or isn't subscribed:** the extra data stays stored but hidden, and comes back if the module is turned on again.
+
+**Finance:** basic means today's contract payments and finance figures, which already work; Finance full is the later module.
+
+**Contracts:** a workspace without the Contracts subscription would lose contracts, the diary and the dashboard (for future customers who buy only HR). Melinda's workspace keeps it.

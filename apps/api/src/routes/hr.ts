@@ -5,9 +5,9 @@ import type { Db } from '../db.js';
 import { logAccess } from '../lib/access.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import {
-  accessTo, checkExpiries, DOC_LABELS, expiries, hrUsers, importEmployees, nextEmployeeNo, redact, viewerOf, type Viewer,
+  accessTo, BASIC_FIELDS, basicOnly, checkExpiries, DOC_LABELS, expiries, hrUsers, importEmployees, nextEmployeeNo, redact, viewerOf, type Viewer,
 } from '../lib/hr.js';
-import { requireModule } from '../lib/modules.js';
+import { hasModule, requireModule } from '../lib/modules.js';
 import { notify } from '../lib/notify.js';
 import { requireRight } from '../lib/permissions.js';
 import { cleanName, MIME, removeStored, saveFile, sniff } from '../lib/storage.js';
@@ -15,7 +15,8 @@ import { uploaded } from './documents.js';
 
 /**
  * HR module, phase 1: employee records, their documents, change requests and expiry alerts.
- * Every route needs the workspace to subscribe to HR; who sees what is in lib/hr.ts.
+ * HR basic (every workspace): the directory and org chart, edited by HR. HR full (subscription):
+ * the whole record, documents, alerts, requests and the import. Who sees what is in lib/hr.ts.
  */
 const id = z.object({ id: z.string().uuid() });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
@@ -35,7 +36,7 @@ const employeeSchema = z.object({
   passport_expiry: date, work_permit_expiry: date, iqama_transfer_date: date, iqama_cancel_date: date,
   gender: z.enum(['F', 'M']).nullable(), birth_date: date, birth_place: text(80), marital_status: text(40),
   religion: text(40), children: z.number().int().min(0).max(30).nullable(), education: text(120), major: text(120),
-  driving_license: text(80), chronic_illness: text(500), allergies: text(500), criminal_record: text(500),
+  work_phone: text(40), work_email: text(160), driving_license: text(80), chronic_illness: text(500), allergies: text(500), criminal_record: text(500),
   address_kw: text(300), phone_kw: text(40), email_personal: text(160), address_home: text(300), phone_home: text(40), email_home: text(160),
   emergency_contacts: z.array(contact).max(2),
   salary: money, allowance_extra: money, allowance_housing: money, allowance_ticket: money, allowance_transport: money,
@@ -60,40 +61,75 @@ async function load(db: Db, v: Viewer, employeeId: string) {
   return { e, access };
 }
 
-async function hrOnly(db: Db, req: FastifyRequest) {
+/** HR staff, in HR basic or full. */
+async function hrStaff(db: Db, req: FastifyRequest) {
+  await requireRight(db, req.user.sub, 'hr');
+}
+
+/** HR staff, with the HR subscription. */
+async function hrFull(db: Db, req: FastifyRequest) {
   await requireModule(db, 'hr');
   await requireRight(db, req.user.sub, 'hr');
 }
 
+/** Without the HR subscription only the directory fields are written. */
+function forTier<T extends Record<string, unknown>>(body: T, full: boolean): T {
+  if (full) return body;
+  return Object.fromEntries(Object.entries(body).filter(([k]) => (BASIC_FIELDS as readonly string[]).includes(k))) as T;
+}
+
 export async function hrRoutes(app: FastifyInstance) {
-  // The list: everyone for HR and levels 1–3, the team for managers, oneself for everyone else.
+  // The directory: everyone for HR and levels 1–3, the team for managers, oneself for everyone else.
+  // People with a sign-in but no HR record yet are listed too, so the directory is complete.
   app.get('/hr/employees', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await requireModule(db, 'hr');
+      const full = await hasModule(db, 'hr');
       const v = await viewerOf(db, req);
       const rows = (await db.query<Row>(`${SELECT} ORDER BY e.status, e.first_name, e.last_name`)).rows;
+      const users = (await db.query(
+        `SELECT u.id AS user_id, u.name, u.employee_no, u.job_title, u.email, u.manager_id, d.name AS department, m.name AS manager_name
+         FROM users u LEFT JOIN departments d ON d.id = u.department_id LEFT JOIN users m ON m.id = u.manager_id
+         WHERE u.is_active AND NOT EXISTS (SELECT 1 FROM employees e WHERE e.user_id = u.id)
+         ORDER BY u.name`)).rows;
       const soon = new Map<string, number>();
-      for (const x of await expiries(db, 60)) soon.set(x.employee_id, Math.min(soon.get(x.employee_id) ?? 999, x.days_left));
-      return {
-        can_edit: v.hr,
-        employees: rows.map((e) => ({ e, a: accessTo(v, e) })).filter(({ a }) => a.see).map(({ e, a }) => {
+      if (full) for (const x of await expiries(db, 60)) soon.set(x.employee_id, Math.min(soon.get(x.employee_id) ?? 999, x.days_left));
+      // Org chart: each person's place under their manager (HR "reports to", else the sign-in's manager).
+      const keyOfUser = new Map<string, string>([...rows.filter((e) => e.user_id).map((e) => [e.user_id!, e.id] as [string, string]),
+        ...users.map((u) => [u.user_id, `u:${u.user_id}`] as [string, string])]);
+      const userManager = new Map<string, string | null>(
+        (await db.query('SELECT id, manager_id FROM users')).rows.map((u) => [u.id, u.manager_id]));
+      const list = [
+        ...rows.map((e) => ({ e, a: accessTo(v, e) })).filter(({ a }) => a.see).map(({ e, a }) => {
           const r = redact(e, a);
+          const managerUser = e.user_id ? userManager.get(e.user_id) : null;
           return {
-            id: r.id, employee_no: r.employee_no, first_name: r.first_name, last_name: r.last_name, company: r.company,
+            key: r.id, id: r.id, employee_no: r.employee_no, first_name: r.first_name, last_name: r.last_name, company: r.company,
             branch: r.branch, department: r.department, position: r.position, manager_name: r.manager_name,
-            employment_type: r.employment_type, status: r.status, joining_date: r.joining_date, nationality: r.nationality,
-            user_id: r.user_id, salary: r.salary, expiring_in: soon.get(r.id) ?? null,
+            employment_type: r.employment_type, status: r.status, joining_date: r.joining_date, work_phone: r.work_phone,
+            work_email: r.work_email ?? r.user_email, user_id: r.user_id,
+            parent_key: (r.manager_id as string | null) ?? (managerUser ? keyOfUser.get(managerUser) ?? null : null),
+            nationality: full ? r.nationality : null, salary: full ? r.salary : null, expiring_in: soon.get(r.id) ?? null,
           };
         }),
-      };
+        ...users.filter((u) => accessTo(v, { user_id: u.user_id, manager_user_id: u.manager_id }).see).map((u) => ({
+          key: `u:${u.user_id}`, id: null, employee_no: u.employee_no, first_name: u.name, last_name: null, company: null, branch: null,
+          department: u.department, position: u.job_title, manager_name: u.manager_name, employment_type: null, status: 'active',
+          joining_date: null, work_phone: null, work_email: u.email, user_id: u.user_id,
+          parent_key: u.manager_id ? keyOfUser.get(u.manager_id) ?? null : null, nationality: null, salary: null, expiring_in: null,
+        })),
+      ];
+      return { tier: full ? 'full' : 'basic', can_edit: v.hr, employees: list };
     }),
   );
 
   app.get('/hr/employees/:id', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await requireModule(db, 'hr');
+      const full = await hasModule(db, 'hr');
       const v = await viewerOf(db, req);
       const { e, access } = await load(db, v, id.parse(req.params).id);
+      if (!full) {
+        return { ...basicOnly(e), emergency_contacts: [], documents: [], requests: [], expiring: [], access: { ...access, pay: false, sensitive: false }, tier: 'basic' };
+      }
       await logAccess(db, req.user.sub, 'view_employee', `${e.first_name} ${e.last_name ?? ''} (${e.employee_no})`.replace(/\s+/g, ' '), req.ip);
       const documents = (await db.query(
         `SELECT d.id, d.kind, d.number, d.expiry_date, d.file_name, d.mime, d.size_bytes, d.uploaded_at, u.name AS uploaded_by_name
@@ -103,14 +139,14 @@ export async function hrRoutes(app: FastifyInstance) {
          FROM employee_requests r LEFT JOIN users u ON u.id = r.requested_by LEFT JOIN users h ON h.id = r.resolved_by
          WHERE r.employee_id = $1 ORDER BY r.requested_at DESC`, [e.id])).rows;
       const soon = (await expiries(db, 60)).filter((x) => x.employee_id === e.id).map(({ what, expiry, days_left }) => ({ what, expiry, days_left }));
-      return { ...redact(e, access), documents, requests, expiring: soon, access };
+      return { ...redact(e, access), documents, requests, expiring: soon, access, tier: 'full' };
     }),
   );
 
   // Pick-lists for the form: sign-ins not yet linked, and possible managers.
   app.get('/hr/options', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrStaff(db, req);
       const users = (await db.query(
         `SELECT u.id, u.name, u.employee_no FROM users u
          WHERE u.is_active AND NOT EXISTS (SELECT 1 FROM employees e WHERE e.user_id = u.id) ORDER BY u.name`)).rows;
@@ -123,8 +159,8 @@ export async function hrRoutes(app: FastifyInstance) {
 
   app.post('/hr/employees', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
-      const body = employeeSchema.required({ first_name: true }).parse(req.body);
+      await hrStaff(db, req);
+      const body = forTier(employeeSchema.required({ first_name: true }).parse(req.body), await hasModule(db, 'hr'));
       let no = body.employee_no;
       if (!no && body.user_id) no = (await db.query('SELECT employee_no FROM users WHERE id = $1', [body.user_id])).rows[0]?.employee_no ?? null;
       if (!no) no = await nextEmployeeNo(db, Number((body.joining_date ?? new Date().toISOString()).slice(0, 4)));
@@ -141,9 +177,9 @@ export async function hrRoutes(app: FastifyInstance) {
 
   app.patch('/hr/employees/:id', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrStaff(db, req);
       const employeeId = id.parse(req.params).id;
-      const body = employeeSchema.parse(req.body);
+      const body = forTier(employeeSchema.parse(req.body), await hasModule(db, 'hr'));
       if (body.manager_id === employeeId) throw badRequest('An employee cannot report to themselves');
       if (body.employee_no && (await db.query('SELECT 1 FROM employees WHERE employee_no = $1 AND id <> $2', [body.employee_no, employeeId])).rows[0]) {
         throw badRequest(`${body.employee_no} already has an employee record`);
@@ -172,7 +208,7 @@ export async function hrRoutes(app: FastifyInstance) {
     const type = sniff(file.data);
     if (type !== 'pdf' && type !== 'jpg' && type !== 'png') throw badRequest('Upload a picture (JPEG or PNG) or a PDF');
     return tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrFull(db, req);
       if (!(await db.query('SELECT 1 FROM employees WHERE id = $1', [employeeId])).rows[0]) throw notFound('Employee');
       const key = await saveFile(req.user.tid, file.data, type);
       const { rows } = await db.query(
@@ -185,7 +221,7 @@ export async function hrRoutes(app: FastifyInstance) {
 
   app.delete('/hr/employee-documents/:id', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrFull(db, req);
       const { rows } = await db.query('DELETE FROM employee_documents WHERE id = $1 RETURNING storage_key', [id.parse(req.params).id]);
       if (!rows[0]) throw notFound('Document');
       await removeStored(rows[0].storage_key);
@@ -212,7 +248,7 @@ export async function hrRoutes(app: FastifyInstance) {
 
   app.get('/hr/requests', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrFull(db, req);
       return (await db.query(
         `SELECT r.*, e.first_name || coalesce(' ' || e.last_name, '') AS employee_name, e.employee_no, u.name AS requested_by_name
          FROM employee_requests r JOIN employees e ON e.id = r.employee_id LEFT JOIN users u ON u.id = r.requested_by
@@ -222,7 +258,7 @@ export async function hrRoutes(app: FastifyInstance) {
 
   app.patch('/hr/requests/:id', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrFull(db, req);
       const { status } = z.object({ status: z.enum(['open', 'done']) }).parse(req.body);
       const { rows } = await db.query(
         `UPDATE employee_requests SET status = $2, resolved_by = CASE WHEN $2 = 'done' THEN $3::uuid END,
@@ -250,7 +286,7 @@ export async function hrRoutes(app: FastifyInstance) {
   // Normally runs on its own every few hours; HR can run it now.
   app.post('/hr/alerts/run', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrFull(db, req);
       return { sent: await checkExpiries(db) };
     }),
   );
@@ -259,7 +295,7 @@ export async function hrRoutes(app: FastifyInstance) {
   app.post('/hr/import', { preHandler: authed }, async (req) => {
     const file = await uploaded(req);
     return tx(req, async (db) => {
-      await hrOnly(db, req);
+      await hrFull(db, req);
       try {
         return await importEmployees(db, file.data, req.user.sub);
       } catch (err) {

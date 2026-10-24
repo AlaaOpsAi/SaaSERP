@@ -4,7 +4,7 @@ import { authed, can, requireRole, tx } from '../auth.js';
 import { conflict } from '../lib/errors.js';
 import { MODULE_KEYS, MODULES, modulesOf } from '../lib/modules.js';
 
-/** Admin & IT → Modules: what the workspace has, and asking for more. */
+/** Admin & IT → Modules: the subscriptions the workspace has, and asking for more. */
 export async function moduleRoutes(app: FastifyInstance) {
   app.get('/modules', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
@@ -15,7 +15,7 @@ export async function moduleRoutes(app: FastifyInstance) {
          ORDER BY r.requested_at DESC LIMIT 20`)).rows;
       return {
         modules: MODULE_KEYS.map((key) => ({
-          key, name: MODULES[key].name, available: MODULES[key].available, always: MODULES[key].always,
+          key, name: MODULES[key].name, available: MODULES[key].available, basic: MODULES[key].basic,
           active: active.includes(key),
           requested: requests.some((r) => r.module === key && r.status === 'pending'),
         })),

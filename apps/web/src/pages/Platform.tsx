@@ -68,7 +68,7 @@ export function PlatformConsole() {
   const me = useQuery({ queryKey: ['platform-me'], queryFn: () => api<{ name: string; email: string }>('/platform/me', { platform: true }), enabled: Boolean(getPlatformToken()) });
   const { data } = useQuery({
     queryKey: ['platform-tenants'],
-    queryFn: () => api<{ tenants: Workspace[]; counts: Record<TenantStatus, number>; catalog: { key: string; name: string; available: boolean; always: boolean }[] }>('/platform/tenants', { platform: true }),
+    queryFn: () => api<{ tenants: Workspace[]; counts: Record<TenantStatus, number>; catalog: { key: string; name: string; available: boolean; basic: boolean }[] }>('/platform/tenants', { platform: true }),
     enabled: Boolean(getPlatformToken()),
     refetchInterval: 60_000,
   });
@@ -203,7 +203,7 @@ function ActionModal({ ws, action, onClose }: { ws: Workspace; action: Action; o
 }
 
 /** Turn modules on or off for a workspace; requested ones are highlighted until decided. */
-function ModuleSwitches({ ws, catalog }: { ws: Workspace; catalog: { key: string; name: string; available: boolean; always: boolean }[] }) {
+function ModuleSwitches({ ws, catalog }: { ws: Workspace; catalog: { key: string; name: string; available: boolean; basic: boolean }[] }) {
   const qc = useQueryClient();
   const [error, setError] = useState<unknown>(null);
   const set = async (key: string, on: boolean) => {
@@ -218,9 +218,9 @@ function ModuleSwitches({ ws, catalog }: { ws: Workspace; catalog: { key: string
     <div className="stack" style={{ gap: 2 }}>
       {catalog.map((m) => (
         <label key={m.key} className="check small" title={ws.requested_modules.includes(m.key) ? 'Requested by the workspace' : undefined}>
-          <input type="checkbox" checked={ws.modules.includes(m.key)} disabled={m.always || !m.available}
+          <input type="checkbox" checked={ws.modules.includes(m.key)} disabled={!m.available}
             onChange={(e) => set(m.key, e.target.checked)} />
-          {m.name}{ws.requested_modules.includes(m.key) && <strong className="flag"> requested</strong>}
+          {m.name}{m.basic ? ' (full)' : ''}{ws.requested_modules.includes(m.key) && <strong className="flag"> requested</strong>}
         </label>
       ))}
       <ErrorNote error={error} />

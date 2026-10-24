@@ -2,26 +2,39 @@
 
 ## Modules
 
-SaaSERP is sold as modules. Each workspace has **Sales & Contracts**, and subscribes to others:
+SaaSERP is sold as modules, each a subscription (`tenants.modules`). HR and Finance also work in a **basic** form without one:
 
-| Module | Status |
-|---|---|
-| Sales & Contracts | Always included |
-| HR | Available (phase 1) |
-| Finance | Planned |
+| Module | Without a subscription | With a subscription |
+|---|---|---|
+| Contracts | not available | contracts, CRM, activities, the function diary, documents, dashboard and reports |
+| HR | **basic:** employee directory and org chart | **full:** personal records, pay, documents with expiry alerts, change requests, Excel import, printed form |
+| Finance | **basic:** the payments and figures on contracts (today's features) | **full:** planned |
 
-**Getting a module**
-1. A workspace owner or admin asks for it under **Admin & IT → Modules** ("Request subscription").
-2. The platform operator turns it on in the operator console (`/platform`, *Modules* column). Requested modules are highlighted there.
+Existing workspaces, Melinda's included, have the Contracts subscription; new sign-ups start with Contracts.
+
+**Getting a subscription**
+1. A workspace owner or admin asks under **Admin & IT → Modules** ("Request subscription").
+2. The platform operator ticks it in the operator console (`/platform`, *Modules* column). Requested modules are highlighted there.
 3. The workspace owners get a bell notification when it is active.
 
-**Working without one:** modules use each other; without one, the others keep working with less. Without HR, people keep their Employee ID, department, level and job title, so contracts, the org chart and permissions work as before. Finance will follow the same pattern.
+**Enforcement:** the server refuses subscribed features without the subscription (`403` with `details.module`):
+- **Contracts:** its routes are listed in `CONTRACT_ROUTES` (`apps/api/src/auth.ts`). Without it, its Home icons show *Not subscribed* and leave the menu.
+- **HR full:** checked in `routes/hr.ts`.
 
-**Enforcement:** the server refuses a module's pages and data when the workspace doesn't have it (`403` with `details.module`). The Home icon shows *Not subscribed*, and the menu leaves it out.
+**If a subscription ends:** HR full data stays stored but is hidden, and comes back when it is turned on again.
 
-**Code:** `apps/api/src/lib/modules.ts`, `routes/modules.ts`, `tenants.modules`, `module_requests` (migration 013).
+**Code:** `apps/api/src/lib/modules.ts`, `routes/modules.ts`, `module_requests` (migrations 013–014).
 
 ## HR module, phase 1
+
+**HR basic (every workspace).**
+- **Directory:** everyone with a sign-in, plus the records HR adds.
+- **Fields:** employee ID, name, position, department, reports to, company / branch, type, status, joined / left, work phone and email.
+- **Org chart:** who reports to whom.
+- **Editing:** HR adds and edits these fields; everyone else views them, under the visibility rules below.
+
+**HR full (subscription)** adds everything below.
+
 
 **Employee records.** Each record holds the fields of the joining form (EMPLOYEE INFORMATION FORM) and the employee register (EMPLOYEE_DB.xlsx):
 - **Job:** employee ID, position, department, reports to, company, branch, type, status, joined / left;

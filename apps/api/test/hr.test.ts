@@ -30,10 +30,11 @@ async function upload(c: Client, url: string, data: Buffer, name: string) {
 const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 
 describe('modules', () => {
-  it('keeps HR off until the operator turns it on after a request', async () => {
+  it('gives HR basic to everyone and HR full after a request the operator grants', async () => {
     const owner = await newTenant(app);
-    expect((await owner.get('/auth/me')).body.tenant.modules).toEqual(['sales']);
-    const blocked = await owner.get('/hr/employees');
+    expect((await owner.get('/auth/me')).body.tenant.modules).toEqual(['contracts']);
+    expect((await owner.get('/hr/employees')).body.tier).toBe('basic');
+    const blocked = await owner.get('/hr/expiring');
     expect(blocked.status).toBe(403);
     expect(blocked.body.details).toEqual({ module: 'hr' });
 
@@ -46,12 +47,44 @@ describe('modules', () => {
     const ops = await platform(app);
     const t = (await ops.get('/platform/tenants')).body.tenants.find((x: any) => x.id === owner.tenantId);
     expect(t.requested_modules).toEqual(['hr']);
-    expect((await ops.put(`/platform/tenants/${owner.tenantId}/modules`, { modules: ['hr'] })).body.modules).toEqual(['hr', 'sales']);
+    expect((await ops.put(`/platform/tenants/${owner.tenantId}/modules`, { modules: ['contracts', 'hr'] })).body.modules).toEqual(['contracts', 'hr']);
 
     expect((await owner.get('/modules')).body.modules.find((m: any) => m.key === 'hr')).toMatchObject({ active: true, requested: false });
-    expect((await owner.get('/hr/employees')).status).toBe(200);
+    expect((await owner.get('/hr/employees')).body.tier).toBe('full');
+    expect((await owner.get('/hr/expiring')).status).toBe(200);
     const bell = (await owner.get('/notifications')).body;
     expect(JSON.stringify(bell)).toContain('Module now active: HR');
+  });
+});
+
+describe('module tiers', () => {
+  it('needs the Contracts subscription for contracts, while HR basic keeps working', async () => {
+    const owner = await newTenant(app);
+    const depts = (await owner.get('/departments')).body;
+    const { c: hana } = await person(owner, 'Hana', 'sales', { department_id: depts.find((d: any) => d.name === 'HR').id });
+    const { user: ali, c: aliC } = await person(owner, 'Ali', 'sales');
+
+    // HR basic: the directory lists sign-ins without a record; HR adds job fields only.
+    const dir = (await hana.get('/hr/employees')).body;
+    expect(dir).toMatchObject({ tier: 'basic', can_edit: true });
+    expect(dir.employees.map((e: any) => e.first_name)).toEqual(expect.arrayContaining(['Hana', 'Ali']));
+    const rec = (await hana.post('/hr/employees', { user_id: ali.id, first_name: 'Ali', position: 'Coordinator', status: 'active', salary: 900, civil_id: '123', work_phone: '2222' })).body;
+    const view = (await hana.get(`/hr/employees/${rec.id}`)).body;
+    expect(view).toMatchObject({ tier: 'basic', position: 'Coordinator', work_phone: '2222', documents: [] });
+    expect(view.salary).toBeUndefined();
+    expect(view.civil_id).toBeUndefined();
+    expect((await aliC.get(`/hr/employees/${rec.id}`)).status).toBe(200);
+    expect((await aliC.post(`/hr/employees/${rec.id}/requests`, { text: 'please update' })).status).toBe(403);
+    expect((await hana.post('/hr/alerts/run')).status).toBe(403);
+
+    // Without Contracts: contract pages are refused, HR basic still works.
+    await (await platform(app)).put(`/platform/tenants/${owner.tenantId}/modules`, { modules: [] });
+    const refused = await owner.get('/bookings');
+    expect(refused.status).toBe(403);
+    expect(refused.body.details).toEqual({ module: 'contracts' });
+    expect((await owner.get('/reports/dashboard?year=2026')).status).toBe(403);
+    expect((await owner.get('/hr/employees')).status).toBe(200);
+    expect((await owner.get('/users')).status).toBe(200);
   });
 });
 
@@ -59,7 +92,7 @@ describe('HR records', () => {
   async function hrWorkspace() {
     const owner = await newTenant(app);
     const ops = await platform(app);
-    await ops.put(`/platform/tenants/${owner.tenantId}/modules`, { modules: ['hr'] });
+    await ops.put(`/platform/tenants/${owner.tenantId}/modules`, { modules: ['contracts', 'hr'] });
     await ops.patch(`/platform/tenants/${owner.tenantId}`, { max_users: 20 });
     return owner;
   }
@@ -100,8 +133,9 @@ describe('HR records', () => {
     expect((await ali.patch(`/hr/employees/${id}`, { phone_kw: '12345678' })).status).toBe(403);
     // Someone else at level 5: not even the record.
     expect((await view(omar)).status).toBe(404);
-    expect((await omar.get('/hr/employees')).body.employees).toEqual([]);
-    expect((await mona.get('/hr/employees')).body.employees.map((e: any) => e.first_name)).toEqual(['Ali']);
+    // The directory shows Omar only himself (a sign-in without a record), and Mona her team.
+    expect((await omar.get('/hr/employees')).body.employees.map((e: any) => e.first_name)).toEqual(['Omar']);
+    expect((await mona.get('/hr/employees')).body.employees.map((e: any) => e.first_name).sort()).toEqual(['Ali', 'Mona']);
 
     // He asks HR to change something; HR is told, then he is told when it's done.
     const req = await ali.post(`/hr/employees/${id}/requests`, { text: 'New phone: 55667788' });

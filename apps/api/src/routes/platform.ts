@@ -55,7 +55,7 @@ export async function platformRoutes(app: FastifyInstance) {
       const mods = new Map((await db.query('SELECT * FROM platform_tenant_modules()')).rows.map((m) => [m.id, m]));
       const counts = { pending: 0, active: 0, rejected: 0, suspended: 0 };
       for (const r of rows) counts[r.status as TenantStatus]++;
-      const tenants = rows.map((r) => ({ ...r, modules: mods.get(r.id)?.modules ?? ['sales'], requested_modules: mods.get(r.id)?.requested ?? [] }));
+      const tenants = rows.map((r) => ({ ...r, modules: mods.get(r.id)?.modules ?? [], requested_modules: mods.get(r.id)?.requested ?? [] }));
       return { tenants, counts, catalog: MODULE_KEYS.map((key) => ({ key, ...MODULES[key] })) };
     }),
   );

@@ -327,6 +327,24 @@ Not building until the user confirms (standing instruction).
 - **Database:** migration `013_modules_hr.sql`.
 - **Checks:** API tests 75/75 (4 new); checked in the browser.
 
+**Feedback on modules (2026-10-24):** Melinda's workspace opened HR and got "no subscription"; it should have HR with **limited** functionality. Clarified model:
+- **Contracts** is itself a subscription the customer has.
+- Every other module (HR, Finance, …) has **basic functionality without a subscription**.
+- The **full module** is requested when the customer needs it.
+
+Proposal: basic vs full per module (below in the chat / proposal section 6). Waiting for go-ahead.
+
+**Built (2026-10-24) after "build it":**
+- **Contracts:** now a subscription. Migration 014 renames `sales` to `contracts`, and every existing workspace keeps it. Without it, contract routes are refused and the icons say *Not subscribed*.
+- **HR basic, no subscription:**
+  - the directory, including sign-ins without a record, plus an org chart;
+  - HR edits job fields and work phone / email;
+  - full-only data is hidden, not deleted.
+- **HR full:** everything from migration 013.
+- **Admin & IT → Modules:** shows "without / with a subscription".
+- **Operator console:** ticks Contracts, HR (full) and Finance (full).
+- **Checks:** tested in the browser on the demo workspace (Contracts only).
+
 ## Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

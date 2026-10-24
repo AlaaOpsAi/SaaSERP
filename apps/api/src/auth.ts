@@ -50,10 +50,13 @@ export const authed = requireRole(can.read);
  * The workspace status and the user are re-checked on every request, so suspending a
  * workspace or deactivating a user takes effect immediately.
  */
+/** Routes of the Contracts module: contracts, clients (CRM), activities, the diary, documents, reports and their imports. */
+const CONTRACT_ROUTES = /^\/api\/(bookings|booking-|payments|templates|reports|activities|links|contacts|accounts|customers|customer-relationships|diary|documents|annex-checklists|import|deactivated)(\/|$)/;
+
 export function tx<T>(req: FastifyRequest, fn: (db: Db) => Promise<T>): Promise<T> {
   return withTenant(req.user.tid, async (db) => {
     const { rows } = await db.query(
-      `SELECT t.status, t.field_visibility, u.is_active, u.role, u.data_scope
+      `SELECT t.status, t.field_visibility, t.modules, u.is_active, u.role, u.data_scope
        FROM tenants t LEFT JOIN users u ON u.id = $1 WHERE t.id = current_tenant_id()`,
       [req.user.sub],
     );
@@ -62,6 +65,10 @@ export function tx<T>(req: FastifyRequest, fn: (db: Db) => Promise<T>): Promise<
       throw new HttpError(403, 'This workspace is not active', { tenant_status: status ?? 'missing' });
     }
     if (!rows[0].is_active) throw new HttpError(401, 'Your account is no longer active');
+    // Contracts is a subscription: its pages and data need it (lib/modules.ts).
+    if (CONTRACT_ROUTES.test(req.routeOptions?.url ?? '') && !rows[0].modules?.includes('contracts')) {
+      throw new HttpError(403, 'Your workspace does not subscribe to the Contracts module. An owner can request it under Admin & IT → Modules.', { module: 'contracts' });
+    }
     req.scope = await applyScope(db, req.user.sub, rows[0].role, rows[0].data_scope);
     req.scope.hidden = hiddenFor(rows[0].role, rows[0].field_visibility);
     return fn(db);

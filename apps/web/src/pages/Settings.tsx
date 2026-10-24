@@ -1056,33 +1056,34 @@ function ItStatus() {
   );
 }
 
-interface ModuleInfo { key: string; name: string; available: boolean; always: boolean; active: boolean; requested: boolean }
+interface ModuleInfo { key: string; name: string; available: boolean; basic: boolean; active: boolean; requested: boolean }
 
-/** Modules the workspace subscribes to, and asking the SaaSERP team for more. */
+/** Module subscriptions, and asking the SaaSERP team for more. Modules with a basic tier work without one. */
 function Modules() {
   const { data } = useQuery({ queryKey: ['modules'], queryFn: () => api<{ modules: ModuleInfo[]; requests: { module: string; status: string; requested_at: string; requested_by_name: string | null }[] }>('/modules') });
   const request = useSave((key: string) => api(`/modules/${key}/request`, { body: {} }), [['modules']]);
-  const about: Record<string, string> = {
-    sales: 'Contracts, CRM, activities, the function diary, dashboard and reports.',
-    hr: 'Employee records, documents with expiry alerts, change requests from employees.',
-    finance: 'Invoices, payments and accounts. Planned.',
+  const about: Record<string, [string, string]> = {
+    contracts: ['', 'Contracts, CRM, activities, the function diary, documents, dashboard and reports.'],
+    hr: ['Employee directory and org chart.', 'Full employee records (personal data, pay), documents with expiry alerts, change requests, Excel import and the printed form.'],
+    finance: ['Payments and finance figures on contracts.', 'Invoices, accounts and payroll. Planned.'],
   };
   return (
     <div className="stack">
       <p className="secondary" style={{ margin: 0 }}>
-        {t('SaaSERP is made of modules. Each module works with the others; without one, the others keep working with less (for example, without HR people keep their Employee ID, department and level).')}
+        {t('SaaSERP is made of modules, each a subscription. HR and Finance also work in a basic form without one; subscribe for the full module. Modules work together.')}
       </p>
       <ErrorNote error={request.error} />
       <div className="card flush table-wrap">
         <table>
-          <thead><tr><th>{t('Module')}</th><th>{t('What it does')}</th><th>{t('Status')}</th></tr></thead>
+          <thead><tr><th>{t('Module')}</th><th>{t('Without a subscription')}</th><th>{t('With a subscription')}</th><th>{t('Status')}</th></tr></thead>
           <tbody>
             {data?.modules.map((m) => (
               <tr key={m.key}>
                 <td><strong>{t(m.name)}</strong></td>
-                <td className="secondary">{t(about[m.key] ?? '')}</td>
+                <td className="secondary">{m.basic ? <>{t(about[m.key]?.[0] ?? '')} <span className="tag">{t('Included')}</span></> : t('Not available')}</td>
+                <td className="secondary">{t(about[m.key]?.[1] ?? '')}</td>
                 <td>
-                  {m.active ? <span className="badge DEF"><span className="dot" aria-hidden />{m.always ? t('Included') : t('Active')}</span>
+                  {m.active ? <span className="badge DEF"><span className="dot" aria-hidden />{t('Subscribed')}</span>
                     : !m.available ? <span className="muted">{t('Coming soon')}</span>
                       : m.requested ? <span className="badge TEN"><span className="dot" aria-hidden />{t('Requested')}</span>
                         : <button className="sm primary" disabled={request.isPending} onClick={() => request.mutate(m.key)}>{t('Request subscription')}</button>}

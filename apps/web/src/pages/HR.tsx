@@ -12,9 +12,10 @@ import { useDepartments, useSave } from '../hooks';
 import { t } from '../i18n';
 
 /**
- * HR module, phase 1: employee records (joining form + employee register), their documents
- * with expiry alerts, and change requests. The server decides what each person sees: HR and
- * levels 1–3 everyone, managers their team (no pay), everyone their own record, read only.
+ * HR module, phase 1. HR basic (every workspace): the employee directory and org chart.
+ * HR full (subscription): employee records from the joining form and the register, documents
+ * with expiry alerts, change requests, the import and the printed form. The server decides what
+ * each person sees: HR and levels 1–3 everyone, managers their team (no pay), everyone their own.
  */
 
 interface Contact { name: string | null; relation: string | null; address: string | null; phone: string | null }
@@ -29,6 +30,7 @@ export interface Employee {
   gender: 'F' | 'M' | null; birth_date: string | null; birth_place: string | null; marital_status: string | null; religion: string | null;
   children: number | null; education: string | null; major: string | null; driving_license: string | null;
   chronic_illness: string | null; allergies: string | null; criminal_record: string | null;
+  work_phone: string | null; work_email: string | null;
   address_kw: string | null; phone_kw: string | null; email_personal: string | null; address_home: string | null; phone_home: string | null; email_home: string | null;
   emergency_contacts: Contact[];
   salary: number | null; allowance_extra: number | null; allowance_housing: number | null; allowance_ticket: number | null; allowance_transport: number | null;
@@ -40,9 +42,13 @@ interface Detail extends Employee {
   documents: EmployeeDoc[]; requests: ChangeRequest[];
   expiring: { what: string; expiry: string; days_left: number }[];
   access: { see: boolean; pay: boolean; sensitive: boolean; edit: boolean; own: boolean };
+  tier: Tier;
 }
+type Tier = 'basic' | 'full';
 interface ListRow {
-  id: string; employee_no: string; first_name: string; last_name: string | null; company: string | null; branch: string | null;
+  /** Org-chart node: the record id, or u:<user id> for a sign-in without an HR record. */
+  key: string; parent_key: string | null; id: string | null; user_id: string | null; work_phone: string | null; work_email: string | null;
+  employee_no: string | null; first_name: string; last_name: string | null; company: string | null; branch: string | null;
   department: string | null; position: string | null; manager_name: string | null; employment_type: string | null; status: string;
   joining_date: string | null; nationality: string | null; salary: number | null; expiring_in: number | null;
 }
@@ -70,13 +76,14 @@ export function HrPage() {
   const { me } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') ?? 'employees') as 'employees' | 'expiring' | 'requests' | 'import';
+  const tab = (params.get('tab') ?? 'employees') as 'employees' | 'org' | 'expiring' | 'requests' | 'import';
   const setTab = (v: string) => setParams(v === 'employees' ? {} : { tab: v }, { replace: true });
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('active');
-  const [creating, setCreating] = useState(false);
-  const { data, isLoading, error } = useQuery({ queryKey: ['hr', 'employees'], queryFn: () => api<{ can_edit: boolean; employees: ListRow[] }>('/hr/employees') });
+  const [creating, setCreating] = useState<Partial<Employee> | null>(null);
+  const { data, isLoading, error } = useQuery({ queryKey: ['hr', 'employees'], queryFn: () => api<{ tier: Tier; can_edit: boolean; employees: ListRow[] }>('/hr/employees') });
   const isHr = Boolean(data?.can_edit);
+  const full = data?.tier === 'full';
 
   // Someone who may only see their own record goes straight to it.
   useEffect(() => {
@@ -85,8 +92,13 @@ export function HrPage() {
     }
   }, [data, isHr, me, navigate]);
 
-  const tabs: [string, string][] = [['employees', 'Employees'], ['expiring', 'Expiring soon']];
-  if (isHr) tabs.push(['requests', 'Change requests'], ['import', 'Import from Excel']);
+  const tabs: [string, string][] = [['employees', full ? 'Employees' : 'Directory'], ['org', 'Org chart']];
+  if (full) tabs.push(['expiring', 'Expiring soon']);
+  if (full && isHr) tabs.push(['requests', 'Change requests'], ['import', 'Import from Excel']);
+  const open = (e: ListRow) => {
+    if (e.id) navigate(`/hr/${e.id}`);
+    else if (isHr) setCreating({ user_id: e.user_id, first_name: e.first_name, employee_no: e.employee_no ?? undefined, position: e.position, status: 'active' });
+  };
   const showPay = data?.employees.some((e) => e.salary !== null);
   const rows = (data?.employees ?? []).filter((e) => (!status || e.status === status)
     && `${e.employee_no} ${fullName(e)} ${e.position ?? ''} ${e.department ?? ''} ${e.company ?? ''} ${e.branch ?? ''}`.toLowerCase().includes(q.toLowerCase()));
@@ -96,14 +108,15 @@ export function HrPage() {
       <div className="page-head">
         <div>
           <h1>{t('HR')}</h1>
-          <p>{t('Employee records, documents and expiry dates.')}</p>
+          <p>{full ? t('Employee records, documents and expiry dates.') : t('Employee directory and org chart.')}</p>
         </div>
         <div className="row">
           {me?.employee_id && <button onClick={() => navigate(`/hr/${me.employee_id}`)}>{t('My record')}</button>}
-          {isHr && <button className="primary" onClick={() => setCreating(true)}>{t('New employee')}</button>}
+          {isHr && <button className="primary" onClick={() => setCreating({ status: 'active' })}>{t('New employee')}</button>}
         </div>
       </div>
       <ErrorNote error={error} />
+      {data && !full && <BasicNote />}
       <Tabs value={tab} onChange={setTab} tabs={tabs as [typeof tab, string][]} />
 
       {tab === 'employees' && (
@@ -122,23 +135,28 @@ export function HrPage() {
                 <thead>
                   <tr>
                     <th>{t('Employee ID')}</th><th>{t('Name')}</th><th>{t('Position')}</th><th>{t('Department')}</th><th>{t('Reports to')}</th>
-                    <th>{t('Company / branch')}</th><th>{t('Joined')}</th>{showPay && <th className="num">{t('Salary')}</th>}<th>{t('Expiry')}</th>
+                    <th>{t('Company / branch')}</th><th>{t('Work contact')}</th>
+                    {full && <><th>{t('Joined')}</th>{showPay && <th className="num">{t('Salary')}</th>}<th>{t('Expiry')}</th></>}
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading && <SkeletonRows cols={8} />}
                   {data && rows.length === 0 && <tr><td colSpan={9} className="empty">{t('No employees here yet.')}</td></tr>}
                   {rows.map((e) => (
-                    <tr key={e.id} className="clickable" onClick={() => navigate(`/hr/${e.id}`)}>
-                      <td><strong>{e.employee_no}</strong></td>
-                      <td>{fullName(e)}{e.status === 'inactive' && <div className="small muted">{t('Inactive')}</div>}</td>
+                    <tr key={e.key} className={e.id || isHr ? 'clickable' : ''} onClick={() => open(e)}>
+                      <td><strong>{e.employee_no ?? '—'}</strong></td>
+                      <td>{fullName(e)}{e.status === 'inactive' && <div className="small muted">{t('Inactive')}</div>}
+                        {!e.id && isHr && <div className="small muted">{t('No HR record yet: click to add')}</div>}</td>
                       <td>{e.position ?? '—'}<div className="small secondary">{e.employment_type ?? ''}</div></td>
                       <td>{e.department ?? '—'}</td>
                       <td>{e.manager_name ?? '—'}</td>
                       <td>{[e.company, e.branch].filter(Boolean).join(' · ') || '—'}</td>
-                      <td>{date(e.joining_date)}</td>
-                      {showPay && <td className="num">{e.salary === null ? '—' : money(e.salary)}</td>}
-                      <td><ExpiryFlag days={e.expiring_in} /></td>
+                      <td>{[e.work_phone, e.work_email].filter(Boolean).join(' · ') || '—'}</td>
+                      {full && <>
+                        <td>{date(e.joining_date)}</td>
+                        {showPay && <td className="num">{e.salary === null ? '—' : money(e.salary)}</td>}
+                        <td><ExpiryFlag days={e.expiring_in} /></td>
+                      </>}
                     </tr>
                   ))}
                 </tbody>
@@ -147,12 +165,52 @@ export function HrPage() {
           </div>
         </>
       )}
-      {tab === 'expiring' && <Expiring />}
+      {tab === 'org' && data && <OrgChart rows={data.employees.filter((e) => e.status === 'active')} onOpen={open} />}
+      {tab === 'expiring' && full && <Expiring />}
       {tab === 'requests' && isHr && <Requests />}
       {tab === 'import' && isHr && <Import />}
-      {creating && <EmployeeForm onClose={() => setCreating(false)} onSaved={(id) => navigate(`/hr/${id}`)} />}
+      {creating && <EmployeeForm full={full} initial={creating} onClose={() => setCreating(null)} onSaved={(id) => navigate(`/hr/${id}`)} />}
     </>
   );
+}
+
+/** HR without the subscription: what's here, and how to get the rest. */
+function BasicNote() {
+  const { can } = useAuth();
+  const navigate = useNavigate();
+  return (
+    <div className="alert info" style={{ marginBottom: 12 }}>
+      {t('HR basic: the employee directory and org chart. The full HR module adds personal records, pay, documents with expiry alerts, change requests and the Excel import.')}{' '}
+      {can('admin') ? <button type="button" className="link" onClick={() => navigate('/settings?tab=modules')}>{t('Request full HR')}</button>
+        : t('Ask an owner to request it.')}
+    </div>
+  );
+}
+
+/** Who reports to whom, from the directory. */
+function OrgChart({ rows, onOpen }: { rows: ListRow[]; onOpen: (e: ListRow) => void }) {
+  const keys = new Set(rows.map((r) => r.key));
+  const children = new Map<string | null, ListRow[]>();
+  for (const r of rows) {
+    const parent = r.parent_key && keys.has(r.parent_key) && r.parent_key !== r.key ? r.parent_key : null;
+    children.set(parent, [...(children.get(parent) ?? []), r]);
+  }
+  const seen = new Set<string>();
+  const node = (r: ListRow): ReactNode => {
+    if (seen.has(r.key)) return null;
+    seen.add(r.key);
+    const kids = children.get(r.key) ?? [];
+    return (
+      <li key={r.key}>
+        <button type="button" className="org-node" onClick={() => onOpen(r)}>
+          <strong>{fullName(r)}</strong><span className="small secondary">{[r.position, r.department].filter(Boolean).join(' · ')}</span>
+        </button>
+        {kids.length > 0 && <ul>{kids.map(node)}</ul>}
+      </li>
+    );
+  };
+  if (!rows.length) return <Empty>{t('No employees here yet.')}</Empty>;
+  return <div className="card org-tree"><ul>{(children.get(null) ?? []).map(node)}</ul></div>;
 }
 
 function Expiring() {
@@ -266,6 +324,7 @@ export function EmployeePage() {
   if (isLoading) return <div className="card flush"><table><tbody><SkeletonRows cols={2} /></tbody></table></div>;
   if (error || !e) return <ErrorNote error={error ?? new Error(t('Employee not found'))} />;
   const a = e.access;
+  const full = e.tier === 'full';
   const pay = (v: number | null) => (v === null ? null : money(v));
 
   return (
@@ -277,8 +336,8 @@ export function EmployeePage() {
           <p>{[e.employee_no, e.position, e.department, e.company].filter(Boolean).join(' · ')}</p>
         </div>
         <div className="row">
-          {a.own && !a.edit && <button onClick={() => setAsking(true)}>{t('Ask HR to update')}</button>}
-          {a.edit && <button onClick={() => setPrinting(true)}><Printer className="ico" aria-hidden /> {t('Print form')}</button>}
+          {full && a.own && !a.edit && <button onClick={() => setAsking(true)}>{t('Ask HR to update')}</button>}
+          {full && a.edit && <button onClick={() => setPrinting(true)}><Printer className="ico" aria-hidden /> {t('Print form')}</button>}
           {a.edit && <button className="primary" onClick={() => setEditing(true)}>{t('Edit')}</button>}
         </div>
       </div>
@@ -290,7 +349,8 @@ export function EmployeePage() {
             : t('{what} expires on {date} (in {n} days).', { what: t(x.what), date: date(x.expiry), n: x.days_left })}
         </div>
       ))}
-      {a.own && !a.edit && <p className="small muted">{t('This is your record as HR keeps it. To change anything, use "Ask HR to update".')}</p>}
+      {!full && <BasicNote />}
+      {full && a.own && !a.edit && <p className="small muted">{t('This is your record as HR keeps it. To change anything, use "Ask HR to update".')}</p>}
 
       <div className="grid-2 hr-grid">
         <section className="card detail-group">
@@ -299,9 +359,10 @@ export function EmployeePage() {
             ['Employee ID', <strong>{e.employee_no}</strong>], ['Initials', e.initials], ['Position', e.position], ['Department', e.department],
             ['Reports to', e.manager_name ?? e.reports_to_text], ['Company', e.company], ['Branch', e.branch], ['Employment type', e.employment_type],
             ['Joined', date(e.joining_date)], ...(e.end_date ? [['Left', date(e.end_date)], ['Reason', e.end_reason]] as [string, ReactNode][] : []),
-            ['Sign-in', e.user_name ?? t('No sign-in')],
+            ['Sign-in', e.user_name ?? t('No sign-in')], ['Work phone', e.work_phone], ['Work email', e.work_email],
           ]} />
         </section>
+        {full && <>
         <section className="card detail-group">
           <h3>{t('Identity & residency')}</h3>
           <KV items={[
@@ -372,7 +433,8 @@ export function EmployeePage() {
         {(e.notes && a.edit) && (
           <section className="card detail-group"><h3>{t('Notes')}</h3><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{e.notes}</p></section>
         )}
-        {(a.edit || a.own) && (
+        </>}
+        {full && (a.edit || a.own) && (
           <section className="card detail-group">
             <h3>{t('Change requests')}</h3>
             {e.requests.length === 0 ? <Empty>{t('None yet.')}</Empty> : e.requests.map((r) => (
@@ -389,7 +451,7 @@ export function EmployeePage() {
         )}
       </div>
 
-      {editing && <EmployeeForm employee={e} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
+      {editing && <EmployeeForm full={full} employee={e} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
       {asking && <AskHr employeeId={e.id} onClose={() => setAsking(false)} />}
       {uploading && <UploadDocument employeeId={e.id} onClose={() => setUploading(false)} />}
       {viewing && <DocumentViewer target={viewing} onClose={() => setViewing(null)} />}
@@ -458,14 +520,21 @@ const SECTIONS: [string, [keyof Employee, string, FieldKind?][]][] = [
   ['Personal', [['birth_date', 'Birth date', 'date'], ['birth_place', 'Birth place'], ['marital_status', 'Marital status'], ['religion', 'Religion'],
     ['children', 'Children', 'number'], ['education', 'Highest education'], ['major', 'Major'], ['driving_license', 'Driving licence'],
     ['chronic_illness', 'Chronic illness'], ['allergies', 'Allergies'], ['criminal_record', 'Criminal record']]],
-  ['Contact', [['address_kw', 'Address (Kuwait)'], ['phone_kw', 'Phone (Kuwait)'], ['email_personal', 'Personal email'],
+  ['Contact', [['work_phone', 'Work phone'], ['work_email', 'Work email'], ['address_kw', 'Address (Kuwait)'], ['phone_kw', 'Phone (Kuwait)'], ['email_personal', 'Personal email'],
     ['address_home', 'Address (home country)'], ['phone_home', 'Phone (home country)'], ['email_home', 'Email (home country)']]],
   ['Pay', [['salary', 'Salary', 'money'], ['allowance_extra', 'Extra', 'money'], ['allowance_housing', 'Housing', 'money'],
     ['allowance_ticket', 'Ticket', 'money'], ['allowance_transport', 'Transport', 'money']]],
   ['Notes', [['notes', 'Notes (HR only)', 'textarea']]],
 ];
 
-function EmployeeForm({ employee, onClose, onSaved }: { employee?: Detail; onClose: () => void; onSaved: (id: string) => void }) {
+/** HR basic edits only the directory fields. */
+const BASIC_SECTIONS: typeof SECTIONS = [
+  ['Job', [['first_name', 'First name'], ['last_name', 'Last name'], ['initials', 'Initials'], ['employee_no', 'Employee ID'], ['position', 'Position'],
+    ['company', 'Company'], ['branch', 'Branch'], ['employment_type', 'Employment type'], ['joining_date', 'Joined', 'date'], ['end_date', 'Left', 'date']]],
+  ['Work contact', [['work_phone', 'Work phone'], ['work_email', 'Work email']]],
+];
+
+function EmployeeForm({ employee, initial, full, onClose, onSaved }: { employee?: Detail; initial?: Partial<Employee>; full: boolean; onClose: () => void; onSaved: (id: string) => void }) {
   const { data: depts } = useDepartments();
   const { data: options } = useQuery({
     queryKey: ['hr', 'options'],
@@ -473,7 +542,7 @@ function EmployeeForm({ employee, onClose, onSaved }: { employee?: Detail; onClo
   });
   const [form, setForm] = useState<Partial<Employee>>(() => employee
     ? Object.fromEntries(Object.entries(employee).filter(([k]) => !['documents', 'requests', 'expiring', 'access', 'department', 'manager_name', 'user_name', 'user_email', 'manager_user_id', 'id', 'tenant_id', 'created_at', 'updated_at', 'created_by', 'reports_to_text'].includes(k)))
-    : { status: 'active', emergency_contacts: [] });
+    : { status: 'active', ...(full ? { emergency_contacts: [] } : {}), ...initial });
   const [dirty, setDirty] = useState(false);
   const set = (k: keyof Employee, v: unknown) => { setDirty(true); setForm((f) => ({ ...f, [k]: v })); };
   const contacts: Contact[] = [0, 1].map((i) => form.emergency_contacts?.[i] ?? { name: null, relation: null, address: null, phone: null });
@@ -525,14 +594,14 @@ function EmployeeForm({ employee, onClose, onSaved }: { employee?: Detail; onClo
               <option value="active">{t('Active')}</option><option value="inactive">{t('Inactive')}</option>
             </select>
           </Field>
-          <Field label={t('Gender')}>
+          {full && <Field label={t('Gender')}>
             <select value={form.gender ?? ''} onChange={(ev) => set('gender', ev.target.value || null)}>
               <option value="">—</option><option value="F">{t('Female')}</option><option value="M">{t('Male')}</option>
             </select>
-          </Field>
+          </Field>}
         </div>
         {!employee && <p className="small muted">{t('Leave the employee ID empty to use the sign-in\'s ID, or the next free one for the joining year.')}</p>}
-        {SECTIONS.map(([title, fields]) => (
+        {(full ? SECTIONS : BASIC_SECTIONS).map(([title, fields]) => (
           <fieldset key={title} className="hr-fieldset">
             <legend>{t(title)}</legend>
             <div className="form-grid">
@@ -542,7 +611,7 @@ function EmployeeForm({ employee, onClose, onSaved }: { employee?: Detail; onClo
             </div>
           </fieldset>
         ))}
-        <fieldset className="hr-fieldset">
+        {full && <fieldset className="hr-fieldset">
           <legend>{t('Emergency contacts')}</legend>
           {contacts.map((c, i) => (
             <div key={i} className="form-grid" style={{ marginBottom: 8 }}>
@@ -552,7 +621,7 @@ function EmployeeForm({ employee, onClose, onSaved }: { employee?: Detail; onClo
               <Field label={t('Phone')}><input value={c.phone ?? ''} onChange={(ev) => setContact(i, 'phone', ev.target.value)} /></Field>
             </div>
           ))}
-        </fieldset>
+        </fieldset>}
       </form>
     </Modal>
   );
