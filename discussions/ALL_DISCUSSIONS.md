@@ -7,7 +7,7 @@ _Built 2026-10-24 by `npm run discussions` from the discussion folders. Don't ed
 | # | Date | Topic | Status |
 |---|---|---|---|
 | [01](#discussion-01) | 2026-09-30 | Platform build through the CRM database (transcript sections 1–36) | Done |
-| [02](#discussion-02) | 2026-10-16 | Continue development locally: UI (Tailwind, shadcn, 21st.dev, motion), WEDX templates, company identity | Open |
+| [02](#discussion-02) | 2026-10-16 | Continue development locally: UI, WEDX templates, company identity, permissions & viewer (comment 7), Excel-like contracts & customer statuses (comment 8), modules & HR | Open |
 
 ---
 
@@ -1759,7 +1759,7 @@ Development starts after approval.
 
 <a id="discussion-02"></a>
 
-## Discussion 02 — Continue development locally: UI (Tailwind, shadcn, 21st.dev, motion), WEDX templates, company identity
+## Discussion 02 — Continue development locally: UI, WEDX templates, company identity, permissions & viewer (comment 7), Excel-like contracts & customer statuses (comment 8), modules & HR
 
 2026-10-16 · Open · folder [02_2026-10-16_continue-development-local](02_2026-10-16_continue-development-local/)
 

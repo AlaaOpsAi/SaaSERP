@@ -11,4 +11,4 @@
 | # | Date | Topic | Folder | Status |
 |---|---|---|---|---|
 | 01 | 2026-09-30 | Platform build through the CRM database (transcript sections 1–36) | [01_2026-09-30_platform-build-to-crm-database](01_2026-09-30_platform-build-to-crm-database/discussion.md) | Done |
-| 02 | 2026-10-16 | Continue development locally: UI (Tailwind, shadcn, 21st.dev, motion), WEDX templates, company identity | [02_2026-10-16_continue-development-local](02_2026-10-16_continue-development-local/discussion.md) | Open |
+| 02 | 2026-10-16 | Continue development locally: UI, WEDX templates, company identity, permissions & viewer (comment 7), Excel-like contracts & customer statuses (comment 8), modules & HR | [02_2026-10-16_continue-development-local](02_2026-10-16_continue-development-local/discussion.md) | Open |
