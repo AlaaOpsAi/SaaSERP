@@ -5,7 +5,7 @@ import { t } from '../i18n';
 import { compareKeys, type GridColumn, showValue } from './ContractGrid';
 
 /** What the pivot can group by: columns of the grid, so a click filters the list the same way. */
-export const PIVOT_DIMS = ['owner', 'month', 'year', 'venue', 'event_type', 'source', 'business_unit', 'status'] as const;
+export const PIVOT_DIMS = ['owner', 'co', 'branch', 'status', 'payment', 'month', 'year', 'venue', 'event_type', 'source'] as const;
 
 export interface PivotValue { id: string; label: string; field?: ContractField; get?: (b: Booking) => number | null }
 

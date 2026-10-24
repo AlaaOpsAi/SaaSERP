@@ -2,7 +2,7 @@ import { createCanvas } from '@napi-rs/canvas';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { client, login, makeApp, newTenant, type Client } from './helpers.js';
+import { client, login, makeApp, newTenant, type Client, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => { app = await makeApp(); });
@@ -82,7 +82,7 @@ describe('levels, departments and data rights', () => {
   it('shows documents to view-only people as watermarked pages, never the file', async () => {
     const owner = await newTenant(app);
     const { c: sara } = await person(owner, 'Sara', 'sales');
-    const b = (await sara.post('/bookings', { name: 'Hessa wedding', status: 'TEN' })).body;
+    const b = (await book(sara, { name: 'Hessa wedding', status: 'TEN' })).body;
     const pdf = (await upload(sara, `/bookings/${b.id}/files?kind=signed_proposal`, onePagePdf(), 'proposal.pdf')).body;
     const photo = (await upload(sara, `/bookings/${b.id}/files?kind=other`, PNG, 'photo.png')).body;
 

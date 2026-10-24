@@ -58,34 +58,34 @@ The formulas come from the workbook, with the percentages configurable per tenan
 | net profit | gross margin − fixed cost − CF cost |
 | commission | net profit × commission % |
 | shares | (net profit − commission) × share % |
-| outstanding | (contract value or revenue) − payments, for DEF/ACT/PAID only |
+| outstanding | (contract value or revenue) − payments, for DEF only |
 | aging days | event date → fully-paid date (or today) |
 
 Amounts are `numeric(14,3)`, because KWD has three decimals.
 
 ### Status workflow
 
-Statuses follow what the customer does (customer comment 8); staff can still change them by hand.
+The STATUS list and STATUS CONDITIONS of the daily report (customer comment 9, `SALES_Daily Report.xlsx`):
 
-| Code | Meaning | Set automatically when … |
+| Code | Meaning | Rule |
 |---|---|---|
-| ENQ | Enquiry, no offer sent | the contract is created |
-| TEN | Offer sent | a proposal or contract is issued (from ENQ) |
-| DEF | Signed | the client's signed contract or proposal is uploaded (from ENQ / TEN) |
-| ACT | Actualised: part paid | money received > 0 but below the contract value (or the revenue lines without one) |
-| PAID | Fully paid | money received ≥ that amount; the fully-paid date is filled in |
-| LOS / CXL | Lost / cancelled | by hand only, with a reason |
+| ENQ | Enquiry | every new contract starts here (the API refuses any other starting status) |
+| TEN | Offer sent | **automatic** once an offer is printed from the app or attached (file kind *offer*, or a signed copy); by hand only when one exists |
+| DEF | Signed | **by hand only**, and only once the signed offer or contract is attached |
+| CXL | Cancelled | by hand, from any status, with a reason |
+| LOS | Lost | a lost reason from the list is required, with an optional "specify" text |
 
-- **Payments:** a confirmed contract (DEF / ACT / PAID) moves between these three, both ways, when payments, the contract value or the revenue lines change.
-- **Documents:** issuing or uploading only moves a contract forward.
-- **History:** each automatic move is written as "Automatic: …".
-- **Code:** `syncStatus` in `apps/api/src/lib/booking.ts`.
-- **By hand:**
-  - ENQ ⇄ TEN; ENQ / TEN → DEF; DEF ⇄ ACT ⇄ PAID; any open or confirmed contract → LOS / CXL;
-  - LOS → ENQ / TEN (reactivate), CXL → TEN (reinstate);
-  - only managers move a PAID contract back.
-- **Reasons:** LOS needs a lost reason and CXL needs a cancellation reason; the database enforces this with `CHECK` constraints.
-- **Clashes:** DEF, ACT and PAID hold the room. Confirming by hand checks the function diary: an overlapping confirmed event in the same non-shareable room returns `409` with the conflicting bookings, and owners, admins and managers can pass `force: true`. An automatic move never double-books: it waits for someone to confirm by hand.
+- **Moves by hand:**
+  - ENQ ⇄ TEN; ENQ / TEN → DEF; DEF → TEN;
+  - any status → CXL (Lost included);
+  - LOS → ENQ / TEN (reactivate); CXL → TEN (reinstate).
+- **PAYMENT:** shown separately from the status (`PAYMENT_SQL` in `apps/api/src/lib/booking.ts`):
+  - **PAID** when the money received reaches the contract value (or the revenue lines without one);
+  - otherwise what Finance set (INVOICED, TO INVOICE, TO PAY, REJECTED, CANCELED);
+  - otherwise **DP** once any money came in.
+- **History:** every change is stored with date, user and reason. The contract's History tab shows Date | Status | User code | days in status, plus the lead's life span and how many people changed it.
+- **Clashes:** DEF holds the room. Confirming checks the function diary: an overlapping DEF event in the same non-shareable room returns `409` with the conflicting bookings, and owners, admins and managers can pass `force: true`.
+- **Code:** `apps/api/src/lib/booking.ts` (`assertConditions`, `syncStatus`).
 
 ## API
 

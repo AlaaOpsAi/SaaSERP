@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { client, type Client, login, makeApp, makeVenue, newTenant } from './helpers.js';
+import { client, type Client, login, makeApp, makeVenue, newTenant, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -44,7 +44,7 @@ async function org() {
   const bookings: Record<string, string> = {};
   for (const [name, u] of Object.entries(users)) {
     if (name === 'fadi') continue;
-    bookings[name] = (await owner.post('/bookings', { name: `${name} deal`, status: 'DEF', owner_id: u.id, manual_revenue: 1000 })).body.id;
+    bookings[name] = (await book(owner, { name: `${name} deal`, status: 'DEF', owner_id: u.id, manual_revenue: 1000 })).body.id;
   }
   return { users, c, bookings };
 }
@@ -80,11 +80,11 @@ describe('team hierarchy', () => {
 
   it('only lets people hand bookings to themselves or their team', async () => {
     const { c, users } = await org();
-    expect((await c.mona.post('/bookings', { name: 'For Rami', owner_id: users.rami.id })).status).toBe(201);
-    const outside = await c.mona.post('/bookings', { name: 'For Sami', owner_id: users.sami.id });
+    expect((await book(c.mona, { name: 'For Rami', owner_id: users.rami.id })).status).toBe(201);
+    const outside = await book(c.mona, { name: 'For Sami', owner_id: users.sami.id });
     expect(outside.status).toBe(403);
     expect(outside.body.error).toBe('You can only assign bookings to yourself or people in your team');
-    const mine = (await c.rami.post('/bookings', { name: 'Mine' })).body;
+    const mine = (await book(c.rami, { name: 'Mine' })).body;
     expect((await c.rami.patch(`/bookings/${mine.id}`, { owner_id: users.sami.id })).status).toBe(403);
     expect((await c.dina.patch(`/bookings/${mine.id}`, { owner_id: users.sami.id })).status).toBe(200);
   });
@@ -92,13 +92,14 @@ describe('team hierarchy', () => {
   it('still blocks double-booking a room held by another team, without revealing it', async () => {
     const { c } = await org();
     const { ballroom } = await makeVenue(c.owner);
-    await c.sami.post('/bookings', { name: 'Sami secret gala', status: 'DEF', event_date: '2026-12-01', function_space_id: ballroom.id });
-    const clash = await c.rami.post('/bookings', { name: 'Rami gala', status: 'DEF', event_date: '2026-12-01', function_space_id: ballroom.id });
+    await book(c.sami, { name: 'Sami secret gala', status: 'DEF', event_date: '2026-12-01', function_space_id: ballroom.id });
+    const clash = await book(c.rami, { name: 'Rami gala', status: 'DEF', event_date: '2026-12-01', function_space_id: ballroom.id });
     expect(clash.status).toBe(409);
     expect(clash.body.details.conflicts[0]).toMatchObject({ booking_name: "Another team's booking", booking_id: null, visible: false });
+    // Rami's enquiry stays (every contract starts as ENQ); Sami's gala shows only as "Booked".
     const diary = (await c.rami.get('/diary?from=2026-12-01&to=2026-12-01')).body;
-    expect(diary.events).toHaveLength(1);
-    expect(diary.events[0]).toMatchObject({ name: 'Booked', booking_name: 'Another team', booking_id: null });
+    expect(diary.events).toHaveLength(2);
+    expect(diary.events.find((e: any) => e.booking_name !== 'Rami gala')).toMatchObject({ name: 'Booked', booking_name: 'Another team', booking_id: null });
     expect((await c.omar.get('/diary?from=2026-12-01&to=2026-12-01')).body.events[0].booking_name).toBe('Sami secret gala');
   });
 

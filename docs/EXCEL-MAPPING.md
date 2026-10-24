@@ -40,9 +40,9 @@ commission and share percentages, fully-paid date) and otherwise calculated.
 | A | CONTRACT ID | `bookings.booking_no`, used to match on re-import |
 | B | CO | business unit (created if missing) |
 | C | CAT | event type pick-list |
-| D | STATUS | status (TEN/DEF/LOS/CXL; INQ or blank → ENQ; confirmed contracts then take DEF / ACT / PAID from the money received) |
+| D | STATUS | status (ENQ/TEN/DEF/LOS/CXL; INQ or blank → ENQ; ACT / PAID from older sheets → DEF, payment shows as DP / PAID) |
 | E–G | Y/M/D | event date |
-| H | HALL | function space under the LOC venue for TEN/DEF/ACT/PAID bookings; otherwise kept as free text |
+| H | HALL | function space under the LOC venue for TEN/DEF bookings; otherwise kept as free text |
 | I, J | REV, COST | manual revenue and cost |
 | K, L, N, P–R, T, X, AB, AH, AI | margin, P %, diff, fix cost, CF cost, net profit, amounts to pay, outstanding, aging | **calculated** by the `booking_finance` view, not imported |
 | M | TOTAL CONTRACT VALUE | contract value |

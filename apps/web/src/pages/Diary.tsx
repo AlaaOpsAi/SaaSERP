@@ -85,8 +85,8 @@ export function Diary() {
       </div>
       {view === 'meetings' ? <Meetings from={from} span={span} owner={owner} /> : <>
       <div className="legend" style={{ marginBottom: 12 }}>
-        {(['TEN', 'DEF', 'ACT', 'PAID'] as Status[]).map((s) => (
-          <span key={s}><i style={{ background: `var(--${({ TEN: 'status-warning', DEF: 'status-good', ACT: 'series-1', PAID: 'series-3' } as Record<string, string>)[s]})` }} />{statusLabel(s)}</span>
+        {(['TEN', 'DEF'] as Status[]).map((s) => (
+          <span key={s}><i style={{ background: `var(--${s === 'TEN' ? 'status-warning' : 'status-good'})` }} />{statusLabel(s)}</span>
         ))}
       </div>
 

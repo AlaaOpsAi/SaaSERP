@@ -87,7 +87,9 @@ export async function download(path: string, filename: string, body?: unknown) {
 
 // ---- shared types ------------------------------------------------------
 
-export type Status = 'ENQ' | 'TEN' | 'DEF' | 'ACT' | 'PAID' | 'LOS' | 'CXL';
+export type Status = 'ENQ' | 'TEN' | 'DEF' | 'LOS' | 'CXL';
+/** PAYMENT column: DP / PAID from the money received, the rest set by Finance. */
+export type PaymentStatus = 'DP' | 'PAID' | 'INVOICED' | 'TO INVOICE' | 'TO PAY' | 'REJECTED' | 'CANCELED';
 export type Role = 'owner' | 'admin' | 'manager' | 'sales' | 'marketing' | 'finance' | 'viewer';
 
 export interface Me {
@@ -186,8 +188,12 @@ export interface Booking {
   fixed_cost: number; cf_cost: number; net_profit: number; commission: number; shares: number;
   paid: number; outstanding: number; aging_days: number;
   business_unit_name?: string;
-  /** Confirmed (DEF / ACT / PAID), and the client's signed contract or proposal has not been uploaded yet. */
+  /** Signed (DEF), and the client's signed contract or proposal has not been uploaded yet. */
   signed_missing: boolean;
+  payment: PaymentStatus | null; payment_status: PaymentStatus | null; lost_reason_note: string | null;
+  /** LAST FOLLOWUP: the latest follow-up registered (can be planned), and its text. */
+  last_followup_at: string | null; last_followup_text: string | null;
+  next_meeting_at: string | null; meeting_dates: string[] | null; followup_dates: string[] | null;
 }
 
 export interface BookingEvent {
@@ -208,7 +214,7 @@ export interface Conflict { event_id: string; booking_id: string | null; booking
 
 export interface BookingDetail extends Booking {
   events: BookingEvent[]; items: Item[]; activities: Activity[]; payments: Payment[]; payouts: Payout[];
-  history: { id: string; from_status: Status | null; to_status: Status; reason: string | null; changed_by_name: string | null;
+  history: { id: string; from_status: Status | null; to_status: Status; reason: string | null; changed_by_name: string | null; changed_by_code: string | null;
              on_behalf_of_name: string | null; changed_at: string }[];
   log: { id: string; action: string; details: Record<string, unknown>; created_at: string; actor_name: string | null; on_behalf_of_name: string | null }[];
   can_edit: boolean;
@@ -217,7 +223,7 @@ export interface BookingDetail extends Booking {
 }
 
 export type DocKind = 'contract' | 'proposal' | 'annex';
-export type FileKind = 'signed_contract' | 'signed_proposal' | 'annex' | 'other';
+export type FileKind = 'offer' | 'signed_contract' | 'signed_proposal' | 'annex' | 'other';
 export interface ContractLine { id?: string; work_type: string; details: string | null; quantity: number | null; unit_price: number | null }
 export interface AnnexLine { id?: string; service: string; service_alt: string | null; quantity: number | null; notes: string | null }
 export interface IssuedDocument {

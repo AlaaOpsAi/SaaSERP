@@ -60,15 +60,6 @@ export function BookingForm({ initial, isNew, onSubmit, id, onDirty }: {
         <h3>{t('Contract & payment details')}</h3>
         <div className="form-grid">
           <Field label={t('Contract name')} className="span-2"><input required {...bind('name')} placeholder={t('e.g. Latifa wedding')} /></Field>
-          {isNew && (
-            <Field label={t('Status')}>
-              <select value={form.status ?? 'ENQ'} onChange={(e) => set('status')(e.target.value as Booking['status'])}>
-                <option value="ENQ">{t('Enquiry')}</option>
-                <option value="TEN">{t('Offer sent')}</option>
-                <option value="DEF">{t('Signed')}</option>
-              </select>
-            </Field>
-          )}
           {isNew && !hidden('business_unit') && (units?.length ?? 0) > 1 && (
             <Field label={t('Company')}>
               <select {...bind('business_unit_id')}>
@@ -120,6 +111,14 @@ export function BookingForm({ initial, isNew, onSubmit, id, onDirty }: {
             <>
               <Field label={t('Manual revenue (if no lines)')}><input {...bindNum('manual_revenue')} /></Field>
               <Field label={t('Manual cost (if no lines)')}><input {...bindNum('manual_cost')} /></Field>
+              {!isNew && (
+                <Field label={t('PAYMENT status')}>
+                  <select value={form.payment_status ?? ''} onChange={(e) => set('payment_status')((e.target.value || null) as Booking['payment_status'])}>
+                    <option value="">{t('From the money received (DP / PAID)')}</option>
+                    {['INVOICED', 'TO INVOICE', 'TO PAY', 'REJECTED', 'CANCELED'].map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </Field>
+              )}
             </>
           )}
         </div>
@@ -159,7 +158,7 @@ export function bookingPayload(v: BookingFormValues) {
   const keys = ['name', 'business_unit_id', 'event_type', 'source', 'owner_id', 'account_id', 'contact_id', 'venue_id',
     'function_space_id', 'hall_text', 'event_date', 'end_date', 'pax', 'rate', 'term_days', 'inquiry_date',
     'decision_due_date', 'next_followup_date', 'followup_notes', 'description', 'manual_revenue', 'manual_cost',
-    'contract_value', 'credit_facility', 'status', 'branch', 'design'] as const;
+    'contract_value', 'credit_facility', 'branch', 'design', 'payment_status'] as const;
   const out: Record<string, unknown> = {};
   for (const k of keys) if (k in v) out[k] = (v as Record<string, unknown>)[k];
   if (out.business_unit_id === null) delete out.business_unit_id;

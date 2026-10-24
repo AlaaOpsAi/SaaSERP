@@ -7,16 +7,19 @@ import { LANGUAGES, lang, markPicked, setLanguage, storeLanguage } from '../i18n
 import { t } from '../i18n';
 
 /** Language picker shown before sign-in. */
+/** One box with the current language; a click switches to the other (customer comment 9). */
 export function LanguageSwitch({ onChange }: { onChange?: (code: string) => void }) {
+  const next = LANGUAGES[(LANGUAGES.findIndex((l) => l.code === lang().code) + 1) % LANGUAGES.length];
   return (
-    <div className="lang-switch" role="group" aria-label="Language">
-      {LANGUAGES.map((l) => (
-        <button key={l.code} type="button" lang={l.code} className={`sm ${lang().code === l.code ? 'on' : ''}`}
-          onClick={() => { setLanguage(l.code); storeLanguage(l.code); markPicked(l.code); onChange?.(l.code); }}>{l.name}</button>
-      ))}
+    <div className="lang-switch">
+      <button type="button" className="sm lang-one" lang={next.code} title={next.name} aria-label={`Language: ${lang().name}. ${next.name}`}
+        onClick={() => { setLanguage(next.code); storeLanguage(next.code); markPicked(next.code); onChange?.(next.code); }}>{lang().code.toUpperCase()}</button>
     </div>
   );
 }
+
+/** The line under the sign-in title; set VITE_LOGIN_TAGLINE to change it per installation. */
+const TAGLINE = import.meta.env.VITE_LOGIN_TAGLINE ?? 'BUSINESS MANAGEMENT SYSTEM | CONF-X GROUP';
 
 const INACTIVE: Record<string, string> = {
   pending: 'Your workspace is waiting for approval. We will let you know as soon as it is activated.',
@@ -70,7 +73,7 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
         <LanguageSwitch onChange={onLanguage} />
         <div>
           <h1>{t("Sign in")}</h1>
-          <p className="secondary" style={{ margin: 0 }}>{t("Events & catering sales, bookings and function diary.")}</p>
+          <p className="secondary auth-tagline" style={{ margin: 0 }}>{TAGLINE}</p>
         </div>
         {inactive && (
           <div className={`alert ${inactive.status === 'pending' ? 'info' : ''}`}>
@@ -92,7 +95,7 @@ export function Login({ onLanguage }: { onLanguage?: (code: string) => void }) {
         )}
         <button className="primary" disabled={busy}>{busy ? t("Signing in…") : t("Sign in")}</button>
         <div className="new-company">
-          <span className="small secondary">{t("Your company is not on SaaSERP yet?")}</span>
+          <span className="small secondary">{t("NEW TO X-SELL ERP?")}</span>
           <Link to="/signup" className="btn">{t("New company")}</Link>
         </div>
       </form>

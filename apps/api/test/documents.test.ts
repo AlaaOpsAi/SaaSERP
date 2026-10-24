@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
 import { fillTemplate } from '../src/lib/docgen.js';
 import { amountInWords } from '../src/lib/words.js';
-import { client, login, makeApp, newTenant, type Client } from './helpers.js';
+import { client, login, makeApp, newTenant, type Client, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -46,7 +46,7 @@ describe('signed contract upload', () => {
   it('accepts JPEG, PNG or PDF at any status and flags DEF contracts without a signed copy', async () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
-    const b = (await sara.post('/bookings', { name: 'Hessa wedding', status: 'TEN' })).body;
+    const b = (await book(sara, { name: 'Hessa wedding', status: 'TEN' })).body;
     // Any status: a contract takes other files without changing its status.
     expect((await upload(sara, `/bookings/${b.id}/files?kind=other`, PNG, 'venue.png')).status).toBe(200);
     expect((await sara.get(`/bookings/${b.id}`)).body.status).toBe('TEN');
@@ -55,17 +55,14 @@ describe('signed contract upload', () => {
     expect(fake.status).toBe(400);
     expect(fake.body.error).toBe('Upload a picture (JPEG or PNG) or a PDF');
 
-    await sara.post(`/bookings/${b.id}/status`, { status: 'DEF' });
-    expect((await sara.get(`/bookings/${b.id}`)).body.signed_missing).toBe(true);
-    const list = (await owner.get('/bookings?signed_missing=true')).body;
-    expect(list.rows.map((r: any) => r.id)).toEqual([b.id]);
-    expect(Number(list.totals.signed_missing)).toBe(1);
-
+    // Signed (DEF) needs the signed copy first (customer comment 9).
+    expect((await sara.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(400);
     const up = await upload(sara, `/bookings/${b.id}/files?kind=signed_contract`, PDF, 'signed.pdf');
     expect(up.body).toMatchObject({ kind: 'signed_contract', mime: 'application/pdf', file_name: 'signed.pdf' });
+    expect((await sara.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(200);
     const detail = (await sara.get(`/bookings/${b.id}`)).body;
     expect(detail.signed_missing).toBe(false);
-    expect(detail.files.map((f: any) => f.kind).sort()).toEqual(['other', 'signed_contract']);
+    expect(detail.files.map((f: any) => f.kind).sort()).toEqual(['offer', 'other', 'signed_contract']);
 
     // Downloading needs the download right (level 5 views on screen only); then it is a short-lived link without a login header.
     expect((await sara.get(`/booking-files/${up.body.id}/link`)).status).toBe(403);
@@ -76,9 +73,11 @@ describe('signed contract upload', () => {
     expect(file.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
     expect((await app.inject({ method: 'GET', url: url.replace(/.$/, (ch: string) => (ch === 'A' ? 'B' : 'A')) })).statusCode).toBe(400);
 
-    // Removing it (deactivate) brings the flag back; a viewer cannot upload.
+    // Removing it (deactivate) flags the signed contract again; a viewer cannot upload.
     expect((await sara.post(`/booking-files/${up.body.id}/deactivate`, { reason: 'wrong file' })).status).toBe(200);
     expect((await sara.get(`/bookings/${b.id}`)).body.signed_missing).toBe(true);
+    const list = (await owner.get('/bookings?signed_missing=true')).body;
+    expect(list.rows.map((r: any) => r.id)).toEqual([b.id]);
     const viewer = await member(owner, 'Vic', 'viewer');
     expect((await upload(viewer, `/bookings/${b.id}/files`, PDF, 'x.pdf')).status).toBe(403);
   });
@@ -88,7 +87,7 @@ describe('issuing contracts, proposals and annexes', () => {
   it('fills the template with the contract data, numbers it and keeps a copy', async () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
-    const b = (await sara.post('/bookings', {
+    const b = (await book(sara, {
       name: 'Hessa wedding', status: 'ENQ', event_date: '2026-12-03', pax: 350, contract_value: 2370,
       contact: { first_name: 'حصة', family_name: 'العتيبي', phone: '96528423' },
     })).body;
@@ -103,10 +102,10 @@ describe('issuing contracts, proposals and annexes', () => {
     expect(options.proposal[0]).toMatchObject({ id: 'builtin', language: 'bilingual' });
     const p1 = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin', notes: 'Valid 14 days' })).body;
     expect(p1.doc_no).toBe(`${b.booking_no}-P1`);
-    // Issuing the offer moves the enquiry to TEN (customer comment 8).
+    // Printing the offer moves the enquiry to TEN (customer comments 8 and 9).
     const sent = (await sara.get(`/bookings/${b.id}`)).body;
     expect(sent.status).toBe('TEN');
-    expect(sent.history.at(-1)).toMatchObject({ from_status: 'ENQ', to_status: 'TEN', reason: 'Automatic: offer issued' });
+    expect(sent.history.at(-1)).toMatchObject({ from_status: 'ENQ', to_status: 'TEN', reason: 'Automatic: offer sent' });
     const p2 = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin' })).body;
     expect(p2.doc_no).toBe(`${b.booking_no}-P2`);
     const annex = (await sara.post(`/bookings/${b.id}/documents`, { kind: 'annex', template_id: 'builtin' })).body;
@@ -143,7 +142,7 @@ describe('issuing contracts, proposals and annexes', () => {
 
     const t = await upload(owner, `/templates?name=Wedding contract&kinds=contract,proposal&language=ar&business_unit_ids=${units[0].id}`, standard, 'wedding.docx');
     expect(t.status).toBe(200);
-    const b = (await owner.post('/bookings', { name: 'Gala', status: 'DEF' })).body;
+    const b = (await book(owner, { name: 'Gala', status: 'DEF' })).body;
     const options = (await owner.get(`/bookings/${b.id}/templates`)).body;
     expect(options.contract.map((x: any) => x.name)).toEqual(['Wedding contract']);
     expect(options.annex[0].id).toBe('builtin');
@@ -179,38 +178,46 @@ describe('issuing contracts, proposals and annexes', () => {
   });
 });
 
-describe('statuses that follow the customer (comment 8)', () => {
-  it('moves ENQ → TEN → DEF → ACT → PAID from documents and money, and back when money is removed', async () => {
+describe('status conditions of the daily report (comment 9)', () => {
+  it('starts as ENQ, goes to TEN with an offer, to DEF by hand with a signed copy; payment shows DP / PAID', async () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
+    expect((await sara.post('/bookings', { name: 'Noor wedding', status: 'DEF' })).status).toBe(400);
     const b = (await sara.post('/bookings', { name: 'Noor wedding', contract_value: 1000 })).body;
     expect(b.status).toBe('ENQ');
-    const status = async () => (await owner.get(`/bookings/${b.id}`)).body;
+    const get = async () => (await owner.get(`/bookings/${b.id}`)).body;
 
+    // No offer yet: TEN and DEF are refused.
+    expect((await sara.post(`/bookings/${b.id}/status`, { status: 'TEN' })).status).toBe(400);
+    expect((await sara.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(400);
+    // Printing an offer moves it to TEN on its own.
     await sara.post(`/bookings/${b.id}/documents`, { kind: 'proposal', template_id: 'builtin' });
-    expect((await status()).status).toBe('TEN');
+    expect((await get()).status).toBe('TEN');
+    expect((await get()).history.at(-1)).toMatchObject({ from_status: 'ENQ', to_status: 'TEN', reason: 'Automatic: offer sent' });
 
-    // The client's signed proposal confirms it, and counts as the signed copy.
-    expect((await upload(sara, `/bookings/${b.id}/files?kind=signed_proposal`, PDF, 'signed.pdf')).status).toBe(200);
-    expect(await status()).toMatchObject({ status: 'DEF', signed_missing: false });
+    // The signed copy does not change the status; DEF is set by hand once it is there.
+    expect((await sara.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(400);
+    await upload(sara, `/bookings/${b.id}/files?kind=signed_proposal`, PDF, 'signed.pdf');
+    expect((await get()).status).toBe('TEN');
+    expect((await sara.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(200);
+    expect(await get()).toMatchObject({ status: 'DEF', signed_missing: false, payment: null });
 
-    const dp = (await sara.post(`/bookings/${b.id}/down-payment`, { paid_on: '2026-10-01', amount: 400, method: 'CASH' })).body;
-    expect((await status()).status).toBe('ACT');
+    // Payment: DP once money came in, PAID when it reaches the contract value; Finance can set the others.
+    await sara.post(`/bookings/${b.id}/down-payment`, { paid_on: '2026-10-01', amount: 400, method: 'CASH' });
+    expect((await get()).payment).toBe('DP');
+    await owner.patch(`/bookings/${b.id}`, { payment_status: 'INVOICED' });
+    expect((await get()).payment).toBe('INVOICED');
     await owner.post(`/bookings/${b.id}/payments`, { paid_on: '2026-10-10', amount: 600, method: 'BANK' });
-    const paid = await status();
-    expect(paid).toMatchObject({ status: 'PAID', fully_paid_date: '2026-10-10' });
-    expect(paid.history.map((h: any) => h.reason).slice(-3)).toEqual(['Automatic: signed copy uploaded', 'Automatic: part paid', 'Automatic: fully paid']);
+    expect(await get()).toMatchObject({ status: 'DEF', payment: 'PAID', fully_paid_date: '2026-10-10' });
 
-    // The value goes up: part paid again; a payment removed: back down.
-    await owner.patch(`/bookings/${b.id}`, { contract_value: 1200 });
-    expect(await status()).toMatchObject({ status: 'ACT', fully_paid_date: null });
-    await owner.del(`/payments/${dp.id}`);
-    expect((await status()).status).toBe('ACT');
-
-    // By hand still works; documents never move a contract back.
-    expect((await owner.post(`/bookings/${b.id}/status`, { status: 'DEF' })).status).toBe(200);
-    await sara.post(`/bookings/${b.id}/documents`, { kind: 'contract', template_id: 'builtin' });
-    expect((await status()).status).toBe('DEF');
-    expect((await owner.post(`/bookings/${b.id}/status`, { status: 'CXL', reason: 'Postponed' })).status).toBe(200);
+    // Attaching an offer to an enquiry also makes it TEN.
+    const c = (await sara.post('/bookings', { name: 'Rania dinner' })).body;
+    await upload(sara, `/bookings/${c.id}/files?kind=offer`, PDF, 'offer.pdf');
+    expect((await owner.get(`/bookings/${c.id}`)).body.status).toBe('TEN');
+    // Lost needs a reason from the list, with an optional "specify" text; any status can be cancelled, Lost too.
+    expect((await sara.post(`/bookings/${c.id}/status`, { status: 'LOS', reason: 'made up' })).status).toBe(400);
+    expect((await sara.post(`/bookings/${c.id}/status`, { status: 'LOS', reason: 'BUDGET', note: 'went to a cheaper hotel' })).status).toBe(200);
+    expect((await owner.get(`/bookings/${c.id}`)).body).toMatchObject({ lost_reason: 'BUDGET', lost_reason_note: 'went to a cheaper hotel' });
+    expect((await sara.post(`/bookings/${c.id}/status`, { status: 'CXL', reason: 'duplicate' })).status).toBe(200);
   });
 });

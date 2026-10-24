@@ -14,6 +14,8 @@ export interface Client {
   patch: <T = any>(url: string, payload?: unknown) => Promise<{ status: number; body: T }>;
   put: <T = any>(url: string, payload?: unknown) => Promise<{ status: number; body: T }>;
   del: <T = any>(url: string) => Promise<{ status: number; body: T }>;
+  /** Multipart upload of one file. */
+  upload: <T = any>(url: string, data: Buffer, name: string) => Promise<{ status: number; body: T }>;
 }
 
 export function client(app: FastifyInstance, token: string): Client {
@@ -33,6 +35,16 @@ export function client(app: FastifyInstance, token: string): Client {
     patch: (u, p) => call('PATCH', u, p),
     put: (u, p) => call('PUT', u, p),
     del: (u) => call('DELETE', u),
+    upload: async (url, data, name) => {
+      const boundary = '----saaserp-test';
+      const payload = Buffer.concat([
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: application/octet-stream\r\n\r\n`),
+        data, Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
+      const res = await app.inject({ method: 'POST', url: `/api${url}`, payload,
+        headers: { authorization: `Bearer ${token}`, 'content-type': `multipart/form-data; boundary=${boundary}` } });
+      return { status: res.statusCode, body: res.json() };
+    },
   } as Client;
 }
 
@@ -89,4 +101,26 @@ export async function makeVenue(c: Client) {
   const ballroom = (await c.post('/function-spaces', { venue_id: venue.id, name: 'Ballroom', capacity: 300 })).body;
   const garden = (await c.post('/function-spaces', { venue_id: venue.id, name: 'Garden', allow_overlap: true })).body;
   return { venue, ballroom, garden };
+}
+
+export const TEST_PDF = Buffer.from('%PDF-1.4\n%test\n');
+
+/**
+ * Create a contract and bring it to the status asked for, the way users do (customer comment 9):
+ * every contract starts as ENQ; attaching the offer makes it TEN; DEF is set by hand once the
+ * signed copy is attached. Returns the last response, like a plain POST would.
+ */
+export async function book(c: Client, payload: Record<string, unknown>) {
+  const { status: want, force, ...rest } = payload;
+  const res = await c.post('/bookings', rest);
+  if (res.status >= 300 || !want || want === 'ENQ') return res;
+  const id = res.body.id;
+  await c.upload(`/bookings/${id}/files?kind=offer`, TEST_PDF, 'offer.pdf');
+  if (want === 'DEF') {
+    await c.upload(`/bookings/${id}/files?kind=signed_contract`, TEST_PDF, 'signed.pdf');
+    const moved = await c.post(`/bookings/${id}/status`, { status: 'DEF', force });
+    if (moved.status >= 300) return moved;
+  }
+  const detail = await c.get(`/bookings/${id}`);
+  return { status: 201, body: detail.body };
 }

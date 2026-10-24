@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
 import { parseTime } from '../src/lib/importer.js';
-import { makeApp, newTenant } from './helpers.js';
+import { makeApp, newTenant, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -94,7 +94,7 @@ describe('workbook import', () => {
     expect((await c.get(`/bookings/${list[2].id}`)).body.contact_id).toBe(lost.contact_id);
 
     // New bookings continue after the imported numbers.
-    expect((await c.post('/bookings', { name: 'new', event_date: '2026-08-01' })).body.booking_no).toBe('W2026004');
+    expect((await book(c, { name: 'new', event_date: '2026-08-01' })).body.booking_no).toBe('W2026004');
     const bus = (await c.get('/business-units')).body.map((b: any) => b.code);
     expect(bus).toContain('X');
   });

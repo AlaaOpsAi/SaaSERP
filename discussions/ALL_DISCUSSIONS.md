@@ -2108,6 +2108,73 @@ Proposal: basic vs full per module (below in the chat / proposal section 6). Wai
 - **Operator console:** ticks Contracts, HR (full) and Finance (full).
 - **Checks:** tested in the browser on the demo workspace (Contracts only).
 
+### Customer comment 9: contracts list, filters, KPIs, statuses, top bar and login (2026-10-24)
+
+The customer sent 20 comments, possibly written on an older version. Review against the current app: [outputs/comment-9-review.md](02_2026-10-16_continue-development-local/outputs/comment-9-review.md). The source Excel is `SALES_Daily Report.xlsx` (SYSTEM sheet).
+
+**Already done (✅):**
+- ENQ as the default;
+- automatic TEN when an offer is issued;
+- status history with date and user;
+- Excel-like column filters, column chooser, saved views and pivot (comment 8);
+- the greeting moved out of the page (comment 7).
+
+**Partly done (🟡):**
+- greeting shortened to first name - company / ID · date;
+- pink frame on active filters;
+- named filter boxes (CO | BRANCH | STATUS | PERIOD | LOC | PAYMENT | ENQ DT | AM | SOURCE);
+- Excel headers;
+- default columns with DETAILS;
+- follow-up timeline;
+- status rules (TEN from an uploaded offer, LOS "specify", CXL from Lost);
+- user abbreviation in the history.
+
+**New (🆕):**
+- single language button and thin logo frame;
+- search next to EXPORT;
+- CONTRACTS heading;
+- KPI strip;
+- folding filters;
+- quick filters (events / meetings / follow-ups);
+- Y | M | D date filters with numeric months;
+- removing "Follow-up due" / "Signed contract missing";
+- frozen first column and header;
+- login capitals and text.
+
+**Conflicts with earlier decisions (⚠️):** DEF must be **manual** with a signed copy, while today it's automatic on upload. ACT / PAID are not in the new list.
+
+**7 questions:** status rule (DEF manual, keep ACT / PAID?), meaning of Per Company / Branch / Employee, PAYMENT values, the missing "remove these columns" list, login text and product name XSELL ERP, the date-filter picture, freezing the header.
+
+Not building until confirmed (standing instruction).
+
+**Answers from `SALES_Daily Report.xlsx` (2026-10-24):**
+- **Statuses:** the PAR STATUS list is ENQ / TEN / DEF / CXL / LOS only. Payment is a separate PAYMENT STATUS list (PAID = fully paid, DP = down payment, INVOICED, TO INVOICE, TO PAY, REJECTED, CANCELED). So ACT / PAID stop being statuses and become the payment status, and the comment 16 status conditions apply.
+- **KPIs:** the SYSTEM top row gives TOTAL, DEF and conversion = DEF ÷ TOTAL, following the filters.
+- **Columns:** the hidden SYSTEM columns are the ones to remove (REV / COST / margin / profit, commissions and shares, fully paid date, client outstanding, aging).
+- **Freezing:** both sheets freeze 2 header rows and 9 columns.
+- **Product name:** X-SELL ERP (customer's task list).
+- **Still open:** the login replacement sentence and the date-filter picture.
+
+**Built (2026-10-24), go-ahead "use your recommendation" for the two open points.** See the table in the review ([outputs/comment-9-review.md](02_2026-10-16_continue-development-local/outputs/comment-9-review.md)). In short:
+- **Statuses:** ENQ / TEN / DEF / CXL / LOS with the workbook's conditions:
+  - TEN automatic on an offer printed or attached;
+  - DEF by hand, with the signed copy required;
+  - CXL from any status;
+  - LOS reason + specify.
+- **Payment:** PAYMENT is separate (DP / PAID automatic, plus Finance's values). Migration 015 moves ACT / PAID to DEF.
+- **Contract list:**
+  - CONTRACTS heading with the KPI strip;
+  - search next to EXPORT;
+  - folding FILTERS with quick lines (UPCOMING EVENTS / MEETINGS / FOLLOWUP) and named boxes (CO … SOURCE), pink when active;
+  - Y | M | D date filters;
+  - Excel column names and default columns, with DETAILS, LAST FOLLOWUP, FEEDBACK and NEXT MEETING;
+  - frozen header and first column;
+  - opens at the latest contracts.
+- **Top bar:** one language box, thin logo frame, "First name - company" / "ID · date".
+- **Login:** capitals and the new texts.
+- **History:** Date | Status | User code | days.
+- **Not yet:** stopping follow-up reminders after DEF / LOS / CXL.
+
 ### Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

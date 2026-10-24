@@ -136,7 +136,8 @@ export function parseTime(v: Cell): string {
 }
 
 const CLIENT_LOCATIONS = new Set(['HOME', 'CLIENT LOC']);
-const STATUSES = new Set(['ENQ', 'TEN', 'DEF', 'ACT', 'PAID', 'LOS', 'CXL']);
+// The daily report's STATUS list; ACT / PAID from older sheets count as DEF (payment shows as DP / PAID).
+const STATUSES = new Set(['ENQ', 'TEN', 'DEF', 'LOS', 'CXL']);
 
 class Resolver {
   private cache = new Map<string, string | null>();
@@ -305,7 +306,7 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
   const buId = await r.businessUnit(co);
 
   // The daily report still says INQ for an enquiry (renamed ENQ).
-  const rawStatus = text(row[C.status])?.toUpperCase().replace(/^INQ$/, 'ENQ') ?? 'ENQ';
+  const rawStatus = text(row[C.status])?.toUpperCase().replace(/^INQ$/, 'ENQ').replace(/^(ACT|PAID)$/, 'DEF') ?? 'ENQ';
   const status = STATUSES.has(rawStatus) ? rawStatus : 'ENQ';
   const lostText = text(row[C.lost]);
   const eventDate = isoDate(row[C.y], row[C.m], row[C.d]);
@@ -318,7 +319,7 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
   const hall = text(row[C.hall]);
   const venueId = locName ? await r.venue(locName) : null;
   // Only real holds get a room on the diary; lost enquiries keep the free-text hall.
-  const holdsSpace = ['TEN', 'DEF', 'ACT', 'PAID'].includes(status);
+  const holdsSpace = status === 'TEN' || status === 'DEF';
   const spaceId = venueId && hall && holdsSpace ? await r.space(venueId, locName!, hall) : null;
   const phone = text(row[C.phone]);
   const firstName = text(row[C.clientName]);
@@ -398,7 +399,7 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
       [bookingId, status],
     );
 
-    if (fields.fully_paid_date && ['DEF', 'ACT', 'PAID'].includes(status)) {
+    if (fields.fully_paid_date && status === 'DEF') {
       const amount = contractValue || revenue;
       if (amount) {
         await db.query(
@@ -425,7 +426,7 @@ async function importContractRow(db: Db, r: Resolver, row: Cell[], summary: Impo
         [bookingId, spaceId, eventDate, fields.pax],
       );
     }
-    // A confirmed contract takes DEF, ACT or PAID from the money received.
+    // The fully-paid date follows the money received.
     await syncStatus(db, bookingId, 'money_changed', null);
   }
 

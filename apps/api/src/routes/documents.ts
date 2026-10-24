@@ -12,15 +12,15 @@ import { requireRight } from '../lib/permissions.js';
 
 /**
  * Contract documents (customer comment 5):
- *  - upload the client's signed contract or proposal (JPEG, PNG or PDF) at any status; it moves ENQ / TEN to DEF,
- *    and a confirmed contract without one is flagged
- *  - issue a contract or proposal (any open or confirmed contract; an enquiry moves to TEN) and its annexes from the company's Word templates,
+ *  - attach the offer sent or the client's signed copy (JPEG, PNG or PDF) at any status: an enquiry becomes TEN;
+ *    DEF is then set by hand, and needs the signed copy
+ *  - issue (print) a contract or proposal (an enquiry moves to TEN) and its annexes from the company's Word templates,
  *    one set per business type and language, filled with the contract's data
  *  - the services & prices of the contract and the annex details (e.g. Wedding Specifications)
  */
 const id = z.object({ id: z.string().uuid() });
 const kind = z.enum(['contract', 'proposal', 'annex']);
-const fileKind = z.enum(['signed_contract', 'signed_proposal', 'annex', 'other']);
+const fileKind = z.enum(['offer', 'signed_contract', 'signed_proposal', 'annex', 'other']);
 const uuidList = z.string().optional().transform((s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : []))
   .pipe(z.array(z.string().uuid()));
 const MAX_UPLOAD = 15 * 1024 * 1024;
@@ -325,7 +325,7 @@ export async function documentRoutes(app: FastifyInstance) {
          VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, doc_no, kind`,
         [bookingId, prepared.templateId, body.kind, prepared.docNo, prepared.language, docxKey, pdfKey, JSON.stringify(prepared.data), req.user.sub]);
       await logChange(db, req, ctx, 'document issued', { doc_no: prepared.docNo, kind: body.kind });
-      if (body.kind !== 'annex') await syncStatus(db, bookingId, 'document_issued', req.user.sub, ctx.onBehalfOf);
+      if (body.kind !== 'annex') await syncStatus(db, bookingId, 'offer', req.user.sub, ctx.onBehalfOf);
       return { ...doc, has_pdf: Boolean(pdfKey) };
     });
   });
@@ -369,7 +369,7 @@ export async function documentRoutes(app: FastifyInstance) {
          VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, kind, file_name, mime, size_bytes, uploaded_at, document_id`,
         [bookingId, q.kind, documentId, name, MIME[type], file.data.length, key, req.user.sub]);
       await logChange(db, req, ctx, 'file uploaded', { kind: q.kind, file: name });
-      if (signs[q.kind]) await syncStatus(db, bookingId, 'signed_uploaded', req.user.sub, ctx.onBehalfOf);
+      if (q.kind === 'offer' || signs[q.kind]) await syncStatus(db, bookingId, 'offer', req.user.sub, ctx.onBehalfOf);
       return row;
     });
   });

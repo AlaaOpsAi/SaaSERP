@@ -12,7 +12,7 @@ import { confirmDiscard, Empty, ErrorNote, Field, Modal, useDirty } from './ui';
 
 export const DOC_KINDS: [DocKind, string][] = [['contract', 'Contract'], ['proposal', 'Proposal'], ['annex', 'Annex']];
 export const FILE_KINDS: [FileKind, string][] = [
-  ['signed_contract', 'Signed contract'], ['signed_proposal', 'Signed proposal'], ['annex', 'Annex'], ['other', 'Other'],
+  ['offer', 'Offer sent to the client'], ['signed_contract', 'Signed contract'], ['signed_proposal', 'Signed offer / proposal'], ['annex', 'Annex'], ['other', 'Other'],
 ];
 const docKindLabel = (k: DocKind) => t(DOC_KINDS.find(([x]) => x === k)?.[1] ?? k);
 const fileKindLabel = (k: FileKind) => t(FILE_KINDS.find(([x]) => x === k)?.[1] ?? k);
@@ -126,7 +126,7 @@ export function ContractDocuments({ b, canSell }: { b: BookingDetail; canSell: b
 
 /** Upload a file to a contract; also asked right after a contract is confirmed (DEF). */
 export function UploadDialog({ b, kind: initialKind, onClose, prompt }: {
-  b: Pick<BookingDetail, 'id' | 'booking_no' | 'documents'>; kind: FileKind; onClose: () => void; prompt?: boolean;
+  b: Pick<BookingDetail, 'id' | 'booking_no' | 'documents'>; kind: FileKind; onClose: () => void; prompt?: string;
 }) {
   const [kind, setKind] = useState<FileKind>(initialKind);
   const [file, setFile] = useState<File | null>(null);
@@ -142,14 +142,14 @@ export function UploadDialog({ b, kind: initialKind, onClose, prompt }: {
   }, [['booking', b.id], ['bookings'], ['dashboard']]);
   const tooBig = file && file.size > 15 * 1024 * 1024;
   return (
-    <Modal title={prompt ? t('Contract confirmed: upload the signed copy') : t('Upload file')} onClose={onClose}
+    <Modal title={t('Upload file')} onClose={onClose}
       footer={<>
-        <button type="button" onClick={onClose}>{prompt ? t('Later') : t('Cancel')}</button>
+        <button type="button" onClick={onClose}>{t('Cancel')}</button>
         <button className="primary" form="upload-form" disabled={!file || Boolean(tooBig) || save.isPending}>{save.isPending ? t('Uploading…') : t('Upload')}</button>
       </>}>
       <form id="upload-form" className="stack" onSubmit={(e) => { e.preventDefault(); save.mutate(undefined, { onSuccess: onClose }); }}>
         <ErrorNote error={save.error} />
-        {prompt && <p className="secondary" style={{ margin: 0 }}>{t('{no} is now Signed. Upload the contract the client signed, or do it later: the contract stays flagged until then.', { no: b.booking_no })}</p>}
+        {prompt && <p className="secondary" style={{ margin: 0 }}>{prompt}</p>}
         <Field label={t('Kind')}>
           <select value={kind} onChange={(e) => setKind(e.target.value as FileKind)}>
             {FILE_KINDS.map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}

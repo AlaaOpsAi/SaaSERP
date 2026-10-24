@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { login, makeApp, newTenant, platform } from './helpers.js';
+import { login, makeApp, newTenant, platform, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -17,7 +17,7 @@ describe('team users', () => {
     const owner = await newTenant(app);
     // As after an Excel import: an account manager with initials but no login, owning bookings…
     const imported = (await owner.post('/users', { name: 'JOU', code: 'JOU', is_active: false })).body;
-    const booking = (await owner.post('/bookings', { name: 'Imported wedding', owner_id: imported.id })).body;
+    const booking = (await book(owner, { name: 'Imported wedding', owner_id: imported.id })).body;
     // …and the same person added again as a login user.
     const login1 = (await owner.post('/users', { name: 'Joumana', email: 'joumana@x.com', password: 'password123' })).body;
 

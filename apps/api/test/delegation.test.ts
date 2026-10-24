@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { client, type Client, login, makeApp, newTenant, platform } from './helpers.js';
+import { client, type Client, login, makeApp, newTenant, platform, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -28,7 +28,7 @@ async function org() {
     client(app, (await login(app, `${n.toLowerCase()}@x.com`, 'password123', owner.slug)).json().token);
   const u = { mona, jou, gha, sami };
   const c = { owner, mona: await as('Mona'), jou: await as('Jou'), gha: await as('Gha'), sami: await as('Sami') };
-  const jouBooking = (await c.jou.post('/bookings', { name: 'Jou wedding', status: 'DEF', manual_revenue: 500 })).body;
+  const jouBooking = (await book(c.jou, { name: 'Jou wedding', status: 'DEF', manual_revenue: 500 })).body;
   const jouTask = (await c.jou.post('/activities', {
     booking_id: jouBooking.id, type: 'call', subject: 'Call the bride', due_at: new Date().toISOString(),
   })).body;
@@ -68,13 +68,13 @@ describe('delegation', () => {
 
     await c.jou.post('/delegations', { delegate_id: u.sami.id, starts_on: day(0) });
     expect((await c.sami.patch(`/bookings/${jouBooking.id}`, { pax: 120 })).status).toBe(200);
-    await c.sami.post(`/bookings/${jouBooking.id}/status`, { status: 'ACT' });
+    await c.sami.post(`/bookings/${jouBooking.id}/status`, { status: 'TEN' });
     const detail = (await c.owner.get(`/bookings/${jouBooking.id}`)).body;
     expect(detail.log.find((l: any) => l.action === 'updated')).toMatchObject({ actor_name: expect.stringMatching(/^Sami \(E\d{7}\)$/), on_behalf_of_name: expect.stringMatching(/^Jou \(E\d{7}\)$/), details: { fields: ['pax'] } });
-    expect(detail.history.at(-1)).toMatchObject({ to_status: 'ACT', changed_by_name: expect.stringMatching(/^Sami \(E\d{7}\)$/), on_behalf_of_name: expect.stringMatching(/^Jou \(E\d{7}\)$/) });
+    expect(detail.history.at(-1)).toMatchObject({ to_status: 'TEN', changed_by_name: expect.stringMatching(/^Sami \(E\d{7}\)$/), on_behalf_of_name: expect.stringMatching(/^Jou \(E\d{7}\)$/) });
     // Sami may create a booking for Jou while covering, but not for an outsider like Gha.
-    expect((await c.sami.post('/bookings', { name: 'New enquiry for Jou', owner_id: u.jou.id })).status).toBe(201);
-    expect((await c.sami.post('/bookings', { name: 'x', owner_id: u.gha.id })).status).toBe(403);
+    expect((await book(c.sami, { name: 'New enquiry for Jou', owner_id: u.jou.id })).status).toBe(201);
+    expect((await book(c.sami, { name: 'x', owner_id: u.gha.id })).status).toBe(403);
   });
 
   it('never lets a delegate take money actions', async () => {
@@ -129,7 +129,7 @@ describe('delegation', () => {
 describe('transfer when someone leaves', () => {
   it('moves open work to a colleague, keeps history, and deactivates the leaver', async () => {
     const { u, c, jouBooking, jouTask } = await org();
-    const lost = (await c.jou.post('/bookings', { name: 'Old lost lead' })).body;
+    const lost = (await book(c.jou, { name: 'Old lost lead' })).body;
     await c.jou.post(`/bookings/${lost.id}/status`, { status: 'LOS', reason: 'BUDGET' });
     await c.jou.post('/delegations', { delegate_id: u.gha.id, starts_on: day(0) });
 

@@ -253,7 +253,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       if (from.role === 'owner' && req.user.role !== 'owner') throw forbidden('Only owners can transfer an owner');
       if (!to.is_active) throw badRequest(`${to.name} is not active`);
 
-      const statuses = body.bookings === 'open' ? ['ENQ', 'TEN', 'DEF', 'ACT', 'PAID'] : ['ENQ', 'TEN', 'DEF', 'ACT', 'PAID', 'LOS', 'CXL'];
+      const statuses = body.bookings === 'open' ? ['ENQ', 'TEN', 'DEF'] : ['ENQ', 'TEN', 'DEF', 'LOS', 'CXL'];
       const moved = { bookings: 0, activities: 0, clients: 0, reports: 0 };
       if (body.bookings !== 'none') {
         const r = await db.query(

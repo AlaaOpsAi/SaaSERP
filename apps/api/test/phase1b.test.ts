@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { client, login, makeApp, makeVenue, newTenant, type Client } from './helpers.js';
+import { client, login, makeApp, makeVenue, newTenant, type Client, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -45,7 +45,7 @@ describe('activities', () => {
 
     const customer = (await c.post('/contacts', { name: 'New lead', phone: '55' })).body;
     expect((await c.post('/activities', { type: 'call', subject: 'First call', due_at: due, contact_id: customer.id })).status).toBe(200);
-    const b = (await c.post('/bookings', { name: 'Enquiry' })).body;
+    const b = (await book(c, { name: 'Enquiry' })).body;
     expect((await c.post('/activities', { type: 'meeting', subject: 'Visit', due_at: due, booking_id: b.id })).status).toBe(200);
     expect((await c.post('/activities', { type: 'social_post', subject: 'Instagram reel', due_at: due })).status).toBe(200);
   });
@@ -55,7 +55,7 @@ describe('activities', () => {
     const mona = await member(owner, 'Mona', 'marketing');
     const due = new Date().toISOString();
     expect((await mona.post('/activities', { type: 'campaign', subject: 'Wedding season ads', due_at: due })).status).toBe(200);
-    expect((await mona.post('/bookings', { name: 'Not allowed' })).status).toBe(403);
+    expect((await book(mona, { name: 'Not allowed' })).status).toBe(403);
     expect((await mona.get('/auth/me')).body.hidden_fields).toEqual(['finance']);
     const report = (await owner.get('/reports/daily-activity')).body;
     expect(report.people.map((p: any) => p.name)).toContain('Mona');
@@ -67,7 +67,7 @@ describe('activities', () => {
 
   it('carries open activities of a week over to the next week', async () => {
     const c = await newTenant(app);
-    const b = (await c.post('/bookings', { name: 'Gala' })).body;
+    const b = (await book(c, { name: 'Gala' })).body;
     const monday = '2026-11-02';
     const a = (await c.post('/activities', { booking_id: b.id, type: 'call', subject: 'Call', due_at: `${monday}T07:00:00Z` })).body;
     const done = (await c.post('/activities', { booking_id: b.id, type: 'call', subject: 'Done one', due_at: `${monday}T08:00:00Z` })).body;
@@ -79,7 +79,7 @@ describe('activities', () => {
 
   it('reports a whole month', async () => {
     const c = await newTenant(app);
-    const b = (await c.post('/bookings', { name: 'Gala' })).body;
+    const b = (await book(c, { name: 'Gala' })).body;
     const a = (await c.post('/activities', { booking_id: b.id, type: 'call', subject: 'Call', due_at: new Date().toISOString() })).body;
     await c.post(`/activities/${a.id}/complete`, {});
     const now = new Date();
@@ -95,8 +95,8 @@ describe('deactivate instead of delete', () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
     const venue = await makeVenue(owner);
-    const mine = (await sara.post('/bookings', { name: 'Typo booking', status: 'TEN', event_date: '2026-12-01', function_space_id: venue.ballroom.id })).body;
-    const def = (await owner.post('/bookings', { name: 'Definite', status: 'DEF', owner_id: (await sara.get('/auth/me')).body.id })).body;
+    const mine = (await book(sara, { name: 'Typo booking', status: 'TEN', event_date: '2026-12-01', function_space_id: venue.ballroom.id })).body;
+    const def = (await book(owner, { name: 'Definite', status: 'DEF', owner_id: (await sara.get('/auth/me')).body.id })).body;
 
     expect((await sara.post(`/bookings/${mine.id}/deactivate`, {})).status).toBe(400); // reason required
     expect((await sara.post(`/bookings/${def.id}/deactivate`, { reason: 'mistake' })).status).toBe(403);
@@ -107,7 +107,7 @@ describe('deactivate instead of delete', () => {
     expect((await owner.get('/bookings')).body.rows.map((r: any) => r.name)).toEqual(['Definite']);
     const diary = (await owner.get('/diary?from=2026-12-01&to=2026-12-01')).body;
     expect(diary.events).toHaveLength(0);
-    const again = await owner.post('/bookings', { name: 'Same room', status: 'DEF', event_date: '2026-12-01', function_space_id: venue.ballroom.id });
+    const again = await book(owner, { name: 'Same room', status: 'DEF', event_date: '2026-12-01', function_space_id: venue.ballroom.id });
     expect(again.status).toBe(201);
 
     // Only managers see the deactivated list; only admins delete, and only deactivated records.
@@ -128,7 +128,7 @@ describe('deactivate instead of delete', () => {
     const owner = await newTenant(app);
     const sara = await member(owner, 'Sara', 'sales');
     const free = (await sara.post('/contacts', { name: 'Wrong person', phone: '99001144' })).body;
-    const used = (await sara.post('/bookings', { name: 'B', contact: { name: 'Real client', phone: '9' } })).body;
+    const used = (await book(sara, { name: 'B', contact: { name: 'Real client', phone: '9' } })).body;
     expect((await sara.post(`/contacts/${free.id}/deactivate`, { reason: 'typo' })).status).toBe(200);
     expect((await sara.post(`/contacts/${used.contact_id}/deactivate`, { reason: 'typo' })).status).toBe(403);
     expect((await sara.get('/contacts')).body.map((x: any) => x.name)).toEqual(['Real client']);

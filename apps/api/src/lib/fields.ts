@@ -22,7 +22,7 @@ export const CONTRACT_FIELDS = {
   finance: {
     read: ['manual_revenue', 'manual_cost', 'revenue', 'cost', 'gross_margin', 'margin_pct', 'diff', 'fixed_cost',
       'cf_cost', 'net_profit', 'commission', 'shares', 'outstanding', 'aging_days', 'fully_paid_date', 'items', 'payouts'],
-    write: ['manual_revenue', 'manual_cost', 'fully_paid_date'],
+    write: ['manual_revenue', 'manual_cost', 'fully_paid_date', 'payment_status'],
   },
 } as const satisfies Record<string, { read: readonly string[]; write: readonly string[] }>;
 

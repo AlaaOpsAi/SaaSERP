@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, type Me } from '../api';
 import { useAuth } from '../auth';
-import { greeting, longToday } from '../format';
+import { numericToday } from '../format';
 import { LANGUAGES, lang, t } from '../i18n';
 import { MODULES, ordered } from '../modules';
 import { Bell } from './Bell';
@@ -28,10 +28,10 @@ export function TopBar() {
       <header className="topbar" dir="ltr">
         <Link to="/" className="topbar-brand" aria-label={t('Home')}>
           <LogoBox me={me} />
-          {/* The greeting and today's date live in the bar, so pages start with their content. */}
+          {/* First name - company, then employee ID and today's date as numbers (customer comment 9). */}
           <span className="topbar-greeting">
-            <span className="topbar-name" dir="auto">{greeting()}, {me.name}</span>
-            <span className="topbar-sub" dir="auto">{longToday()} · {me.tenant.name}{' '}{t('· figures in')}{' '}{me.tenant.currency}</span>
+            <span className="topbar-name" dir="auto">{me.name.split(' ')[0]} - {me.company?.name ?? me.tenant.name}</span>
+            <span className="topbar-sub" dir="ltr">{[me.employee_no, numericToday()].filter(Boolean).join(' · ')}</span>
           </span>
         </Link>
         <div className="topbar-actions">
@@ -66,7 +66,7 @@ export function LogoBox({ me }: { me: Me }) {
   );
 }
 
-/** EN | AR: switches the language straight away and remembers it on the account. */
+/** One box showing the current language; a click switches to the other one and remembers it on the account. */
 export function LanguageToggle() {
   const { me } = useAuth();
   const qc = useQueryClient();
@@ -76,13 +76,12 @@ export function LanguageToggle() {
     qc.setQueryData<Me>(['me'], (m) => (m ? { ...m, preferences: { ...m.preferences, locale: code } } : m));
     api('/me/preferences', { method: 'PATCH', body: { locale: code } }).catch(() => undefined);
   };
+  const next = LANGUAGES[(LANGUAGES.findIndex((l) => l.code === current) + 1) % LANGUAGES.length];
   return (
-    <div className="lang-toggle" role="group" aria-label={t('Language')} dir="ltr">
-      {LANGUAGES.map((l) => (
-        <button key={l.code} className={current === l.code ? 'on' : ''} aria-pressed={current === l.code} lang={l.code}
-          onClick={() => choose(l.code)} title={l.name}>{l.code.toUpperCase()}</button>
-      ))}
-    </div>
+    <button className="lang-one" dir="ltr" lang={next.code} onClick={() => choose(next.code)}
+      aria-label={t('Language: {name}. Switch to {other}', { name: lang().name, other: next.name })} title={next.name}>
+      {current.toUpperCase()}
+    </button>
   );
 }
 

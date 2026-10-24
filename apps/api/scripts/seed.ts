@@ -34,6 +34,30 @@ async function call<T = any>(method: string, url: string, token: string | null, 
   return res.json() as T;
 }
 
+/**
+ * Bring a new contract to TEN or DEF the way users do (customer comment 9): attach the offer
+ * (the contract becomes TEN by itself), then the signed copy, and mark it Signed by hand.
+ */
+const PDF = Buffer.from('%PDF-1.4\n%seed\n');
+async function attach(bookingId: string, kind: string, token: string) {
+  const boundary = '----saaserp-seed';
+  const payload = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${kind}.pdf"\r\nContent-Type: application/pdf\r\n\r\n`),
+    PDF, Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const res = await app.inject({ method: 'POST', url: `/api/bookings/${bookingId}/files?kind=${kind}`, payload,
+    headers: { authorization: `Bearer ${token}`, 'content-type': `multipart/form-data; boundary=${boundary}` } });
+  if (res.statusCode >= 400) throw new Error(`upload ${kind} -> ${res.statusCode} ${res.body}`);
+}
+async function advance(bookingId: string, status: string, token: string) {
+  if (status !== 'TEN' && status !== 'DEF') return;
+  await attach(bookingId, 'offer', token);
+  if (status === 'DEF') {
+    await attach(bookingId, 'signed_contract', token);
+    await call('POST', `/bookings/${bookingId}/status`, token, { status: 'DEF' });
+  }
+}
+
 async function stop(message: string, code = 0): Promise<never> {
   console.log(message);
   await app.close();
@@ -142,9 +166,10 @@ for (const s of samples) {
   const b = await call('POST', '/bookings', token, {
     name: s.name, contact: s.contact, event_type: s.event_type, source: s.source, owner_id: users[s.owner],
     function_space_id: venues[venueName].spaces[spaceName], event_date: s.date, pax: s.pax,
-    inquiry_date: d(1, 10), status: s.status === 'LOS' ? 'ENQ' : s.status,
+    inquiry_date: d(1, 10),
     credit_facility: 'cf' in s ? s.cf : false,
   });
+  await advance(b.id, s.status, token);
   if (s.status === 'LOS') await call('POST', `/bookings/${b.id}/status`, token, { status: 'LOS', reason: 'lost' in s ? s.lost : 'OTHER' });
   for (const [category, description, quantity, unit_price, unit_cost] of 'lines' in s ? s.lines : []) {
     await call('POST', `/bookings/${b.id}/items`, token, { category, description, quantity, unit_price, unit_cost });
@@ -188,9 +213,10 @@ for (let n = 0; n < 90; n++) {
     name: `${who} ${type === 'W' ? 'wedding' : type === 'C' ? 'conference' : type === 'G' ? 'graduation' : type === 'D' ? 'dinner' : 'reception'}`,
     contact: { name: who, phone: `9${String(1000000 + Math.floor(rand() * 8999999))}` },
     event_type: type, source: pick(sources), owner_id: users[owner], venue_id: pick(venueList).id,
-    event_date: iso(ev), inquiry_date: iso(enq), pax, status: status === 'LOS' || status === 'CXL' ? 'ENQ' : status,
+    event_date: iso(ev), inquiry_date: iso(enq), pax,
     credit_facility: rand() < 0.2,
   });
+  await advance(b.id, status, token);
   if (status === 'DEF' || status === 'TEN' || status === 'ENQ') {
     const price = 9 + Math.floor(rand() * 16);
     await call('POST', `/bookings/${b.id}/items`, token, { category: 'F&B', description: 'Dinner per guest', quantity: pax, unit_price: price, unit_cost: Math.round(price * (0.5 + rand() * 0.2) * 10) / 10 });
@@ -207,10 +233,7 @@ for (let n = 0; n < 90; n++) {
     }
   }
   if (status === 'LOS') await call('POST', `/bookings/${b.id}/status`, token, { status: 'LOS', reason: pick(reasons) });
-  if (status === 'CXL') {
-    await call('POST', `/bookings/${b.id}/status`, token, { status: 'TEN' });
-    await call('POST', `/bookings/${b.id}/status`, token, { status: 'CXL', reason: 'Client postponed indefinitely' });
-  }
+  if (status === 'CXL') await call('POST', `/bookings/${b.id}/status`, token, { status: 'CXL', reason: 'Client postponed indefinitely' });
 }
 
 if (existing) {

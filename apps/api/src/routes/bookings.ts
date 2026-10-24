@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { assertCanAssign, authed, can, hasRole, hiddenFields, requireRole, tx } from '../auth.js';
 import type { Db } from '../db.js';
-import { assertTransition, BLOCKING, findConflicts, nextBookingNo, syncStatus, type BookingStatus } from '../lib/booking.js';
+import { assertConditions, assertTransition, BLOCKING, findConflicts, nextBookingNo, PAYMENT_SQL, syncStatus, type BookingStatus } from '../lib/booking.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { contactName } from '../lib/contact.js';
 import { redactBooking, stripHidden } from '../lib/fields.js';
@@ -13,7 +13,7 @@ import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 const id = z.object({ id: z.string().uuid() });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const money = z.number().finite();
-const status = z.enum(['ENQ', 'TEN', 'DEF', 'ACT', 'PAID', 'LOS', 'CXL']);
+const status = z.enum(['ENQ', 'TEN', 'DEF', 'LOS', 'CXL']);
 
 const inlineContact = z.object({
   name: z.string().trim().min(1).optional(),
@@ -51,7 +51,9 @@ const bookingFields = z.object({
   followup_notes: z.string().nullish(),
   description: z.string().nullish(),
   lost_reason: z.string().nullish(),
+  lost_reason_note: z.string().max(2000).nullish(),
   cancel_reason: z.string().nullish(),
+  payment_status: z.enum(['INVOICED', 'TO INVOICE', 'TO PAY', 'REJECTED', 'CANCELED']).nullish(),
   manual_revenue: money.nullish(),
   manual_cost: money.nullish(),
   contract_value: money.nullish(),
@@ -62,7 +64,8 @@ const bookingFields = z.object({
 
 const bookingCreate = bookingFields.partial().extend({
   name: bookingFields.shape.name,
-  status: status.default('ENQ'),
+  // Every new lead starts as ENQ (customer comment 9); TEN and DEF come from its offer and signed copy.
+  status: z.literal('ENQ', { message: 'New contracts start as Enquiry (ENQ)' }).default('ENQ'),
   contact: inlineContact.optional(),
   force: z.boolean().optional(),
 });
@@ -71,6 +74,8 @@ const bookingPatch = bookingFields.omit({ business_unit_id: true }).partial();
 const statusChange = z.object({
   status,
   reason: z.string().trim().min(1).optional(),
+  /** LOS: the "specify" text that goes with the lost reason. */
+  note: z.string().trim().max(2000).optional(),
   force: z.boolean().optional(),
 });
 
@@ -145,7 +150,7 @@ const SORTS: Record<string, string> = {
 };
 
 /** A confirmed contract whose signed copy has not been uploaded (flagged, never blocked). */
-export const SIGNED_MISSING = `b.status IN ('DEF', 'ACT', 'PAID') AND NOT EXISTS (SELECT 1 FROM booking_files sf WHERE sf.booking_id = b.id AND sf.kind IN ('signed_contract', 'signed_proposal'))`;
+export const SIGNED_MISSING = `b.status = 'DEF' AND NOT EXISTS (SELECT 1 FROM booking_files sf WHERE sf.booking_id = b.id AND sf.kind IN ('signed_contract', 'signed_proposal'))`;
 
 /** Shared SELECT for booking rows with display names and finance figures. */
 const BOOKING_SELECT = `
@@ -159,9 +164,16 @@ const BOOKING_SELECT = `
          f.revenue, f.cost, f.gross_margin, f.margin_pct, f.diff, f.fixed_cost, f.cf_cost,
          f.net_profit, f.commission, f.shares, f.paid, f.outstanding, f.aging_days,
          -- DIFF CTRL of the daily report: money received less the contract value, for confirmed bookings.
-         CASE WHEN b.status IN ('DEF', 'ACT', 'PAID') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl,
+         CASE WHEN b.status IN ('DEF') AND b.contract_value IS NOT NULL THEN f.paid - b.contract_value END AS diff_ctrl,
          -- A confirmed contract without the client's signed copy uploaded.
-         (${SIGNED_MISSING}) AS signed_missing
+         (${SIGNED_MISSING}) AS signed_missing,
+         ${PAYMENT_SQL} AS payment,
+         -- LAST FOLLOWUP: the latest follow-up registered (it can be a planned one), with its text.
+         lf.followup_date AS last_followup_at, lf.followup_text AS last_followup_text,
+         (SELECT min(a.due_at) FROM activities a WHERE a.booking_id = b.id AND a.type IN ('meeting', 'site_visit')
+            AND a.completed_at IS NULL AND a.due_at >= now()) AS next_meeting_at,
+         (SELECT array_agg(a.due_at ORDER BY a.due_at) FROM activities a WHERE a.booking_id = b.id AND a.type IN ('meeting', 'site_visit')) AS meeting_dates,
+         (SELECT array_agg(a.due_at ORDER BY a.due_at) FROM activities a WHERE a.booking_id = b.id AND a.type IN ('followup', 'call')) AS followup_dates
   FROM bookings b
   JOIN business_units bu ON bu.id = b.business_unit_id
   JOIN booking_finance f ON f.booking_id = b.id
@@ -169,7 +181,12 @@ const BOOKING_SELECT = `
   LEFT JOIN contacts c ON c.id = b.contact_id
   LEFT JOIN accounts a ON a.id = b.account_id
   LEFT JOIN venues v ON v.id = b.venue_id
-  LEFT JOIN function_spaces s ON s.id = b.function_space_id`;
+  LEFT JOIN function_spaces s ON s.id = b.function_space_id
+  LEFT JOIN LATERAL (
+    SELECT a.due_at AS followup_date, coalesce(nullif(a.outcome, ''), nullif(a.notes, ''), a.subject) AS followup_text
+    FROM activities a WHERE a.booking_id = b.id AND a.type IN ('followup', 'call')
+    ORDER BY a.created_at DESC LIMIT 1
+  ) lf ON true`;
 
 async function loadBooking(db: Db, bookingId: string) {
   const { rows } = await db.query(`${BOOKING_SELECT} WHERE b.id = $1`, [bookingId]);
@@ -196,7 +213,7 @@ async function bookingDetail(db: Db, bookingId: string) {
   const payments = await q('SELECT * FROM payments WHERE booking_id = $1 ORDER BY paid_on, created_at');
   const payouts = await q('SELECT * FROM booking_payout_amounts WHERE booking_id = $1 ORDER BY kind, created_at');
   const history = await q(
-    `SELECT h.*, u.name || coalesce(' (' || u.employee_no || ')', '') AS changed_by_name, ob.name || coalesce(' (' || ob.employee_no || ')', '') AS on_behalf_of_name FROM booking_status_history h
+    `SELECT h.*, u.code AS changed_by_code, u.name || coalesce(' (' || u.employee_no || ')', '') AS changed_by_name, ob.name || coalesce(' (' || ob.employee_no || ')', '') AS on_behalf_of_name FROM booking_status_history h
      LEFT JOIN users u ON u.id = h.changed_by LEFT JOIN users ob ON ob.id = h.on_behalf_of
      WHERE h.booking_id = $1 ORDER BY h.changed_at`,
   );
@@ -290,10 +307,10 @@ export async function bookingRoutes(app: FastifyInstance) {
       const totals = (
         await db.query(
           `SELECT count(*) AS count,
-                  count(*) FILTER (WHERE b.status IN ('DEF','ACT','PAID')) AS definite,
-                  coalesce(sum(f.revenue) FILTER (WHERE b.status IN ('DEF','ACT','PAID')), 0) AS revenue,
-                  coalesce(sum(f.gross_margin) FILTER (WHERE b.status IN ('DEF','ACT','PAID')), 0) AS gross_margin,
-                  coalesce(sum(f.net_profit) FILTER (WHERE b.status IN ('DEF','ACT','PAID')), 0) AS net_profit,
+                  count(*) FILTER (WHERE b.status IN ('DEF')) AS definite,
+                  coalesce(sum(f.revenue) FILTER (WHERE b.status IN ('DEF')), 0) AS revenue,
+                  coalesce(sum(f.gross_margin) FILTER (WHERE b.status IN ('DEF')), 0) AS gross_margin,
+                  coalesce(sum(f.net_profit) FILTER (WHERE b.status IN ('DEF')), 0) AS net_profit,
                   coalesce(sum(f.outstanding), 0) AS outstanding,
                   count(*) FILTER (WHERE ${SIGNED_MISSING}) AS signed_missing
            FROM bookings b JOIN booking_finance f ON f.booking_id = b.id
@@ -401,7 +418,7 @@ export async function bookingRoutes(app: FastifyInstance) {
   app.post('/bookings/:id/status', sell, (req) =>
     tx(req, async (db) => {
       const bookingId = id.parse(req.params).id;
-      const { status: to, reason, force } = statusChange.parse(req.body);
+      const { status: to, reason, note, force } = statusChange.parse(req.body);
       const ctx = await writable(db, req, bookingId);
       const from = await bookingStatus(db, bookingId);
       assertTransition(from, to);
@@ -409,7 +426,10 @@ export async function bookingRoutes(app: FastifyInstance) {
       if ((to === 'LOS' || to === 'CXL') && !reason) {
         throw badRequest(to === 'LOS' ? 'A lost reason is required' : 'A cancellation reason is required');
       }
-      if (from === 'PAID' && !hasRole(req, can.manage)) throw badRequest('Only managers can move a fully paid contract back');
+      await assertConditions(db, bookingId, to);
+      if (to === 'LOS' && !(await db.query(`SELECT 1 FROM lookups WHERE type = 'lost_reason' AND code = $1`, [reason])).rows[0]) {
+        throw badRequest('Choose the lost reason from the list');
+      }
 
       if (BLOCKING.includes(to)) {
         const conflicts = await findConflicts(db, bookingId);
@@ -421,14 +441,15 @@ export async function bookingRoutes(app: FastifyInstance) {
       await db.query(
         `UPDATE bookings SET status = $2,
                 lost_reason   = CASE WHEN $2 = 'LOS' THEN $3 ELSE lost_reason END,
+                lost_reason_note = CASE WHEN $2 = 'LOS' THEN $4 ELSE lost_reason_note END,
                 cancel_reason = CASE WHEN $2 = 'CXL' THEN $3 ELSE cancel_reason END
          WHERE id = $1`,
-        [bookingId, to, reason ?? null],
+        [bookingId, to, reason ?? null, note ?? null],
       );
       await db.query(
         `INSERT INTO booking_status_history (tenant_id, booking_id, from_status, to_status, reason, changed_by, on_behalf_of)
          VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6)`,
-        [bookingId, from, to, reason ?? null, req.user.sub, ctx.onBehalfOf],
+        [bookingId, from, to, to === 'LOS' && note ? `${reason} · ${note}` : reason ?? null, req.user.sub, ctx.onBehalfOf],
       );
       return redactBooking(await bookingDetail(db, bookingId), hiddenFields(req));
     }),

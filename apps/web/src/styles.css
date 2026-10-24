@@ -568,7 +568,7 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 .logo-box {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   height: 48px; min-width: 48px; max-width: 160px; padding: 3px 6px;
-  border: 1px solid var(--text); border-radius: 8px; color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: 8px; color: var(--text);
 }
 .logo-box img { display: block; height: 40px; width: auto; max-width: 146px; object-fit: contain; }
 .logo-box .logo-dark { display: none; }
@@ -735,3 +735,52 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .org-tree > ul { padding-inline-start: 0; border: none; }
 .org-tree li { margin: 6px 0; }
 .org-node { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: start; padding: 6px 10px; }
+
+/* Contract list (customer comment 9): KPI boxes, filter boxes, frozen header and first column. */
+.contracts-head { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+.contracts-title { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.contracts-title h1 { margin: 0; letter-spacing: 0.04em; }
+.contracts-search { width: 240px; }
+.kpi-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.kpi-box { display: inline-flex; align-items: stretch; border: 1px solid var(--border-strong); background: var(--surface); font-size: 12px; min-height: 30px; }
+.kpi-box > span { display: inline-flex; align-items: center; padding: 0 9px; white-space: nowrap; }
+.kpi-name { font-weight: 700; letter-spacing: 0.03em; background: var(--surface-2); }
+.kpi-cell { border-inline-start: 1px solid var(--border); font-variant-numeric: tabular-nums; font-weight: 600; }
+.export-group { display: inline-flex; position: relative; }
+.export-group > button { font-weight: 700; letter-spacing: 0.04em; }
+.export-more summary { list-style: none; cursor: pointer; height: 100%; display: inline-flex; align-items: center; padding: 0 6px; border: 1px solid var(--border-strong); border-inline-start: none; background: var(--surface); }
+.export-more summary::-webkit-details-marker { display: none; }
+.export-menu { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 30; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow); padding: 4px; white-space: nowrap; }
+.filter-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.filter-toggle { display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.04em; }
+.filter-count { background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 0 6px; min-width: 18px; text-align: center; }
+.filter-lines { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
+.filter-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+.fbox { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border-strong); background: var(--surface); padding: 2px 4px; min-height: 34px; }
+.fbox select { border: none; background: transparent; width: 112px; font-weight: 600; font-size: 12px; padding: 4px 2px; }
+.fbox.on { border: 2px solid var(--accent); }
+.fbox-name { font-weight: 700; font-size: 12px; letter-spacing: 0.03em; padding: 0 4px; }
+.fbox-range .ymd { display: inline-flex; align-items: center; gap: 1px; }
+.ymd select { width: auto; min-width: 0; border: 1px solid var(--border); background: var(--surface); padding: 3px 2px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ymd-cal { padding: 2px 4px; min-height: 0; }
+.ymd-picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.details-cell { min-width: 220px; max-width: 360px; white-space: normal; }
+/* Freeze the header row and the CONTRACT ID column, like the Excel sheet. */
+.grid-wrap { max-height: calc(100vh - 230px); overflow: auto; }
+.grid-wrap thead th { position: sticky; top: 0; z-index: 3; background: var(--surface-2); }
+.grid-wrap tbody td:first-child, .grid-wrap tfoot td:first-child { position: sticky; inset-inline-start: 0; z-index: 2; background: var(--surface); }
+.grid-wrap thead th:first-child { inset-inline-start: 0; z-index: 4; }
+.grid-wrap tfoot td { position: sticky; bottom: 0; background: var(--surface-2); z-index: 2; }
+.grid-wrap tfoot td:first-child { z-index: 3; }
+.grid-wrap tbody tr.clickable:hover td:first-child { background: var(--surface-2); }
+
+/* One language box, the same size as the other top-bar boxes. */
+.lang-one { height: 38px; min-width: 42px; padding: 0 10px; font-weight: 700; font-size: 12.5px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); }
+.lang-switch .lang-one { height: auto; }
+/* Login: what reads as capitals is written in capitals (customer comment 9). */
+.auth-card h1, .auth-card .field, .auth-card button, .auth-card .btn, .auth-card .new-company span, .auth-tagline { text-transform: uppercase; letter-spacing: 0.03em; }
+.auth-card input { text-transform: none; }
+.ymd select { width: 46px; flex: none; }
+.ymd select:first-child { width: 62px; }
+.kpi-box { flex-wrap: wrap; max-width: 100%; }
+@media (max-width: 640px) { .contracts-search { width: 100%; } .fbox select { width: 96px; } }

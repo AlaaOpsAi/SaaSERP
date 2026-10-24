@@ -87,20 +87,25 @@ export function fromLocalInput(local: string): string {
 
 /** English status names (also the translation keys); use statusLabel() for display. */
 export const STATUS_LABEL: Record<Status, string> = {
-  ENQ: 'Enquiry', TEN: 'Offer sent', DEF: 'Signed', ACT: 'Actualised', PAID: 'Fully paid', LOS: 'Lost', CXL: 'Cancelled',
+  ENQ: 'Enquiry', TEN: 'Offer sent', DEF: 'Signed', LOS: 'Lost', CXL: 'Cancelled',
 };
+/** Statuses that only appear in older history (before customer comment 9). */
+const OLD_STATUS: Record<string, string> = { INQ: 'Enquiry', ACT: 'Actualised', PAID: 'Fully paid' };
 
+/** Moves by hand (the daily report's STATUS CONDITIONS): TEN needs an offer, DEF a signed copy. */
 export const TRANSITIONS: Record<Status, Status[]> = {
   ENQ: ['TEN', 'DEF', 'LOS', 'CXL'],
   TEN: ['ENQ', 'DEF', 'LOS', 'CXL'],
-  DEF: ['TEN', 'ACT', 'PAID', 'CXL'],
-  ACT: ['DEF', 'PAID', 'CXL'],
-  PAID: ['DEF', 'ACT', 'CXL'],
-  LOS: ['ENQ', 'TEN'],
+  DEF: ['TEN', 'CXL'],
+  LOS: ['ENQ', 'TEN', 'CXL'],
   CXL: ['TEN'],
 };
 
-export const statusLabel = (s: Status) => t(STATUS_LABEL[s]);
+export const PAYMENT_LABEL: Record<string, string> = {
+  DP: 'Down payment', PAID: 'Fully paid', INVOICED: 'Invoiced', 'TO INVOICE': 'To invoice', 'TO PAY': 'To pay', REJECTED: 'Rejected', CANCELED: 'Canceled',
+};
+
+export const statusLabel = (s: Status) => t(STATUS_LABEL[s] ?? OLD_STATUS[s] ?? s);
 
 /** Short month names in the active language. */
 export function monthNames(): string[] {
@@ -116,4 +121,10 @@ export function greeting(): string {
 
 export function longToday(): string {
   return new Date().toLocaleDateString(intlLocale(), { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** Today as numbers, dd/mm/yyyy, in the workspace time zone (no month names: customer comment 9). */
+export function numericToday(): string {
+  const { y, m, d } = zoned(new Date());
+  return `${d}/${m}/${y}`;
 }

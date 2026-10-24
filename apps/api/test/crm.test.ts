@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
 import { DB_HEADERS } from '../src/lib/crm-workbook.js';
-import { makeApp, newTenant, type Client } from './helpers.js';
+import { makeApp, newTenant, type Client, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -66,7 +66,7 @@ describe('CRM rules', () => {
 
   it('keeps several relationships per customer, and an applicant profile', async () => {
     const c = await newTenant(app);
-    const b = (await c.post('/bookings', { name: 'Manpower supply' })).body;
+    const b = (await book(c, { name: 'Manpower supply' })).body;
     const p = (await c.post('/contacts', { first_name: 'Abdulaziz', phone: '67682111', civil_id: '298010100123', gender: 'M', title: 'MR' })).body;
     expect((await c.post(`/contacts/${p.id}/relationships`, { relation: 'APPL', segment: 'MANPOWER', booking_id: b.id })).status).toBe(200);
     expect((await c.post(`/contacts/${p.id}/relationships`, { relation: 'CLIENT', relation_old: 'KNOW' })).status).toBe(200);
@@ -97,7 +97,7 @@ describe('CRM workbook', () => {
   it('imports the DB layout (merging by email) and exports the same 56 columns', async () => {
     const c = await newTenant(app);
     await c.post('/users', { name: 'Glory', code: 'GLORY', role: 'sales', is_active: false });
-    const contract = (await c.post('/bookings', { name: 'Manpower' })).body;
+    const contract = (await book(c, { name: 'Manpower' })).body;
     const data = await workbook([
       { 0: 'C000001', 1: 1, 2: 'APPL', 3: 'Manpower | HR', 4: 2025, 5: 5, 6: 8, 7: 'Mr.', 8: 'A B D U L A Z I Z ', 9: 'ALFARHAN', 10: 'Electrical Engineer',
         11: 'TOURISTIC ENTERPRISES', 12: 'P', 13: 'M', 14: 'Kuwait', 15: 965, 16: 67682111, 19: 'Abdul@Example.com', 22: 'Kuwait', 23: 'Farwaniya',

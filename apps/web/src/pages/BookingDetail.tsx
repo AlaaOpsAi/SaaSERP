@@ -10,7 +10,7 @@ import { ContractDocuments, UploadDialog } from '../components/ContractDocuments
 import { activityType, CompleteButton } from '../components/CompleteActivity';
 import { DeactivateButton, FormActions } from '../components/FormActions';
 import { confirmDiscard, Empty, ErrorNote, Field, LookupSelect, Modal, SkeletonPage, StatusBadge, Tabs, useForm } from '../components/ui';
-import { date, dateTime, fromLocalInput, money, num, pct, statusLabel, time, today, toLocalInput, TRANSITIONS } from '../format';
+import { date, dateTime, fromLocalInput, money, num, PAYMENT_LABEL, pct, statusLabel, time, today, toLocalInput, TRANSITIONS } from '../format';
 import { useLabel, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { t } from '../i18n';
 
@@ -120,7 +120,7 @@ function CoverNote({ b }: { b: BookingDetail }) {
 }
 
 function Pipeline({ status }: { status: Status }) {
-  const steps: Status[] = ['ENQ', 'TEN', 'DEF', 'ACT', 'PAID'];
+  const steps: Status[] = ['ENQ', 'TEN', 'DEF'];
   const idx = steps.indexOf(status);
   return (
     <div className="pipeline" style={{ marginBottom: 16 }}>
@@ -139,36 +139,38 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
   const { data: lookups } = useLookups();
   const [target, setTarget] = useState<Status | null>(null);
   const [reason, setReason] = useState<string | null>(null);
-  const [askSigned, setAskSigned] = useState(false);
+  const [note, setNote] = useState('');
+  const [attach, setAttach] = useState<{ kind: 'offer' | 'signed_contract'; text: string } | null>(null);
   const change = useSave(
     (v: { status: Status; reason?: string | null; force?: boolean }) =>
-      api(`/bookings/${booking.id}/status`, { body: { status: v.status, reason: v.reason || undefined, force: v.force } }),
+      api(`/bookings/${booking.id}/status`, { body: { status: v.status, reason: v.reason || undefined, note: v.status === 'LOS' && note ? note : undefined, force: v.force } }),
     [['booking', booking.id], ['bookings'], ['dashboard'], ['diary']],
   );
   const conflicts: Conflict[] | undefined = (change.error as { details?: { conflicts?: Conflict[] } } | null)?.details?.conflicts;
   if (!can('sell')) return null;
 
+  // STATUS CONDITIONS (customer comment 9): TEN needs an offer printed or attached, DEF the signed copy.
+  const hasOffer = booking.documents.some((d) => d.kind !== 'annex') || booking.files.some((f) => ['offer', 'signed_proposal', 'signed_contract'].includes(f.kind));
+  const hasSigned = booking.files.some((f) => f.kind === 'signed_contract' || f.kind === 'signed_proposal');
   const needsReason = (s: Status) => s === 'LOS' || s === 'CXL';
   const go = (s: Status, force = false) => {
+    if (s === 'TEN' && !hasOffer) { setAttach({ kind: 'offer', text: t('Attach the offer you sent (or print one under Documents): the contract then becomes Offer sent by itself.') }); return; }
+    if (s === 'DEF' && !hasSigned) { setAttach({ kind: 'signed_contract', text: t('Attach the signed offer or contract first, then mark it Signed.') }); return; }
     if (needsReason(s) && !reason) {
       setTarget(s);
       return;
     }
-    change.mutate({ status: s, reason, force }, { onSuccess: (updated: BookingDetail) => {
-      setTarget(null); setReason(null);
-      // Confirmed: ask for the client's signed copy straight away (it can wait; the contract stays flagged).
-      if (s === 'DEF' && updated?.signed_missing) setAskSigned(true);
-    } });
+    change.mutate({ status: s, reason, force }, { onSuccess: () => { setTarget(null); setReason(null); setNote(''); } });
   };
   const labels: Partial<Record<Status, string>> = {
-    TEN: 'Mark offer sent', DEF: 'Mark signed', ACT: 'Mark part paid', PAID: 'Mark fully paid', LOS: 'Mark lost', CXL: 'Cancel', ENQ: 'Back to enquiry',
+    TEN: 'Mark offer sent', DEF: 'Mark signed', LOS: 'Mark lost', CXL: 'Cancel', ENQ: 'Back to enquiry',
   };
 
   return (
     <div className="stack" style={{ alignItems: 'flex-end', gap: 8 }}>
       <div className="row">
         {TRANSITIONS[booking.status].map((s) => (
-          <button key={s} className={s === 'DEF' && (booking.status === 'ENQ' || booking.status === 'TEN') ? 'primary' : needsReason(s) ? 'danger' : ''} disabled={change.isPending}
+          <button key={s} className={s === 'DEF' && booking.status === 'TEN' ? 'primary' : needsReason(s) ? 'danger' : ''} disabled={change.isPending}
             onClick={() => go(s)}>
             {t(labels[s] ?? s)}
           </button>
@@ -180,7 +182,7 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
           {conflicts && can('manage') && <button className="sm danger" onClick={() => go('DEF', true)}>{t("Override clash & confirm")}</button>}
         </div>
       )}
-      {askSigned && <UploadDialog b={booking} kind="signed_contract" prompt onClose={() => setAskSigned(false)} />}
+      {attach && <UploadDialog b={booking} kind={attach.kind} prompt={attach.text} onClose={() => setAttach(null)} />}
       {target && (
         <Modal
           title={target === 'LOS' ? t("Why was this booking lost?") : t("Why is this booking cancelled?")}
@@ -193,7 +195,10 @@ function StatusActions({ booking }: { booking: BookingDetail }) {
           <div className="stack">
             <ErrorNote error={change.error} />
             {target === 'LOS' ? (
-              <Field label={t("Lost reason")}><LookupSelect options={lookups?.lost_reason} value={reason} onChange={setReason} placeholder={t("Choose a reason…")} /></Field>
+              <>
+                <Field label={t("Lost reason")}><LookupSelect options={lookups?.lost_reason} value={reason} onChange={setReason} placeholder={t("Choose a reason…")} /></Field>
+                <Field label={t("Specify (optional)")}><textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("More details about the reason")} /></Field>
+              </>
             ) : (
               <Field label={t("Cancellation reason")}><textarea value={reason ?? ''} onChange={(e) => setReason(e.target.value || null)} /></Field>
             )}
@@ -239,6 +244,7 @@ function ProfitCard({ b }: { b: BookingDetail }) {
           <dt><strong>{t("Outstanding")}</strong></dt><dd className="num"><strong>{money(b.outstanding)}</strong></dd>
           <dt>{t("Aging")}</dt><dd className="num">{b.aging_days ? `${b.aging_days} days` : '—'}</dd>
           <dt>{t("Fully paid")}</dt><dd className="num">{date(b.fully_paid_date)}</dd>
+          <dt>{t("PAYMENT")}</dt><dd className="num">{b.payment ? <span className="tag" title={t(PAYMENT_LABEL[b.payment] ?? b.payment)}>{b.payment}</span> : '—'}</dd>
         </dl>
       </div>
     </div>
@@ -302,7 +308,7 @@ function ContractGroups({ b, onEdit }: { b: BookingDetail; onEdit: () => void })
           <dt>{t('Decision due')}</dt><dd>{date(b.decision_due_date)}</dd>
           <dt>{t('Last follow-up')}</dt><dd>{date(b.last_followup_date)}</dd>
           <dt>{t('Next follow-up')}</dt><dd>{date(b.next_followup_date)}</dd>
-          {b.lost_reason && <><dt>{t('Lost reason')}</dt><dd>{label.lost(b.lost_reason)}</dd></>}
+          {b.lost_reason && <><dt>{t('Lost reason')}</dt><dd>{label.lost(b.lost_reason)}{b.lost_reason_note && <div className="small secondary">{b.lost_reason_note}</div>}</dd></>}
           {b.cancel_reason && <><dt>{t('Cancel reason')}</dt><dd>{b.cancel_reason}</dd></>}
         </dl>
         {b.description && <div><h4>{t('Request & notes')}</h4><p className="secondary pre">{b.description}</p></div>}
@@ -687,33 +693,59 @@ function Money({ b }: { b: BookingDetail }) {
   );
 }
 
+/**
+ * STATUS HISTORY (customer comment 9): Date | Status | User, with how long the lead lived,
+ * how long it spent in each status and how many people worked on it. Changes to the contract follow.
+ */
 function History({ b }: { b: BookingDetail }) {
   const lostLabel = useLabel('lost_reason');
-  type Entry = { at: string; who: string | null; behalf: string | null; what: React.ReactNode };
-  const entries: Entry[] = [
-    ...b.history.map((h) => ({
-      at: h.changed_at, who: h.changed_by_name, behalf: h.on_behalf_of_name,
-      what: <>{h.from_status ? <><StatusBadge status={h.from_status} /> → </> : t("Created as ")}<StatusBadge status={h.to_status} />
-        {h.reason && <span className="secondary"> · {h.to_status === 'LOS' ? lostLabel(h.reason) : h.reason}</span>}</>,
-    })),
-    ...b.log.map((l) => ({
-      at: l.created_at, who: l.actor_name, behalf: l.on_behalf_of_name,
-      what: <>{l.action[0].toUpperCase() + l.action.slice(1)}<span className="secondary">{describe(l.details)}</span></>,
-    })),
-  ].sort((x, y) => x.at.localeCompare(y.at));
+  const steps = [...b.history].sort((x, y) => x.changed_at.localeCompare(y.changed_at));
+  const day = 86_400_000;
+  const ended = ['DEF', 'LOS', 'CXL'].includes(b.status) ? steps.at(-1)?.changed_at : null;
+  const lifeDays = steps.length ? Math.round(((ended ? new Date(ended).getTime() : Date.now()) - new Date(steps[0].changed_at).getTime()) / day) : 0;
+  const people = new Set(steps.map((h) => h.changed_by_code ?? h.changed_by_name).filter(Boolean)).size;
+  const log = [...b.log].sort((x, y) => x.created_at.localeCompare(y.created_at));
   return (
-    <table>
-      <thead><tr><th>{t("When")}</th><th>{t("What")}</th><th>{t("By")}</th></tr></thead>
-      <tbody>
-        {entries.map((e, i) => (
-          <tr key={i}>
-            <td style={{ whiteSpace: 'nowrap' }}>{dateTime(e.at)}</td>
-            <td>{e.what}</td>
-            <td>{e.who ?? '—'}{e.behalf && <div className="small muted">{t("on behalf of")}{' '}{e.behalf}</div>}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="stack">
+      <p className="small secondary" style={{ margin: 0 }}>
+        {t('Lead life span: {n} days', { n: lifeDays })}{ended ? ` (${t('until {s}', { s: statusLabel(b.status) })})` : ''} · {t('People who changed its status: {n}', { n: people })}
+      </p>
+      <table>
+        <thead><tr><th>{t("DATE")}</th><th>{t("STATUS")}</th><th>{t("USER")}</th><th className="num">{t("DAYS IN STATUS")}</th><th>{t("Reason")}</th></tr></thead>
+        <tbody>
+          {steps.map((h, i) => {
+            const next = steps[i + 1]?.changed_at;
+            const days = Math.round(((next ? new Date(next).getTime() : Date.now()) - new Date(h.changed_at).getTime()) / day);
+            return (
+              <tr key={h.id}>
+                <td style={{ whiteSpace: 'nowrap' }}>{dateTime(h.changed_at)}</td>
+                <td><StatusBadge status={h.to_status} /></td>
+                <td title={h.changed_by_name ?? ''}><strong>{h.changed_by_code ?? h.changed_by_name ?? '—'}</strong>{h.on_behalf_of_name && <div className="small muted">{t("on behalf of")}{' '}{h.on_behalf_of_name}</div>}</td>
+                <td className="num">{next || !['LOS', 'CXL'].includes(h.to_status) ? days : '—'}</td>
+                <td className="secondary">{h.reason ? (h.to_status === 'LOS' ? lostLabel(h.reason.split(' · ')[0]) + (h.reason.includes(' · ') ? ` · ${h.reason.split(' · ').slice(1).join(' · ')}` : '') : t(h.reason)) : ''}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {log.length > 0 && (
+        <>
+          <h3 style={{ margin: '12px 0 0' }}>{t('Changes')}</h3>
+          <table>
+            <thead><tr><th>{t("When")}</th><th>{t("What")}</th><th>{t("By")}</th></tr></thead>
+            <tbody>
+              {log.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{dateTime(l.created_at)}</td>
+                  <td>{l.action[0].toUpperCase() + l.action.slice(1)}<span className="secondary">{describe(l.details)}</span></td>
+                  <td>{l.actor_name ?? '—'}{l.on_behalf_of_name && <div className="small muted">{t("on behalf of")}{' '}{l.on_behalf_of_name}</div>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
   );
 }
 

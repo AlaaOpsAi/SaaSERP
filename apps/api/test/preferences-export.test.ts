@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { client, login, makeApp, newTenant } from './helpers.js';
+import { client, login, makeApp, newTenant, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -45,7 +45,7 @@ describe('full workspace export', () => {
     const owner = await newTenant(app);
     await owner.post('/users', { name: 'Ada Admin', email: 'ada@x.com', role: 'admin', password: 'password123' });
     await owner.post('/users', { name: 'Sam Sales', email: 'sam@x.com', role: 'sales', password: 'password123' });
-    await owner.post('/bookings', { name: 'Exported wedding', status: 'DEF', manual_revenue: 1000, contact: { name: 'Mona', phone: '1' } });
+    await book(owner, { name: 'Exported wedding', status: 'DEF', manual_revenue: 1000, contact: { name: 'Mona', phone: '1' } });
     const ada = client(app, (await login(app, 'ada@x.com', 'password123', owner.slug)).json().token);
     const sam = client(app, (await login(app, 'sam@x.com', 'password123', owner.slug)).json().token);
 

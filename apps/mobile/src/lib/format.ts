@@ -76,11 +76,11 @@ export function greeting(): string {
 }
 
 const STATUS_EN: Record<Status, string> = {
-  ENQ: 'Enquiry', TEN: 'Offer sent', DEF: 'Signed', ACT: 'Actualised', PAID: 'Fully paid', LOS: 'Lost', CXL: 'Cancelled',
+  ENQ: 'Enquiry', TEN: 'Offer sent', DEF: 'Signed', LOS: 'Lost', CXL: 'Cancelled',
 };
 /** Status names in the active language. */
 export const STATUS_LABEL = new Proxy(STATUS_EN, { get: (o, k: string) => t(o[k as Status] ?? k) });
 export const TRANSITIONS: Record<Status, Status[]> = {
-  ENQ: ['TEN', 'DEF', 'LOS', 'CXL'], TEN: ['ENQ', 'DEF', 'LOS', 'CXL'], DEF: ['TEN', 'ACT', 'PAID', 'CXL'],
-  ACT: ['DEF', 'PAID', 'CXL'], PAID: ['DEF', 'ACT', 'CXL'], LOS: ['ENQ', 'TEN'], CXL: ['TEN'],
+  ENQ: ['TEN', 'DEF', 'LOS', 'CXL'], TEN: ['ENQ', 'DEF', 'LOS', 'CXL'], DEF: ['TEN', 'CXL'],
+  LOS: ['ENQ', 'TEN', 'CXL'], CXL: ['TEN'],
 };

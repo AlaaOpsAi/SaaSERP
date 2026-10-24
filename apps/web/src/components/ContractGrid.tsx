@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowDown, ArrowDownAZ, ArrowUp, ArrowUpAZ, Filter, X } 
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Booking, ContractField } from '../api';
-import { date, money, monthNames, num, statusLabel } from '../format';
+import { money, num } from '../format';
 import { t } from '../i18n';
 import { StatusBadge } from './ui';
 
@@ -14,10 +14,11 @@ import { StatusBadge } from './ui';
  * The contract list as an Excel-like grid (customer comment 8): a filter on every column
  * (tick-list or from / to), sorting, a column chooser and a pivot. Everything happens in the
  * browser over the contracts the server sent, so it only ever shows what the person may see.
+ * Column names and the standard columns follow the SYSTEM sheet of the daily report (comment 9).
  */
 
-export type Kind = 'text' | 'number' | 'money' | 'date';
-type Value = string | number | undefined;
+export type Kind = 'text' | 'number' | 'money' | 'date' | 'dates';
+type Value = string | number | string[] | undefined;
 
 export interface GridColumn {
   id: string;
@@ -31,67 +32,85 @@ export interface GridColumn {
   cell?: (b: Booking) => ReactNode;
   /** Shown before the person picks their own columns. */
   standard?: boolean;
+  /** Used only by the filter boxes, never shown as a column. */
+  internal?: boolean;
 }
 
-const blank = (v: Value) => v === undefined || v === null || v === '';
+const blank = (v: Value) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
 const orUndef = (v: string | number | null | undefined): Value => (v === null || v === '' ? undefined : v);
 
-/** Year-month of the event (or the enquiry when there is no event date yet), e.g. 2026-03. */
+/** Year-month of the event (or the enquiry when there is no event date yet), e.g. 2026-03: months as numbers. */
 const monthKey = (b: Booking) => (b.event_date ?? b.inquiry_date)?.slice(0, 7);
-const monthText = (v: Value) => {
-  if (blank(v)) return '';
-  const [y, m] = String(v).split('-');
-  return `${monthNames()[Number(m) - 1]} ${y}`;
+/** Dates as numbers, year first like the Y | M | D columns of the daily report: 2026-12-13. */
+export const ymd = (v: string | null | undefined) => (v ? v.slice(0, 10) : '');
+const localDay = (iso: string | null) => {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+const today = () => localDay(new Date().toISOString())!;
+
+/** DETAILS: nationality - client name - phone, then the description (CLIENT when there is no name). */
+function details(b: Booking) {
+  const name = [b.contact_first_name, b.contact_family_name].filter(Boolean).join(' ') || b.contact_name || b.account_name || t('CLIENT');
+  return { line: [b.contact_nationality, name, b.contact_phone].filter(Boolean).join(' - '), text: b.description ?? '' };
+}
 
 export function contractColumns(o: { eventLabel: (c: string | null) => string; sourceLabel: (c: string | null) => string; fin: boolean }): GridColumn[] {
   const moneyCol = (id: string, label: string, field: ContractField, get: (b: Booking) => number | null, standard = false): GridColumn =>
     ({ id, label, kind: 'money', field, get: (b) => orUndef(get(b)), standard });
+  const dateCol = (id: string, label: string, get: (b: Booking) => string | null | undefined, standard = false): GridColumn =>
+    ({ id, label, kind: 'date', get: (b) => orUndef(ymd(get(b))), cell: (b) => ymd(get(b)) || '—', standard });
   return [
-    { id: 'booking_no', label: t('No.'), kind: 'text', get: (b) => b.booking_no, cell: (b) => <strong>{b.booking_no}</strong>, standard: true },
+    { id: 'booking_no', label: 'CONTRACT ID', kind: 'text', get: (b) => b.booking_no, cell: (b) => <strong>{b.booking_no}</strong>, standard: true },
+    { id: 'co', label: 'CO', kind: 'text', field: 'business_unit', get: (b) => orUndef(b.business_unit_code), standard: true },
+    { id: 'branch', label: 'BRANCH', kind: 'text', field: 'branch', get: (b) => orUndef(b.branch), standard: true },
     {
-      id: 'name', label: t('Booking / client'), kind: 'text', get: (b) => b.name, standard: true,
-      cell: (b) => <>{b.name}<div className="small secondary">{[b.contact_name, b.contact_phone].filter(Boolean).join(' · ')}</div></>,
-    },
-    { id: 'client', label: t('Client'), kind: 'text', get: (b) => orUndef(b.contact_name ?? b.account_name) },
-    { id: 'phone', label: t('Phone'), kind: 'text', get: (b) => orUndef(b.contact_phone) },
-    {
-      id: 'status', label: t('Status'), kind: 'text', get: (b) => b.status, fmt: (v) => (blank(v) ? '' : statusLabel(v as Booking['status'])), standard: true,
+      id: 'status', label: 'STATUS', kind: 'text', get: (b) => b.status, standard: true,
       cell: (b) => <><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}><AlertTriangle className="ico" aria-hidden /> {t('No signed copy')}</span></div>}</>,
     },
+    dateCol('event_date', 'EVENT Y | M | D', (b) => b.event_date, true),
+    { id: 'year', label: 'Y', kind: 'text', get: (b) => monthKey(b)?.slice(0, 4) },
+    { id: 'month', label: 'Y | M', kind: 'text', get: (b) => monthKey(b) },
+    { id: 'venue', label: 'HOTEL LOC', kind: 'text', get: (b) => orUndef(b.venue_name), standard: true },
+    { id: 'space', label: 'HALL AREA', kind: 'text', get: (b) => orUndef(b.space_name ?? b.hall_text), standard: true },
+    { id: 'pax', label: 'PAX UNITS', kind: 'number', field: 'pax', get: (b) => orUndef(b.pax), standard: true },
+    { id: 'rate', label: 'RATE PP | PU', kind: 'money', field: 'rate', get: (b) => orUndef(b.rate), standard: true },
+    { id: 'term_days', label: 'TERM DAYS RN', kind: 'number', field: 'rate', get: (b) => orUndef(b.term_days), standard: true },
+    moneyCol('contract_value', 'TOTAL CONTRACT VALUE', 'contract_value', (b) => b.contract_value, true),
+    moneyCol('paid', 'MONEY RECEIVED DP', 'money_received', (b) => b.paid, true),
+    moneyCol('to_collect', 'CASH TO COLLECT', 'contract_value', (b) => b.diff_ctrl, true),
+    { id: 'payment', label: 'PAYMENT', kind: 'text', field: 'money_received', get: (b) => orUndef(b.payment), standard: true },
+    { id: 'source', label: 'SOURCE', kind: 'text', field: 'source', get: (b) => orUndef(b.source), standard: true },
+    { id: 'owner', label: 'AM', kind: 'text', field: 'owner', get: (b) => orUndef(b.owner_code ?? b.owner_name), standard: true },
     {
-      id: 'event_date', label: t('Event date'), kind: 'date', get: (b) => orUndef(b.event_date), standard: true,
-      cell: (b) => <>{date(b.event_date)}<div className="small secondary">{o.eventLabel(b.event_type)}</div></>,
+      id: 'details', label: 'DETAILS', kind: 'text', standard: true,
+      get: (b) => { const d = details(b); return `${d.line} ${d.text}`.trim(); },
+      cell: (b) => { const d = details(b); return <div className="details-cell">{d.line}{d.text && <div className="small secondary">{d.text}</div>}</div>; },
     },
-    { id: 'month', label: t('Month'), kind: 'text', get: (b) => monthKey(b), fmt: monthText },
-    { id: 'year', label: t('Year'), kind: 'text', get: (b) => monthKey(b)?.slice(0, 4) },
-    { id: 'event_type', label: t('Event type'), kind: 'text', field: 'event_type', get: (b) => orUndef(b.event_type), fmt: (v) => (blank(v) ? '' : o.eventLabel(String(v))) },
-    {
-      id: 'venue', label: t('Venue'), kind: 'text', get: (b) => orUndef(b.venue_name), standard: true,
-      cell: (b) => <>{b.venue_name ?? '—'}<div className="small secondary">{b.space_name ?? b.hall_text ?? ''}</div></>,
-    },
-    { id: 'space', label: t('Hall'), kind: 'text', get: (b) => orUndef(b.space_name ?? b.hall_text) },
-    { id: 'pax', label: t('Pax'), kind: 'number', field: 'pax', get: (b) => orUndef(b.pax), standard: true },
-    { id: 'owner', label: t('AM'), kind: 'text', field: 'owner', get: (b) => orUndef(b.owner_code ?? b.owner_name), standard: true },
-    { id: 'source', label: t('Source'), kind: 'text', field: 'source', get: (b) => orUndef(b.source), fmt: (v) => (blank(v) ? '' : o.sourceLabel(String(v))) },
-    { id: 'business_unit', label: t('Business unit'), kind: 'text', field: 'business_unit', get: (b) => orUndef(b.business_unit_code) },
-    { id: 'branch', label: t('Branch'), kind: 'text', field: 'branch', get: (b) => orUndef(b.branch) },
-    { id: 'inquiry_date', label: t('Enquiry date'), kind: 'date', get: (b) => orUndef(b.inquiry_date) },
-    { id: 'decision_due_date', label: t('Decision due'), kind: 'date', get: (b) => orUndef(b.decision_due_date) },
-    { id: 'lost_reason', label: t('Lost reason'), kind: 'text', get: (b) => orUndef(b.lost_reason ?? b.cancel_reason) },
-    moneyCol('contract_value', t('Contract value'), 'contract_value', (b) => b.contract_value, !o.fin),
-    moneyCol('paid', t('Received'), 'money_received', (b) => b.paid, !o.fin),
-    moneyCol('diff_ctrl', t('Difference'), 'contract_value', (b) => b.diff_ctrl, !o.fin),
-    moneyCol('revenue', t('Revenue'), 'finance', (b) => b.revenue, o.fin),
-    moneyCol('gross_margin', t('Margin'), 'finance', (b) => b.gross_margin, o.fin),
-    moneyCol('net_profit', t('Net profit'), 'finance', (b) => b.net_profit),
-    moneyCol('outstanding', t('Outstanding'), 'finance', (b) => b.outstanding, o.fin),
-    { id: 'aging_days', label: t('Days outstanding'), kind: 'number', field: 'finance', get: (b) => orUndef(b.aging_days) },
-    {
-      id: 'next_followup_date', label: t('Next follow-up'), kind: 'date', standard: true,
-      get: (b) => (b.status === 'ENQ' || b.status === 'TEN' ? orUndef(b.next_followup_date) : undefined),
-    },
-    { id: 'signed_missing', label: t('Signed contract missing'), kind: 'text', get: (b) => (b.signed_missing ? t('Yes') : t('No')) },
+    dateCol('inquiry_date', 'ENQUIRY DATE', (b) => b.inquiry_date, true),
+    dateCol('last_followup', 'LAST FOLLOWUP', (b) => localDay(b.last_followup_at) ?? b.last_followup_date, true),
+    { id: 'followup_text', label: 'FOLLOWUP CLIENT FEEDBACK', kind: 'text', get: (b) => orUndef(b.last_followup_text), standard: true },
+    dateCol('next_meeting', 'NEXT MEETING', (b) => localDay(b.next_meeting_at), true),
+    { id: 'event_type', label: 'CONTRACT TYPE', kind: 'text', field: 'event_type', get: (b) => orUndef(b.event_type), fmt: (v) => (blank(v) ? '' : o.eventLabel(String(v))) },
+    { id: 'nationality', label: 'COUNTRY NATIONALITY', kind: 'text', get: (b) => orUndef(b.contact_nationality ?? null) },
+    { id: 'client', label: 'CLIENT', kind: 'text', get: (b) => orUndef(b.contact_name ?? b.account_name) },
+    { id: 'phone', label: 'CLIENT PHONE', kind: 'text', get: (b) => orUndef(b.contact_phone) },
+    { id: 'email', label: 'CLIENT EMAIL', kind: 'text', get: (b) => orUndef(b.contact_email) },
+    { id: 'name', label: 'CONTRACT NAME', kind: 'text', get: (b) => b.name },
+    { id: 'lost_reason', label: 'LOST REASON', kind: 'text', get: (b) => orUndef(b.lost_reason ?? b.cancel_reason) },
+    dateCol('decision_due_date', 'DECISION DUE', (b) => b.decision_due_date),
+    dateCol('fully_paid_date', 'FULLY PAID', (b) => b.fully_paid_date),
+    moneyCol('revenue', 'REV', 'finance', (b) => b.revenue),
+    moneyCol('cost', 'COST', 'finance', (b) => b.cost),
+    moneyCol('gross_margin', 'GROSS MARGIN', 'finance', (b) => b.gross_margin),
+    moneyCol('net_profit', 'NET PROFIT', 'finance', (b) => b.net_profit),
+    moneyCol('outstanding', 'CLIENT OUTSTAND.', 'finance', (b) => b.outstanding),
+    { id: 'aging_days', label: 'AGING DAYS', kind: 'number', field: 'finance', get: (b) => orUndef(b.aging_days) },
+    // For the quick filters only: future event dates, and every meeting / follow-up date.
+    { id: 'upcoming', label: 'UPCOMING EVENTS', kind: 'date', internal: true, get: (b) => (b.event_date && b.event_date >= today() ? b.event_date : undefined) },
+    { id: 'meetings', label: 'MEETINGS', kind: 'dates', internal: true, get: (b) => (b.meeting_dates ?? []).map((x) => localDay(x)!) },
+    { id: 'followups', label: 'FOLLOWUP', kind: 'dates', internal: true, get: (b) => (b.followup_dates ?? []).map((x) => localDay(x)!) },
   ];
 }
 
@@ -101,12 +120,13 @@ export function showValue(c: GridColumn, v: Value): string {
   if (c.fmt) return c.fmt(v);
   if (c.kind === 'money') return money(v as number);
   if (c.kind === 'number') return num(v as number);
-  if (c.kind === 'date') return date(String(v));
+  if (c.kind === 'date') return ymd(String(v));
+  if (Array.isArray(v)) return v.join(', ');
   return String(v);
 }
 
 /** Order of values in filter lists and pivots: statuses in workflow order, months and years in time order, the rest A → Z. */
-const STATUS_ORDER = ['ENQ', 'TEN', 'DEF', 'ACT', 'PAID', 'LOS', 'CXL'];
+const STATUS_ORDER = ['ENQ', 'TEN', 'DEF', 'LOS', 'CXL'];
 export function compareKeys(c: GridColumn, a: string, b: string, aLabel: string, bLabel: string) {
   if ((a === '') !== (b === '')) return a === '' ? 1 : -1;
   if (c.id === 'status') return STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b);
@@ -114,7 +134,7 @@ export function compareKeys(c: GridColumn, a: string, b: string, aLabel: string,
   return aLabel.localeCompare(bLabel);
 }
 
-export type Range = { min?: string; max?: string };
+export type Range = { min?: string; max?: string; /** The Y | M | D cells as typed, for the date boxes. */ from?: string[]; to?: string[] };
 
 const inList: FilterFn<Booking> = (row, id, picked: string[]) => picked.includes(String(row.getValue(id) ?? ''));
 inList.autoRemove = (v) => !Array.isArray(v) || v.length === 0;
@@ -127,6 +147,10 @@ const inRange: FilterFn<Booking> = (row, id, r: Range) => {
   return (!r.min || over(r.min)) && (!r.max || under(r.max));
 };
 inRange.autoRemove = (v: Range | undefined) => !v || ((v.min ?? '') === '' && (v.max ?? '') === '');
+/** A list of dates (meetings, follow-ups): any of them in the range. */
+const anyInRange: FilterFn<Booking> = (row, id, r: Range) =>
+  (row.getValue<string[]>(id) ?? []).some((d) => (!r.min || d >= r.min) && (!r.max || d <= r.max));
+anyInRange.autoRemove = inRange.autoRemove;
 
 export interface GridState {
   order: string[];
@@ -141,7 +165,7 @@ export function useContractTable(rows: Booking[], columns: GridColumn[], state: 
     accessorFn: c.get,
     header: c.label,
     meta: c,
-    filterFn: c.kind === 'text' ? inList : inRange,
+    filterFn: c.kind === 'text' ? inList : c.kind === 'dates' ? anyInRange : inRange,
     sortUndefined: 'last',
     sortingFn: c.kind === 'text' ? 'alphanumeric' : 'basic',
     cell: (ctx) => (c.cell ? c.cell(ctx.row.original) : showValue(c, ctx.getValue()) || '—'),
@@ -173,7 +197,7 @@ export function describeFilter(c: GridColumn, v: unknown): string {
     return `${c.label}: ${names.length > 3 ? t('{n} values', { n: names.length }) : names.join(', ')}`;
   }
   const r = v as Range;
-  const f = (x?: string) => (x ? showValue(c, c.kind === 'date' ? x : Number(x)) : '');
+  const f = (x?: string) => (x ? (c.kind === 'date' || c.kind === 'dates' ? x : showValue(c, Number(x))) : '');
   if (r.min && r.max) return `${c.label}: ${f(r.min)} – ${f(r.max)}`;
   return r.min ? `${c.label} ≥ ${f(r.min)}` : `${c.label} ≤ ${f(r.max)}`;
 }
@@ -290,6 +314,7 @@ function RangeFilter({ column, meta }: { column: Column<Booking, unknown>; meta:
 
 /** Show / hide and reorder the columns. */
 export function ColumnChooser({ columns, state, set, onReset }: { columns: GridColumn[]; state: GridState; set: (s: Partial<GridState>) => void; onReset: () => void }) {
+  columns = columns.filter((c) => !c.internal);
   const byId = new Map(columns.map((c) => [c.id, c]));
   const order = [...state.order.filter((id) => byId.has(id)), ...columns.map((c) => c.id).filter((id) => !state.order.includes(id))];
   const move = (i: number, d: number) => {
@@ -319,7 +344,7 @@ export function ColumnChooser({ columns, state, set, onReset }: { columns: GridC
 
 /** Columns shown before the person chooses: the standard set, in the standard order. */
 export function standardLayout(columns: GridColumn[]): Pick<GridState, 'order' | 'visible'> {
-  return { order: columns.map((c) => c.id), visible: Object.fromEntries(columns.map((c) => [c.id, !!c.standard])) };
+  return { order: columns.map((c) => c.id), visible: Object.fromEntries(columns.map((c) => [c.id, !!c.standard && !c.internal])) };
 }
 
 export { flexRender };

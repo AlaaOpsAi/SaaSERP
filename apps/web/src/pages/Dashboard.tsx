@@ -31,7 +31,7 @@ interface DashboardData {
 type Metric = 'revenue' | 'gross_margin' | 'net_profit' | 'bookings';
 const METRICS: [Metric, string][] = [['revenue', 'Revenue'], ['gross_margin', 'Gross margin'], ['net_profit', 'Net profit'], ['bookings', 'Bookings']];
 const STATUS_COLOR: Record<Status, string> = {
-  ENQ: 'var(--muted)', TEN: 'var(--status-warning)', DEF: 'var(--status-good)', ACT: 'var(--series-1)', PAID: 'var(--series-3)',
+  ENQ: 'var(--muted)', TEN: 'var(--status-warning)', DEF: 'var(--status-good)',
   LOS: 'var(--status-critical)', CXL: 'var(--status-serious)',
 };
 
@@ -114,7 +114,7 @@ export function Dashboard() {
               <div className="hero-spark">
                 <div className="small muted" style={{ marginBottom: 4 }}>{t("Cumulative definite revenue by event month, including future events already confirmed")}</div>
                 <TrendChart current={cumulative(series('revenue'))} previous={cumulative(series('prev_revenue'))} currentLabel={t('{year} booked', { year })}
-                  previousLabel={prevLabel} format={compact} height={150} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT,PAID' })} />
+                  previousLabel={prevLabel} format={compact} height={150} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF' })} />
               </div>
             </div>
             <div className="attention">
@@ -149,7 +149,7 @@ export function Dashboard() {
           <div className="kpis kpi-tiles">
             <Tile i={0} label={t("Bookings")} value={<NumberTicker value={k.total} format={whole} />} spark={series('total')} upTo={upTo} onClick={() => drill({})}
               delta={<Delta current={k.total} previous={prev.total} label={prevLabel} />} />
-            <Tile i={1} label={t("Conversion")} value={<NumberTicker value={k.conversion_rate} format={(v) => pct(v)} />} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF,ACT,PAID' })}
+            <Tile i={1} label={t("Conversion")} value={<NumberTicker value={k.conversion_rate} format={(v) => pct(v)} />} sub={t("definite ÷ all bookings")} onClick={() => drill({ status: 'DEF' })}
               delta={<Delta current={k.conversion_rate} previous={prev.conversion_rate} label={prevLabel} asPoints />} />
             <Tile i={2} label={t("Win rate")} value={<NumberTicker value={k.win_rate} format={(v) => pct(v)} />} sub={t("definite ÷ decided")} onClick={() => drill({ status: 'LOS' })}
               delta={<Delta current={k.win_rate} previous={prev.win_rate} label={prevLabel} asPoints />} />
@@ -195,7 +195,7 @@ export function Dashboard() {
                 ]} />
             ) : (
               <TrendChart current={series(metric)} previous={series(`prev_${metric}` as keyof Month)} currentLabel={String(year)} previousLabel={prevLabel}
-                format={compact} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF,ACT,PAID' })} />
+                format={compact} onSelect={(i) => drill({ month: String(i + 1), status: 'DEF' })} />
             )}
           </div>
 

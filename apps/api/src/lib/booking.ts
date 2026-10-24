@@ -1,31 +1,30 @@
 import type { Db } from '../db.js';
 import { badRequest } from './errors.js';
 
-export type BookingStatus = 'ENQ' | 'TEN' | 'DEF' | 'ACT' | 'PAID' | 'LOS' | 'CXL';
+export type BookingStatus = 'ENQ' | 'TEN' | 'DEF' | 'LOS' | 'CXL';
 
 export const STATUS_LABELS: Record<BookingStatus, string> = {
   ENQ: 'Enquiry',
   TEN: 'Offer sent',
   DEF: 'Signed',
-  ACT: 'Actualised',
-  PAID: 'Fully paid',
   LOS: 'Lost',
   CXL: 'Cancelled',
 };
 
-/** Allowed status moves by hand. Anything else is rejected. */
+/**
+ * Allowed status moves by hand (customer comment 9, the daily report's STATUS CONDITIONS).
+ * TEN also needs an offer printed or attached, and DEF a signed copy: see assertConditions.
+ */
 export const TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   ENQ: ['TEN', 'DEF', 'LOS', 'CXL'],
   TEN: ['ENQ', 'DEF', 'LOS', 'CXL'],
-  DEF: ['TEN', 'ACT', 'PAID', 'CXL'],
-  ACT: ['DEF', 'PAID', 'CXL'],
-  PAID: ['DEF', 'ACT', 'CXL'],
-  LOS: ['ENQ', 'TEN'],
+  DEF: ['TEN', 'CXL'],
+  LOS: ['ENQ', 'TEN', 'CXL'],
   CXL: ['TEN'],
 };
 
-/** Confirmed statuses: they hold space firmly on the function diary and count as revenue. */
-export const BLOCKING: BookingStatus[] = ['DEF', 'ACT', 'PAID'];
+/** Statuses that hold space firmly on the function diary. */
+export const BLOCKING: BookingStatus[] = ['DEF'];
 
 export function assertTransition(from: BookingStatus, to: BookingStatus) {
   if (from === to) return;
@@ -87,52 +86,60 @@ export async function findConflicts(
     c.visible ? c : { ...c, event_name: 'Booked', booking_id: null, booking_name: "Another team's booking" });
 }
 
+/** An offer printed from the app (proposal / contract) or attached as a file. */
+export async function hasOffer(db: Db, bookingId: string) {
+  const { rows } = await db.query(
+    `SELECT EXISTS (SELECT 1 FROM documents WHERE booking_id = $1 AND kind IN ('proposal', 'contract'))
+         OR EXISTS (SELECT 1 FROM booking_files WHERE booking_id = $1 AND kind IN ('offer', 'signed_proposal', 'signed_contract')) AS ok`,
+    [bookingId]);
+  return Boolean(rows[0]?.ok);
+}
+
+/** The client's signed offer or contract, attached. */
+export async function hasSignedCopy(db: Db, bookingId: string) {
+  const { rows } = await db.query(
+    `SELECT EXISTS (SELECT 1 FROM booking_files WHERE booking_id = $1 AND kind IN ('signed_contract', 'signed_proposal')) AS ok`, [bookingId]);
+  return Boolean(rows[0]?.ok);
+}
+
+/** STATUS CONDITIONS: TEN needs an offer, DEF a signed copy. */
+export async function assertConditions(db: Db, bookingId: string, to: BookingStatus) {
+  if (to === 'TEN' && !(await hasOffer(db, bookingId))) {
+    throw badRequest('Print an offer from the contract, or attach the offer you sent, before marking it Offer sent');
+  }
+  if (to === 'DEF' && !(await hasSignedCopy(db, bookingId))) {
+    throw badRequest('Attach the signed offer or contract before marking it Signed');
+  }
+}
+
 /**
- * Statuses that follow what the customer does (customer comment 8):
- *  - a proposal or contract issued moves an enquiry to TEN;
- *  - the client's signed contract or proposal uploaded moves ENQ / TEN to DEF;
- *  - on a confirmed contract, the money received picks DEF, ACT (part paid) or PAID (fully paid),
- *    both ways, whenever payments, the contract value or the revenue lines change.
- * Documents only ever move a contract forward. Each move is written in the history.
+ * The automatic status move (customer comment 9): an enquiry becomes TEN once an offer is printed
+ * or attached. DEF is always set by hand. Money no longer changes the status; it sets the
+ * PAYMENT status (DP / PAID) and the fully-paid date.
  */
-export type StatusEvent = 'document_issued' | 'signed_uploaded' | 'money_changed';
+export type StatusEvent = 'offer' | 'money_changed';
 
 export async function syncStatus(db: Db, bookingId: string, event: StatusEvent, userId: string | null, onBehalfOf: string | null = null) {
-  const { rows } = await db.query<{ status: BookingStatus; paid: number; billable: number }>(
-    `SELECT b.status, f.paid, coalesce(b.contract_value, f.revenue) AS billable
-     FROM bookings b JOIN booking_finance f ON f.booking_id = b.id WHERE b.id = $1`,
-    [bookingId],
-  );
-  if (!rows[0]) return;
-  const { status: from, paid, billable } = rows[0];
-  let to = from;
-  let reason = '';
-  if (event === 'document_issued' && from === 'ENQ') { to = 'TEN'; reason = 'Automatic: offer issued'; }
-  if (event === 'signed_uploaded' && (from === 'ENQ' || from === 'TEN')) { to = 'DEF'; reason = 'Automatic: signed copy uploaded'; }
-  // Money decides on money events, and when a signed copy has just confirmed the contract.
-  if (BLOCKING.includes(to) && (event === 'money_changed' || to !== from)) {
-    const byMoney: BookingStatus = paid > 0 && paid >= billable ? 'PAID' : paid > 0 ? 'ACT' : 'DEF';
-    if (byMoney !== to) {
-      to = byMoney;
-      reason = byMoney === 'PAID' ? 'Automatic: fully paid' : byMoney === 'ACT' ? 'Automatic: part paid' : reason || 'Automatic: no money received';
+  if (event === 'offer') {
+    const { rows } = await db.query<{ status: BookingStatus }>('SELECT status FROM bookings WHERE id = $1', [bookingId]);
+    if (rows[0]?.status === 'ENQ') {
+      await db.query(`UPDATE bookings SET status = 'TEN' WHERE id = $1`, [bookingId]);
+      await db.query(
+        `INSERT INTO booking_status_history (tenant_id, booking_id, from_status, to_status, reason, changed_by, on_behalf_of)
+         VALUES (current_tenant_id(), $1, 'ENQ', 'TEN', 'Automatic: offer sent', $2, $3)`,
+        [bookingId, userId, onBehalfOf]);
     }
   }
-  // Never double-book a room automatically: a clash waits for someone to confirm by hand.
-  if (to !== from && BLOCKING.includes(to) && !BLOCKING.includes(from) && (await findConflicts(db, bookingId)).length) to = from;
-  if (to !== from) {
-    await db.query('UPDATE bookings SET status = $2 WHERE id = $1', [bookingId, to]);
-    await db.query(
-      `INSERT INTO booking_status_history (tenant_id, booking_id, from_status, to_status, reason, changed_by, on_behalf_of)
-       VALUES (current_tenant_id(), $1, $2, $3, $4, $5, $6)`,
-      [bookingId, from, to, reason, userId, onBehalfOf],
-    );
-  }
-  // The fully-paid date follows the money on confirmed contracts.
+  // The fully-paid date follows the money on signed contracts.
   await db.query(
     `UPDATE bookings b
      SET fully_paid_date = CASE WHEN f.outstanding <= 0 AND f.paid > 0 THEN f.last_paid_on ELSE NULL END
      FROM booking_finance f
-     WHERE f.booking_id = b.id AND b.id = $1 AND b.status IN ('DEF', 'ACT', 'PAID')`,
+     WHERE f.booking_id = b.id AND b.id = $1 AND b.status = 'DEF'`,
     [bookingId],
   );
 }
+
+/** PAYMENT column: PAID when fully paid, else what Finance set, else DP once money came in. */
+export const PAYMENT_SQL = `CASE WHEN f.paid > 0 AND f.paid >= coalesce(b.contract_value, f.revenue) THEN 'PAID'
+  WHEN b.payment_status IS NOT NULL THEN b.payment_status WHEN f.paid > 0 THEN 'DP' END`;

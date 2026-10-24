@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { pool, withTenant } from '../src/db.js';
-import { client, makeApp, newTenant } from './helpers.js';
+import { client, makeApp, newTenant, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -16,7 +16,7 @@ describe('multi-tenancy', () => {
   it('isolates data between workspaces', async () => {
     const a = await newTenant(app);
     const b = await newTenant(app);
-    const booking = (await a.post('/bookings', { name: 'A private wedding', contact: { name: 'Mona', phone: '111' } })).body;
+    const booking = (await book(a, { name: 'A private wedding', contact: { name: 'Mona', phone: '111' } })).body;
 
     expect((await b.get(`/bookings/${booking.id}`)).status).toBe(404);
     expect((await b.get('/bookings')).body.rows).toHaveLength(0);
@@ -28,7 +28,7 @@ describe('multi-tenancy', () => {
   it('enforces isolation in the database even without WHERE clauses', async () => {
     const a = await newTenant(app);
     const b = await newTenant(app);
-    await a.post('/bookings', { name: 'Only for A' });
+    await book(a, { name: 'Only for A' });
     const me = (await b.get('/auth/me')).body;
     const rows = await withTenant(me.tenant.id, async (db) => (await db.query('SELECT name FROM bookings')).rows);
     expect(rows.map((r) => r.name)).not.toContain('Only for A');
@@ -94,8 +94,8 @@ describe('roles and plan limits', () => {
     const sales = await login('sales@x.com');
 
     expect((await viewer.get('/bookings')).status).toBe(200);
-    expect((await viewer.post('/bookings', { name: 'nope' })).status).toBe(403);
-    expect((await sales.post('/bookings', { name: 'yes' })).status).toBe(201);
+    expect((await book(viewer, { name: 'nope' })).status).toBe(403);
+    expect((await book(sales, { name: 'yes' })).status).toBe(201);
     expect((await sales.post('/lookups', { type: 'source', code: 'X', label: 'X' })).status).toBe(403);
     expect((await sales.patch('/tenant', { fixed_cost_pct: 0 })).status).toBe(403);
   });

@@ -14,7 +14,7 @@ export default function NewEnquiry() {
   const { data: venues } = useVenues();
   const [f, setF] = useState({
     name: '', client: '', phone: '', email: '', event_date: '', pax: '', event_type: null as string | null,
-    source: null as string | null, venue_id: null as string | null, status: 'ENQ' as 'ENQ' | 'TEN', description: '',
+    source: null as string | null, venue_id: null as string | null, status: 'ENQ' as const, description: '', // every new lead starts as ENQ (customer comment 9)
   });
   const set = <K extends keyof typeof f>(k: K) => (v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }));
   const dateOk = !f.event_date || /^\d{4}-\d{2}-\d{2}$/.test(f.event_date);
@@ -59,7 +59,6 @@ export default function NewEnquiry() {
               options={(venues ?? []).filter((v) => v.is_active).map((v) => [v.id, v.name])} />
             <Chips<string> label={t("Source")} value={f.source} onChange={set('source')}
               options={(lookups?.source ?? []).filter((l) => l.is_active).map((l) => [l.code, lookupLabel(l)])} />
-            <Chips<'ENQ' | 'TEN'> label={t("Stage")} value={f.status} onChange={set('status')} options={[['ENQ', 'Enquiry'], ['TEN', 'Offer sent']]} />
             <Field label={t("Notes")} value={f.description} onChangeText={set('description')} multiline placeholder={t("What did the client ask for?")} />
           </Card>
           {conflictMsg ? <ErrorText error={new Error(conflictMsg)} /> : <ErrorText error={save.error} />}

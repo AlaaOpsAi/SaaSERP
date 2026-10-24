@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pool } from '../src/db.js';
-import { client, login, makeApp, newTenant, type Client } from './helpers.js';
+import { client, login, makeApp, newTenant, type Client, book } from './helpers.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -21,7 +21,7 @@ async function withSales(owner: Client & { slug: string }, dataScope: 'all' | 't
 describe('contract fields of the new daily report', () => {
   it('stores branch, design, split client name and computes the DIFF CTRL', async () => {
     const c = await newTenant(app);
-    const b = (await c.post('/bookings', {
+    const b = (await book(c, {
       name: 'Wedding', status: 'DEF', branch: 'RB', design: 'WX12', contract_value: 2000,
       contact: { first_name: 'Latifa', family_name: 'Al Ali', phone: '6623', social_handle: '@latifa', nationality: 'KUWAIT', address: 'Salmiya' },
     })).body;
@@ -36,7 +36,7 @@ describe('contract fields of the new daily report', () => {
   it('lets sales record the down payment, but never while covering', async () => {
     const owner = await newTenant(app);
     const sara = await withSales(owner);
-    const b = (await sara.post('/bookings', { name: 'Henna night', status: 'DEF', contract_value: 1500 })).body;
+    const b = (await book(sara, { name: 'Henna night', status: 'DEF', contract_value: 1500 })).body;
     const dp = await sara.post(`/bookings/${b.id}/down-payment`, { paid_on: '2026-10-01', amount: 500 });
     expect(dp.status).toBe(200);
     expect(dp.body.kind).toBe('deposit');
@@ -53,7 +53,7 @@ describe('fields hidden per role', () => {
   it('hides the finance columns from sales by default, in the API, on writes and in the Excel export', async () => {
     const owner = await newTenant(app);
     const sara = await withSales(owner);
-    const b = (await owner.post('/bookings', { name: 'Gala', status: 'DEF', manual_revenue: 1000, manual_cost: 400, owner_id: null })).body;
+    const b = (await book(owner, { name: 'Gala', status: 'DEF', manual_revenue: 1000, manual_cost: 400, owner_id: null })).body;
     expect(b.net_profit).not.toBeNull();
 
     const seen = (await sara.get(`/bookings/${b.id}`)).body;
@@ -84,7 +84,7 @@ describe('fields hidden per role', () => {
   it('lets the admin hide source and account manager per role; owners always see all', async () => {
     const owner = await newTenant(app);
     const sara = await withSales(owner);
-    const b = (await sara.post('/bookings', { name: 'Birthday', source: 'INSTA' })).body;
+    const b = (await book(sara, { name: 'Birthday', source: 'INSTA' })).body;
     expect((await sara.patch('/tenant', { field_visibility: { sales: ['source'] } })).status).toBe(403);
     expect((await owner.patch('/tenant', { field_visibility: { sales: ['source', 'owner', 'finance'] } })).status).toBe(200);
     expect((await owner.patch('/tenant', { field_visibility: { sales: ['salary'] } })).status).toBe(400);
@@ -108,7 +108,7 @@ describe('meetings and the daily activity report', () => {
   it('requires a meeting outcome and reports each salesperson\'s day', async () => {
     const owner = await newTenant(app);
     const sara = await withSales(owner, 'team');
-    const b = (await sara.post('/bookings', { name: 'Engagement', contact: { name: 'Noura', phone: '9' } })).body;
+    const b = (await book(sara, { name: 'Engagement', contact: { name: 'Noura', phone: '9' } })).body;
     const now = new Date();
     const meeting = (await sara.post('/activities', { booking_id: b.id, type: 'meeting', subject: 'Venue tour', due_at: now.toISOString(), location: 'Radisson' })).body;
     const call = (await sara.post('/activities', { booking_id: b.id, type: 'call', subject: 'Price call', due_at: now.toISOString() })).body;
