@@ -1,6 +1,6 @@
 # Employee files: HR module proposal
 
-Date: 2026-10-24 · Status: **waiting for answers and go-ahead**
+Date: 2026-10-24 · Status: **built (2026-10-24), modules foundation and HR phase 1**
 
 The two files sent hold real personal data (civil IDs, passports, salaries). They stay on this computer and out of git. This note describes only their structure.
 
@@ -58,3 +58,50 @@ Their employee numbers (E2016001) already use the app's Employee ID format: E + 
 3. Alerts: are **60 and 30 days** before expiry right, and who receives them?
 4. Should employees see their own profile, and may they update their contact details or emergency contacts themselves?
 5. Is there a separate **HR department** to add under Departments, or does someone in Management handle HR?
+
+## 4. Answers (2026-10-24)
+
+1. **Scope:** phase 1 first (records, documents, expiry alerts); attendance and leave later.
+2. **Salaries:** visible to **levels 1–3** and to the employee.
+3. **Expiry alerts:** go to **HR and the employee's manager**.
+4. **Own profile:** employees **see their own profile but can't edit it**. To change something, they ask HR from the app.
+5. **HR department:** yes.
+
+**Strategy:**
+- SaaSERP is sold as **modules**: Sales & Contracts (today), HR, Finance, …
+- A workspace **requests a subscription** to each module.
+- Modules work together. Contracts use Finance and HR, with **limited capabilities** when a workspace doesn't subscribe to them.
+
+## 5. Build plan
+
+**A. Modules, the foundation for HR, Finance, …**
+- **Storage:** each workspace has a list of active modules. **Sales & Contracts** is always on; **HR** is the first optional one, and **Finance** comes later.
+- **Requesting:** workspace owners see the modules under **Admin & IT → Modules**: active, available, "Request subscription". A request notifies the platform operator.
+- **Granting:** the operator turns modules on or off per workspace in the platform console, next to plan and user limit.
+- **Enforcement:** the server refuses a module's pages and data when the workspace doesn't have it; menus and Home icons hide it.
+- **Without HR:** people keep what they have today (Employee ID, department, level, job title, manager), so contracts, the org chart and permissions still work.
+- **With HR:** the same people also get the full employee profile. Finance will follow the same pattern: without it, contracts keep today's simple payments and figures.
+
+**B. HR module, phase 1**
+- **Employees** list: name, employee #, company, branch, department, position, manager, type, status. Filters, plus expiry warnings.
+- **Employee profile**, in sections from the joining form and the DB sheet:
+  - Job: position, department, manager, company, branch, type, status, joining / end date, reason;
+  - Personal: nationality, civil ID / iqama, sponsor, gender, birth date and place, marital status, religion, children, education, health notes, criminal record, driving licence;
+  - Contact: Kuwait and home-country addresses, phones and emails;
+  - Emergency contacts: two;
+  - Documents: civil ID, passport, CV, work permit, medical, criminal record certificate, IBAN certificate, with expiry dates, opened in the watermarked viewer;
+  - Pay: salary, extra, housing, ticket, transport.
+- **A profile is optional per person:** an employee can have a profile without a sign-in, and a sign-in is linked by Employee ID.
+- **Who sees what:**
+  - **HR right:** create and edit profiles (the HR department, and levels 1–2 by default; adjustable under Permissions);
+  - **Pay:** levels 1–3, HR and the employee themselves;
+  - **Health and criminal record:** HR and owners only;
+  - **Managers:** their team's profiles without pay;
+  - **Employees:** their own profile, read only, with **"Ask HR to update"**, which creates a request HR sees in the bell and on the profile;
+  - **Logging:** every view of a profile is logged.
+- **Expiry alerts:** a daily check of civil ID, passport, iqama, work permit and other document expiry dates. Bell notifications go to HR and the employee's manager at **60 and 30 days** and on expiry, plus an "Expiring soon" list.
+- **Import:** a one-time import of EMPLOYEE_DB.xlsx (the DB sheet), matched by employee #.
+- **Print:** the filled joining form as a PDF for signing.
+- **Departments:** **HR** is added to the default departments.
+
+**Not in phase 1:** attendance, leave, end of service and payroll (phase 2), and Finance (its own module later).

@@ -18,6 +18,8 @@ const Bookings = lazy(() => import('./pages/Bookings').then((m) => ({ default: m
 const Clients = lazy(() => import('./pages/Clients').then((m) => ({ default: m.Clients })));
 const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })));
 const Diary = lazy(() => import('./pages/Diary').then((m) => ({ default: m.Diary })));
+const HrPage = lazy(() => import('./pages/HR').then((m) => ({ default: m.HrPage })));
+const EmployeePage = lazy(() => import('./pages/HR').then((m) => ({ default: m.EmployeePage })));
 const Finance = lazy(() => import('./pages/Finance').then((m) => ({ default: m.Finance })));
 const Preferences = lazy(() => import('./pages/Preferences').then((m) => ({ default: m.Preferences })));
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
@@ -74,6 +76,8 @@ export function App() {
               <Route path="/clients" element={<Clients />} />
               <Route path="/delegations" element={<Delegations />} />
               <Route path="/finance" element={<Finance />} />
+              <Route path="/hr" element={<HrPage />} />
+              <Route path="/hr/:id" element={<EmployeePage />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/preferences" element={<Preferences />} />
               <Route path="*" element={<Navigate to="/" replace />} />

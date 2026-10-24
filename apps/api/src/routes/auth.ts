@@ -236,7 +236,9 @@ export async function authRoutes(app: FastifyInstance) {
                                   'fixed_cost_pct', t.fixed_cost_pct,
                                   'credit_facility_pct', t.credit_facility_pct,
                                   'default_locale', t.default_locale, 'branding', t.branding,
-                                  'home_order', t.home_order, 'field_visibility', t.field_visibility) AS tenant
+                                  'home_order', t.home_order, 'field_visibility', t.field_visibility,
+                                  'modules', t.modules) AS tenant,
+                (SELECT e.id FROM employees e WHERE e.user_id = u.id AND 'hr' = ANY (t.modules)) AS employee_id
          FROM users u JOIN tenants t ON t.id = u.tenant_id
          LEFT JOIN business_units bu ON bu.id = u.business_unit_id
          WHERE u.id = $1 AND u.is_active`,
@@ -260,7 +262,7 @@ export async function authRoutes(app: FastifyInstance) {
       const { unit_id, unit_light, unit_dark, group_light, group_dark, ...me } = rows[0];
       const logo = logoUrls(req.user.tid, { unit_id, unit_light, unit_dark, group_light, group_dark });
       const rights = await rightsOf(db, req.user.sub);
-      return { ...me, logo, level: rights.level, rights: { export: rights.export, download: rights.download, print: rights.print }, team_ids: req.scope?.teamIds ?? me.team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
+      return { ...me, logo, level: rights.level, rights: { export: rights.export, download: rights.download, print: rights.print, hr: rights.hr }, team_ids: req.scope?.teamIds ?? me.team_ids, covering, covered_by: coveredBy, hidden_fields: req.scope?.hidden ?? [] };
     }),
   );
 }

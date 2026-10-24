@@ -18,6 +18,8 @@ export function Home() {
   const [editing, setEditing] = useState<string[] | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [soon, setSoon] = useState<string | null>(null);
+  const [locked, setLocked] = useState<string | null>(null);
+  const missing = (m: Module) => Boolean(m.module && !me?.tenant.modules?.includes(m.module));
   const [error, setError] = useState<unknown>(null);
 
   // Red badge on Activities: follow-ups due today or overdue.
@@ -53,7 +55,9 @@ export function Home() {
   }
   function open(m: Module) {
     if (editing) return;
-    if (m.to) navigate(m.to);
+    setSoon(null); setLocked(null);
+    if (missing(m)) setLocked(m.key);
+    else if (m.to) navigate(m.to);
     else setSoon(m.key);
   }
   const indexOf = (key: string) => ordered(editing).findIndex((m) => m.key === key);
@@ -79,6 +83,7 @@ export function Home() {
                 <span className="app-label">{t(m.label)}</span>
               </button>
               {!m.to && !editing && <span className="app-soon">{t('Soon')}</span>}
+              {m.to && missing(m) && !editing && <span className="app-soon">{t('Not subscribed')}</span>}
               {editing && (
                 <div className="app-move">
                   <button type="button" className="sm ghost" aria-label={t('Move {name} earlier', { name: t(m.label) })}
@@ -95,6 +100,14 @@ export function Home() {
       {soon && (
         <p className="home-note animate-in fade-in slide-in-from-top-1 duration-300" role="status">
           {t('{name} is planned in a later phase. It will open here once it is built.', { name: t(modules.find((m) => m.key === soon)?.label ?? '') })}
+        </p>
+      )}
+
+      {locked && (
+        <p className="home-note animate-in fade-in slide-in-from-top-1 duration-300" role="status">
+          {t('{name} is not part of your subscription.', { name: t(modules.find((m) => m.key === locked)?.label ?? '') })}{' '}
+          {isAdmin ? <a href="/settings?tab=modules" onClick={(e) => { e.preventDefault(); navigate('/settings?tab=modules'); }}>{t('Request it under Admin & IT → Modules.')}</a>
+            : t('Ask an owner to request it.')}
         </p>
       )}
 

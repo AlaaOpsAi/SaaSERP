@@ -18,9 +18,11 @@ The levels: 1 Owner & Admin (IT) · 2 Partners · 3 Directors / top management �
 | Export Excel | Contracts, CRM, daily activity report, full workspace export | 1, 2, 3 |
 | Download documents & files | Issued contracts / proposals / annexes and uploaded files, as the file | 1, 2, 3, 4 |
 | Print documents | Printing from the document viewer | 1, 2, 3, 4 |
+| Manage employee records (HR) | Create and edit employee records, documents and requests (HR module) | 1, 2, and anyone in the **HR** department |
 
 - **Rights for a person:** the level's defaults, then the workspace's choices under **Admin & IT → Permissions**, then that person's exceptions.
 - **Owners** always have every right, so nobody can lock the workspace out.
+- **HR records:** who sees which part of an employee record is in [MODULES-AND-HR.md](MODULES-AND-HR.md).
 - **Their own settings:** people can't change their own level or exceptions (owners excepted).
 - **Enforcement:** the server checks every right, not just the buttons. Code: `apps/api/src/lib/permissions.ts`.
 

@@ -12,6 +12,7 @@ interface Workspace {
   currency: string; contact_phone: string | null; signup_note: string | null; created_at: string; reviewed_at: string | null;
   reviewed_by: string | null; owner_name: string | null; owner_email: string | null; users: number; bookings: number;
   last_booking_at: string | null;
+  modules: string[]; requested_modules: string[];
 }
 type Action = 'approve' | 'reject' | 'suspend' | 'reactivate';
 
@@ -67,7 +68,7 @@ export function PlatformConsole() {
   const me = useQuery({ queryKey: ['platform-me'], queryFn: () => api<{ name: string; email: string }>('/platform/me', { platform: true }), enabled: Boolean(getPlatformToken()) });
   const { data } = useQuery({
     queryKey: ['platform-tenants'],
-    queryFn: () => api<{ tenants: Workspace[]; counts: Record<TenantStatus, number> }>('/platform/tenants', { platform: true }),
+    queryFn: () => api<{ tenants: Workspace[]; counts: Record<TenantStatus, number>; catalog: { key: string; name: string; available: boolean; always: boolean }[] }>('/platform/tenants', { platform: true }),
     enabled: Boolean(getPlatformToken()),
     refetchInterval: 60_000,
   });
@@ -114,9 +115,9 @@ export function PlatformConsole() {
       <div className="card flush">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Workspace</th><th>Owner</th><th>About</th><th>Requested</th><th>Status</th><th>Plan</th><th className="num">Usage</th><th /></tr></thead>
+            <thead><tr><th>Workspace</th><th>Owner</th><th>About</th><th>Requested</th><th>Status</th><th>Plan</th><th>Modules</th><th className="num">Usage</th><th /></tr></thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={8} className="empty">{filter === 'pending' ? 'No workspaces waiting.' : 'Nothing here.'}</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={9} className="empty">{filter === 'pending' ? 'No workspaces waiting.' : 'Nothing here.'}</td></tr>}
               {rows.map((t) => (
                 <tr key={t.id}>
                   <td><strong>{t.name}</strong><div className="small muted">{t.slug} · {t.currency}</div></td>
@@ -129,6 +130,7 @@ export function PlatformConsole() {
                     {t.reviewed_by && <div className="small muted">by {t.reviewed_by}</div>}
                   </td>
                   <td>{t.plan}<div className="small muted">{t.max_users} users</div></td>
+                  <td><ModuleSwitches ws={t} catalog={data?.catalog ?? []} /></td>
                   <td className="num">{t.users} users<div className="small muted">{t.bookings} bookings</div></td>
                   <td className="num">
                     <div className="row" style={{ justifyContent: 'flex-end' }}>
@@ -197,5 +199,31 @@ function ActionModal({ ws, action, onClose }: { ws: Workspace; action: Action; o
         {action === 'suspend' && <div className="alert">All of this workspace's users are signed out immediately. Their data is kept.</div>}
       </div>
     </Modal>
+  );
+}
+
+/** Turn modules on or off for a workspace; requested ones are highlighted until decided. */
+function ModuleSwitches({ ws, catalog }: { ws: Workspace; catalog: { key: string; name: string; available: boolean; always: boolean }[] }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState<unknown>(null);
+  const set = async (key: string, on: boolean) => {
+    setError(null);
+    const modules = on ? [...ws.modules, key] : ws.modules.filter((m) => m !== key);
+    try {
+      await api(`/platform/tenants/${ws.id}/modules`, { method: 'PUT', body: { modules }, platform: true });
+      await qc.invalidateQueries({ queryKey: ['platform-tenants'] });
+    } catch (err) { setError(err); }
+  };
+  return (
+    <div className="stack" style={{ gap: 2 }}>
+      {catalog.map((m) => (
+        <label key={m.key} className="check small" title={ws.requested_modules.includes(m.key) ? 'Requested by the workspace' : undefined}>
+          <input type="checkbox" checked={ws.modules.includes(m.key)} disabled={m.always || !m.available}
+            onChange={(e) => set(m.key, e.target.checked)} />
+          {m.name}{ws.requested_modules.includes(m.key) && <strong className="flag"> requested</strong>}
+        </label>
+      ))}
+      <ErrorNote error={error} />
+    </div>
   );
 }

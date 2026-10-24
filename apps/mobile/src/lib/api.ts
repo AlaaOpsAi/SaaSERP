@@ -88,7 +88,7 @@ export interface Me {
   job_title?: string | null;
   employee_no?: string | null;
   /** Data rights from the level and personal exceptions; without "download", documents open in the watermarked viewer. */
-  rights?: { export: boolean; download: boolean; print: boolean };
+  rights?: { export: boolean; download: boolean; print: boolean; hr?: boolean };
 }
 
 export interface Preferences { locale?: string | null; theme?: 'light' | 'dark' | null; accent?: string | null; density?: string | null; fontScale?: number | null }

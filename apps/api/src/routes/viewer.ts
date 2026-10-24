@@ -8,7 +8,7 @@
  *   GET /viewer/page?t=&n=   → page n as a watermarked PNG (token from above, 10 minutes)
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { authed, tx } from '../auth.js';
 import { config } from '../config.js';
@@ -16,11 +16,13 @@ import { type Db, withTenant } from '../db.js';
 import { logAccess } from '../lib/access.js';
 import { toPdf } from '../lib/docgen.js';
 import { badRequest, notFound } from '../lib/errors.js';
+import { accessTo, viewerOf } from '../lib/hr.js';
+import { requireModule } from '../lib/modules.js';
 import { rightsOf } from '../lib/permissions.js';
 import { readStored } from '../lib/storage.js';
 import { pageCount, renderPage, type Viewable } from '../lib/viewer.js';
 
-const kind = z.enum(['document', 'file']);
+const kind = z.enum(['document', 'file', 'employee']);
 type Kind = z.infer<typeof kind>;
 interface Token { u: string; t: string; k: Kind; i: string; e: number }
 
@@ -52,7 +54,9 @@ async function source(db: Db, k: Kind, id: string): Promise<{ title: string; src
     if (!pdf) throw badRequest('This document cannot be shown on screen right now. Ask someone who can download it.');
     return { title: d.doc_no, src: { kind: 'pdf', data: pdf } };
   }
-  const f = (await db.query('SELECT file_name, mime, storage_key FROM booking_files WHERE id = $1', [id])).rows[0];
+  const f = (await db.query(k === 'employee'
+    ? 'SELECT file_name, mime, storage_key FROM employee_documents WHERE id = $1'
+    : 'SELECT file_name, mime, storage_key FROM booking_files WHERE id = $1', [id])).rows[0];
   if (!f) throw notFound('File');
   const data = await readStored(f.storage_key);
   return { title: f.file_name, src: { kind: f.mime === 'application/pdf' ? 'pdf' : 'image', data } };
@@ -69,11 +73,21 @@ async function markFor(db: Db, userId: string) {
   return [u?.name, u?.employee_no, when].filter(Boolean).join(' · ');
 }
 
+/** HR documents: only for people who may see that employee's record (lib/hr.ts). */
+async function canSeeEmployeeDocument(db: Db, req: FastifyRequest, documentId: string) {
+  await requireModule(db, 'hr');
+  const e = (await db.query(
+    `SELECT e.user_id, m.user_id AS manager_user_id FROM employee_documents d JOIN employees e ON e.id = d.employee_id
+     LEFT JOIN employees m ON m.id = e.manager_id WHERE d.id = $1`, [documentId])).rows[0];
+  if (!e || !accessTo(await viewerOf(db, req), e).see) throw notFound('File');
+}
+
 export async function viewerRoutes(app: FastifyInstance) {
   app.get('/viewer/:kind/:id', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const p = z.object({ kind, id: z.string().uuid() }).parse(req.params);
       // Reading it here also checks the contract is visible to this person (row security).
+      if (p.kind === 'employee') await canSeeEmployeeDocument(db, req, p.id);
       const { title, src } = await source(db, p.kind, p.id);
       const pages = await pageCount(src);
       await logAccess(db, req.user.sub, 'view_document', title, req.ip);

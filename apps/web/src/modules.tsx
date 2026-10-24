@@ -14,6 +14,8 @@ export interface Module {
   to?: string;
   /** Who sees the icon. */
   area: Area;
+  /** The subscription it needs (Admin & IT → Modules); without it the icon says so. */
+  module?: 'hr';
   /** Icon background: two colours of a top-to-bottom gradient. */
   colors: [string, string];
   glyph: ReactNode;
@@ -68,7 +70,7 @@ export const MODULES: Module[] = [
     glyph: g(<><path d="M7 10h5l4 20h20l4-14H14" /><circle cx="19" cy="37" r="2.6" /><circle cx="33" cy="37" r="2.6" /></>),
   },
   {
-    key: 'hr', label: 'HR', area: 'manage', colors: ['#38bdf8', '#0369a1'],
+    key: 'hr', label: 'HR', to: '/hr', area: 'all', module: 'hr', colors: ['#38bdf8', '#0369a1'],
     glyph: g(<><rect x="9" y="12" width="30" height="24" rx="4" /><circle cx="19" cy="22" r="4" /><path d="M12.5 32c1-3.5 3.5-5 6.5-5s5.5 1.5 6.5 5" /><path d="M29 20h6M29 26h6" /></>),
   },
 ];

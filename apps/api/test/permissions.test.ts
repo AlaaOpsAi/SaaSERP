@@ -49,14 +49,14 @@ describe('levels, departments and data rights', () => {
   it('gives every person a level and department, with rights per level', async () => {
     const owner = await newTenant(app);
     const depts = (await owner.get('/departments')).body;
-    expect(depts.map((d: { name: string }) => d.name)).toEqual(['Management', 'Sales', 'Marketing', 'Finance', 'Operations', 'Partners']);
+    expect(depts.map((d: { name: string }) => d.name)).toEqual(['Management', 'Sales', 'Marketing', 'Finance', 'Operations', 'Partners', 'HR']);
     const sales = depts.find((d: { name: string }) => d.name === 'Sales');
 
     const { user: ali, c: aliC } = await person(owner, 'Ali', 'sales', { department_id: sales.id });
     expect(ali).toMatchObject({ level: 5, department_id: sales.id });
     const me = (await aliC.get('/auth/me')).body;
-    expect(me).toMatchObject({ level: 5, department: 'Sales', rights: { export: false, download: false, print: false } });
-    expect((await owner.get('/auth/me')).body.rights).toEqual({ export: true, download: true, print: true });
+    expect(me).toMatchObject({ level: 5, department: 'Sales', rights: { export: false, download: false, print: false, hr: false } });
+    expect((await owner.get('/auth/me')).body.rights).toEqual({ export: true, download: true, print: true, hr: true });
 
     // Export is refused on the server, not just hidden.
     expect((await aliC.get('/reports/contracts.xlsx?year=2026')).status).toBe(403);

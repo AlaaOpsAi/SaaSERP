@@ -95,7 +95,8 @@ function MenuPanel({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   if (!me) return null;
   const modules = ordered(me.tenant.home_order).filter((m) => m.area === 'all' || can(m.area));
-  const live = modules.filter((m) => m.to);
+  // A module the workspace doesn't subscribe to stays off the menu (Home explains how to get it).
+  const live = modules.filter((m) => m.to && (!m.module || me.tenant.modules?.includes(m.module)));
   const planned = modules.filter((m) => !m.to);
   // Name card (customer request): job title and employee ID; the permission level shows only in Admin & IT.
   const card = [me.job_title?.toUpperCase(), me.employee_no].filter(Boolean).join(' - ');

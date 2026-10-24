@@ -6,7 +6,7 @@ import type { Db } from '../db.js';
 import { badRequest, conflict, forbidden } from '../lib/errors.js';
 import { hashPassword } from '../lib/password.js';
 import { notify } from '../lib/notify.js';
-import { DEFAULT_LEVEL_RIGHTS, LEVELS, levelForRole, levelRights } from '../lib/permissions.js';
+import { DATA_RIGHTS, DEFAULT_LEVEL_RIGHTS, LEVELS, levelForRole, levelRights } from '../lib/permissions.js';
 import { deleteRow, getRow, insertRow, updateRow } from '../lib/sql.js';
 
 const id = z.object({ id: z.string().uuid() });
@@ -27,7 +27,7 @@ const tenantPatch = z.object({
 }).partial();
 
 /** Yes / no per data right; a right left out keeps its default. */
-const rightsSchema = z.object({ export: z.boolean(), download: z.boolean(), print: z.boolean() }).partial();
+const rightsSchema = z.object({ export: z.boolean(), download: z.boolean(), print: z.boolean(), hr: z.boolean() }).partial();
 
 const roles = z.enum(['owner', 'admin', 'manager', 'sales', 'marketing', 'finance', 'viewer']);
 const userCreate = z.object({
@@ -207,7 +207,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       if (body.business_unit_id) await getRow(db, 'business_units', body.business_unit_id, 'Company');
       if (body.department_id) await getRow(db, 'departments', body.department_id, 'Department');
       const sameRights = (a: Record<string, unknown> = {}, b: Record<string, unknown> = {}) =>
-        ['export', 'download', 'print'].every((k) => a[k] === b[k]);
+        DATA_RIGHTS.every((k) => a[k] === b[k]);
       if (userId === req.user.sub && req.user.role !== 'owner'
         && ((body.level !== undefined && body.level !== current.level)
           || (body.permission_overrides !== undefined && !sameRights(body.permission_overrides, current.permission_overrides)))) {
@@ -354,7 +354,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     tx(req, (db) => updateRow(db, 'departments', id.parse(req.params).id, deptSchema.partial().parse(req.body), 'Department')),
   );
 
-  // ---- data rights per level (export, download, print) -----------------------
+  // ---- data rights per level (export, download, print, HR) -------------------
   app.get('/permissions', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const t = (await db.query('SELECT level_permissions FROM tenants WHERE id = $1', [req.user.tid])).rows[0];

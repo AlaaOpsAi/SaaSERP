@@ -5,7 +5,7 @@ import { api, openSigned } from '../api';
 import { t } from '../i18n';
 import { ErrorNote } from './ui';
 
-export type ViewTarget = { kind: 'document' | 'file'; id: string; download?: string };
+export type ViewTarget = { kind: 'document' | 'file' | 'employee'; id: string; download?: string };
 
 interface Opened { title: string; pages: number; token: string; rights: { download: boolean; print: boolean } }
 

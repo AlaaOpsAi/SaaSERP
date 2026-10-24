@@ -2059,6 +2059,37 @@ Not building until the user confirms (standing instruction).
 
 **Employee / HR module:** go-ahead noted, but its 5 questions need answers before building (salary visibility, alert days, self-service, HR department, phase 1 scope).
 
+**HR answers (2026-10-24):**
+- Phase 1 first.
+- Salaries: levels 1–3 and the employee.
+- Expiry alerts: HR and the employee's manager.
+- Employees see their own profile without editing it, and ask HR for changes.
+- An HR department: yes.
+
+**Strategy:** SaaSERP becomes modular: Sales & Contracts, HR, Finance, …, each requested per workspace. Modules use each other, with limited capabilities when a workspace lacks one.
+
+**Build plan** (proposal sections 4–5): modules foundation (per-workspace modules, request from Admin & IT, operator grants, server-enforced), then HR phase 1. Waiting for "build it".
+
+**Built (2026-10-24) after "build it":** see [docs/MODULES-AND-HR.md](../docs/MODULES-AND-HR.md).
+- **Modules:**
+  - `tenants.modules` and module requests;
+  - Admin & IT → Modules ("Request subscription");
+  - operator console *Modules* switches, which notify the workspace owners;
+  - enforced on the server; the Home icon shows *Not subscribed* and the menu hides it.
+- **HR phase 1:**
+  - employee records with every field of the form and the register;
+  - access by level: HR right (levels 1–2 + HR department) / level 3 pay / managers their team without pay / employee own read only;
+  - documents with expiry dates in the watermarked viewer;
+  - expiry alerts at 60 / 30 / 0 days to HR and the manager (every 6 hours);
+  - "Ask HR to update" requests;
+  - EMPLOYEE_DB.xlsx import, matched on employee ID;
+  - printable joining form;
+  - an HR department added to every workspace;
+  - views logged;
+  - Arabic labels.
+- **Database:** migration `013_modules_hr.sql`.
+- **Checks:** API tests 75/75 (4 new); checked in the browser.
+
 ### Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

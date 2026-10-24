@@ -10,7 +10,7 @@ import { date, dateTime } from '../format';
 import { useBusinessUnits, useDepartments, useLookups, useSave, useUsers, useVenues } from '../hooks';
 import { LANGUAGES, t } from '../i18n';
 
-type Tab = 'company' | 'team' | 'departments' | 'permissions' | 'venues' | 'units' | 'lists' | 'templates' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
+type Tab = 'company' | 'team' | 'departments' | 'permissions' | 'modules' | 'venues' | 'units' | 'lists' | 'templates' | 'fields' | 'deactivated' | 'import' | 'export' | 'it';
 
 export function Settings() {
   const { can, me } = useAuth();
@@ -20,7 +20,7 @@ export function Settings() {
   useEffect(() => { const p = params.get('tab') as Tab | null; if (p) setTab(p); }, [params]);
   const tabs: [Tab, string][] = [['company', 'Company'], ['team', 'Team'], ['departments', 'Departments'], ['permissions', 'Permissions'], ['venues', 'Venues & rooms'], ['units', 'Business units'], ['lists', 'Pick-lists']];
   if (can('manage')) tabs.push(['templates', 'Templates'], ['deactivated', 'Deactivated records']);
-  if (can('admin')) tabs.push(['fields', 'Contract fields'], ['import', 'Import from Excel'], ...(me?.rights.export ? [['export', 'Export'] as [Tab, string]] : []), ['it', 'IT']);
+  if (can('admin')) tabs.push(['modules', 'Modules'], ['fields', 'Contract fields'], ['import', 'Import from Excel'], ...(me?.rights.export ? [['export', 'Export'] as [Tab, string]] : []), ['it', 'IT']);
   return (
     <>
       <div className="page-head"><div><h1>{t("Admin & IT")}</h1><p>{t("Configure your workspace, team and sales pick-lists.")}</p></div></div>
@@ -30,6 +30,7 @@ export function Settings() {
       {tab === 'team' && <Team />}
       {tab === 'departments' && <Departments />}
       {tab === 'permissions' && <Permissions />}
+      {tab === 'modules' && <Modules />}
       {tab === 'venues' && <Venues />}
       {tab === 'units' && <Units />}
       {tab === 'lists' && <Lists />}
@@ -472,7 +473,7 @@ function UserModal({ user, onClose }: { user: Partial<User>; onClose: () => void
 }
 
 type PermissionsData = { levels: Record<string, string>; rights: Record<number, Record<DataRight, boolean>>; defaults: Record<number, Record<DataRight, boolean>> };
-const RIGHTS: [DataRight, string][] = [['export', 'Export Excel'], ['download', 'Download documents & files'], ['print', 'Print documents']];
+const RIGHTS: [DataRight, string][] = [['export', 'Export Excel'], ['download', 'Download documents & files'], ['print', 'Print documents'], ['hr', 'Manage employee records (HR)']];
 
 /** Departments for the org chart. */
 function Departments() {
@@ -991,6 +992,7 @@ const ACCESS_ACTIONS: Record<string, string> = {
   sign_in: 'Signed in', export: 'Exported', password_change: 'Changed own password', password_reset: 'Password reset on the server',
   password_request: 'Asked for a new password (forgot it)',
   view_document: 'Viewed a document',
+  view_employee: 'Viewed an employee record',
 };
 
 function ItStatus() {
@@ -1050,6 +1052,53 @@ function ItStatus() {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+interface ModuleInfo { key: string; name: string; available: boolean; always: boolean; active: boolean; requested: boolean }
+
+/** Modules the workspace subscribes to, and asking the SaaSERP team for more. */
+function Modules() {
+  const { data } = useQuery({ queryKey: ['modules'], queryFn: () => api<{ modules: ModuleInfo[]; requests: { module: string; status: string; requested_at: string; requested_by_name: string | null }[] }>('/modules') });
+  const request = useSave((key: string) => api(`/modules/${key}/request`, { body: {} }), [['modules']]);
+  const about: Record<string, string> = {
+    sales: 'Contracts, CRM, activities, the function diary, dashboard and reports.',
+    hr: 'Employee records, documents with expiry alerts, change requests from employees.',
+    finance: 'Invoices, payments and accounts. Planned.',
+  };
+  return (
+    <div className="stack">
+      <p className="secondary" style={{ margin: 0 }}>
+        {t('SaaSERP is made of modules. Each module works with the others; without one, the others keep working with less (for example, without HR people keep their Employee ID, department and level).')}
+      </p>
+      <ErrorNote error={request.error} />
+      <div className="card flush table-wrap">
+        <table>
+          <thead><tr><th>{t('Module')}</th><th>{t('What it does')}</th><th>{t('Status')}</th></tr></thead>
+          <tbody>
+            {data?.modules.map((m) => (
+              <tr key={m.key}>
+                <td><strong>{t(m.name)}</strong></td>
+                <td className="secondary">{t(about[m.key] ?? '')}</td>
+                <td>
+                  {m.active ? <span className="badge DEF"><span className="dot" aria-hidden />{m.always ? t('Included') : t('Active')}</span>
+                    : !m.available ? <span className="muted">{t('Coming soon')}</span>
+                      : m.requested ? <span className="badge TEN"><span className="dot" aria-hidden />{t('Requested')}</span>
+                        : <button className="sm primary" disabled={request.isPending} onClick={() => request.mutate(m.key)}>{t('Request subscription')}</button>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!!data?.requests.length && (
+        <div className="small secondary">
+          {data.requests.map((r, i) => (
+            <div key={i}>{dateTime(r.requested_at)} · {t(data.modules.find((m) => m.key === r.module)?.name ?? r.module)} · {t(r.status === 'pending' ? 'Requested' : r.status === 'granted' ? 'Active' : 'Declined')}{r.requested_by_name ? ` · ${r.requested_by_name}` : ''}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

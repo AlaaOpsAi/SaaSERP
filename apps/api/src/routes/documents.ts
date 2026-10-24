@@ -69,7 +69,7 @@ export async function filesOf(db: Db, bookingId: string) {
 }
 
 /** The one file of a multipart upload, size-checked. */
-async function uploaded(req: FastifyRequest) {
+export async function uploaded(req: FastifyRequest) {
   const file = await req.file({ limits: { fileSize: MAX_UPLOAD } });
   if (!file) throw badRequest('Choose a file to upload');
   const data = await file.toBuffer();

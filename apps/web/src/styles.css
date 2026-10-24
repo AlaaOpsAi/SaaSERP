@@ -709,3 +709,25 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .chooser-list { max-height: 55vh; overflow: auto; display: flex; flex-direction: column; }
 .chooser-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; border-bottom: 1px solid var(--border); }
 .chooser-row .check { display: flex; align-items: center; gap: 8px; }
+
+/* HR module */
+.crumbs { margin-bottom: 6px; color: var(--muted); }
+.hr-grid { align-items: start; }
+.hr-grid .detail-group h3 { margin-top: 0; }
+.flag.bad { background: var(--danger-soft); color: var(--danger); }
+.hr-fieldset { border: 1px solid var(--border); padding: 10px 12px 12px; margin: 0; }
+.hr-fieldset legend { font-weight: 600; font-size: 13px; padding: 0 4px; }
+@media (max-width: 900px) { .hr-grid { grid-template-columns: 1fr; } }
+/* The joining form: only on paper. */
+.print-form { display: none; }
+@media print {
+  body.printing-form #root { display: none !important; }
+  body.printing-form .print-form { display: block; color: #000; background: #fff; font-size: 11pt; }
+  .print-form h1 { font-size: 16pt; text-align: center; margin: 0 0 10pt; }
+  .print-form h2 { font-size: 12pt; margin: 12pt 0 4pt; }
+  .print-form table { width: 100%; border-collapse: collapse; }
+  .print-form th, .print-form td { border: 1px solid #999; padding: 4pt 6pt; text-align: start; vertical-align: top; }
+  .print-form th { width: 32%; background: #f2f2f2; font-weight: 600; }
+  .print-checks { columns: 2; list-style: none; padding: 0; }
+  .print-sign { display: flex; justify-content: space-between; margin-top: 28pt; }
+}

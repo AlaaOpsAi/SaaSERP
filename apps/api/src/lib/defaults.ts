@@ -93,7 +93,7 @@ Object.assign(DEFAULT_LOOKUPS, CRM_LOOKUPS);
  * entries in is left alone, so values an admin removed never come back.
  */
 /** Departments for the org chart; a workspace adds or renames its own under Admin & IT. */
-const DEFAULT_DEPARTMENTS = ['Management', 'Sales', 'Marketing', 'Finance', 'Operations', 'Partners'];
+const DEFAULT_DEPARTMENTS = ['Management', 'Sales', 'Marketing', 'Finance', 'Operations', 'Partners', 'HR'];
 
 export async function seedTenantDefaults(db: Pick<Db, 'query'>) {
   for (const [i, name] of DEFAULT_DEPARTMENTS.entries()) {
