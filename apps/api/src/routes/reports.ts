@@ -363,6 +363,33 @@ export async function reportRoutes(app: FastifyInstance) {
       .send(data);
   });
 
+  // A table already on the screen (the contract pivot), as Excel: only for people with the export right.
+  const tableBody = z.object({
+    title: z.string().trim().min(1).max(80),
+    header: z.array(z.string().max(120)).min(1).max(60),
+    rows: z.array(z.array(z.union([z.string().max(500), z.number(), z.null()])).max(60)).max(5000),
+    /** Rows drawn in bold (totals). */
+    bold: z.array(z.number().int().min(0)).max(5000).default([]),
+  });
+  app.post('/reports/table.xlsx', { preHandler: authed }, async (req, reply) => {
+    const body = tableBody.parse(req.body);
+    await tx(req, async (db) => {
+      await requireRight(db, req.user.sub, 'export');
+      await logAccess(db, req.user.sub, 'export', `${body.title} (xlsx)`, req.ip);
+    });
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(body.title.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+    ws.addRow(body.header).font = { bold: true };
+    const bold = new Set(body.bold);
+    body.rows.forEach((r, i) => { const row = ws.addRow(r); if (bold.has(i)) row.font = { bold: true }; });
+    ws.columns.forEach((c, i) => { c.width = i === 0 ? 28 : 16; });
+    ws.views = [{ state: 'frozen', xSplit: 1, ySplit: 1 }];
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', 'attachment; filename="table.xlsx"');
+    return reply.send(Buffer.from(await wb.xlsx.writeBuffer()));
+  });
+
   app.get('/reports/contracts.xlsx', { preHandler: authed }, async (req, reply) => {
     const q = query.parse(req.query);
     const buf = await tx(req, async (db) => {

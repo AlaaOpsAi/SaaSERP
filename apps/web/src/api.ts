@@ -71,8 +71,10 @@ export async function api<T = any>(
   return data as T;
 }
 
-export async function download(path: string, filename: string) {
-  const res = await fetch(`/api${path}`, { headers: { authorization: `Bearer ${getToken()}` } });
+export async function download(path: string, filename: string, body?: unknown) {
+  const res = await fetch(`/api${path}`, body === undefined
+    ? { headers: { authorization: `Bearer ${getToken()}` } }
+    : { method: 'POST', headers: { authorization: `Bearer ${getToken()}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) throw new ApiError(res.status, 'Download failed');
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement('a');

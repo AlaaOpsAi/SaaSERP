@@ -90,7 +90,8 @@ const listQuery = z.object({
   followup_due: z.coerce.boolean().optional(),
   signed_missing: z.enum(['true']).optional(),
   sort: z.enum(['event_date', '-event_date', 'inquiry_date', '-inquiry_date', 'booking_no', '-booking_no', '-revenue']).default('-inquiry_date'),
-  limit: z.coerce.number().int().min(1).max(1000).default(200),
+  // The contract list loads a whole year at once and filters / pivots it in the browser.
+  limit: z.coerce.number().int().min(1).max(5000).default(200),
   offset: z.coerce.number().int().min(0).default(0),
 });
 

@@ -32,6 +32,9 @@ const preferencesSchema = z.object({
   accent: hex.nullable(),
   density: z.enum(['comfortable', 'compact']).nullable(),
   fontScale: z.number().min(0.85).max(1.3).nullable(),
+  /** The contract list's column layout and personal saved views (customer comment 8). */
+  contract_list: z.record(z.string(), z.unknown())
+    .refine((v) => JSON.stringify(v).length <= 100_000, 'Too many saved views').nullable(),
 }).partial();
 
 /** The employee ID (E2021001) can be typed instead of the email. */

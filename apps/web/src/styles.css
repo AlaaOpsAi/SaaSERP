@@ -681,3 +681,29 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .kv dd { overflow-wrap: anywhere; min-width: 0; }
 /* Admin → Permissions: one column per level, checkboxes centred. */
 .permissions-tab th:not(:first-child), .permissions-tab td:not(:first-child) { text-align: center; text-transform: none; min-width: 110px; }
+
+/* Contract list as a grid: a filter on every column, pivot (customer comment 8). */
+.grid-th { display: inline-flex; align-items: center; gap: 2px; }
+th.num .grid-th { flex-direction: row-reverse; }
+.th-sort { border: none; background: none; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
+.th-sort:hover { background: none; color: var(--text); }
+.col-filter { padding: 2px 4px; min-height: 0; color: var(--muted); opacity: 0.55; }
+th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true"] { opacity: 1; }
+.col-filter.on { opacity: 1; color: var(--accent-text); background: var(--accent-soft); }
+.filter-pop {
+  position: fixed; z-index: 80; width: 280px; max-height: min(460px, 70vh); display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border-strong); box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 10px;
+  text-transform: none; letter-spacing: normal; font-weight: 400; font-size: 13px;
+}
+.facet-list { overflow: auto; flex: 1; min-height: 60px; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; }
+.facet-list .check, .facet-all { display: flex; align-items: center; gap: 8px; }
+.range-filter { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pivot-setup label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.pivot-setup select { width: auto; }
+.pivot th[scope="row"] { text-align: start; font-weight: 500; font-size: 13px; color: var(--text); text-transform: none; letter-spacing: normal; white-space: nowrap; }
+.pivot tfoot th, .pivot tfoot td { border-top: 2px solid var(--border-strong); }
+.pivot-cell { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; font-variant-numeric: tabular-nums; }
+.pivot-cell:hover { color: var(--accent-text); text-decoration: underline; background: none; }
+.chooser-list { max-height: 55vh; overflow: auto; display: flex; flex-direction: column; }
+.chooser-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; border-bottom: 1px solid var(--border); }
+.chooser-row .check { display: flex; align-items: center; gap: 8px; }

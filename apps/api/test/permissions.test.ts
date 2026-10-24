@@ -110,4 +110,24 @@ describe('levels, departments and data rights', () => {
     // The owner downloads as before.
     expect((await owner.get(`/booking-files/${pdf.id}/link`)).status).toBe(200);
   });
+
+  it('keeps contract views per person and exports a pivot only with the export right', async () => {
+    const owner = await newTenant(app);
+    const { c: sara } = await person(owner, 'Sara', 'sales');
+    const table = { title: 'Pivot', header: ['AM', 'Total'], rows: [['SAR', 3], ['Total', 3]], bold: [1] };
+
+    expect((await sara.post('/reports/table.xlsx', table)).status).toBe(403);
+    const res = await app.inject({ method: 'POST', url: '/api/reports/table.xlsx', payload: table, headers: { authorization: `Bearer ${owner.token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+
+    // A whole year loads at once.
+    expect((await sara.get('/bookings?limit=5000')).status).toBe(200);
+
+    // Saved views live with the person's own preferences.
+    const views = { layout: { mode: 'pivot' }, views: [{ name: 'My open enquiries', filters: [{ id: 'status', value: ['INQ'] }] }] };
+    expect((await sara.patch('/me/preferences', { contract_list: views })).body.contract_list).toEqual(views);
+    expect((await sara.get('/auth/me')).body.preferences.contract_list).toEqual(views);
+    expect((await owner.get('/auth/me')).body.preferences.contract_list).toBeUndefined();
+  });
 });

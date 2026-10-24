@@ -1,6 +1,6 @@
 # SaaSERP — all discussions
 
-_Built 2026-10-20 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
+_Built 2026-10-24 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
 
 ## Index
 
@@ -2016,6 +2016,40 @@ Request: turn the WEDX contract and annex into templates with placeholders, keep
 - `@fastify/jwt` 10.2.2 → 10.2.5 (patch release; brings fast-jwt 6.3.5, which fixes expired tokens without `iat` being accepted from the verifier cache).
 - `uuid` 8.3.2 → 11.1.1 through an `overrides` entry in the root `package.json`, because exceljs 4.4.0 is the latest release and still asks for uuid 8. exceljs only uses `v4()`, which uuid 11 still provides for `require`. Only exceljs uses uuid.
 - Result: `npm audit` shows 0 vulnerabilities; API tests 69/69; typecheck passes; an Excel file with conditional formatting (the code that uses uuid) still writes.
+
+### Customer comment 8: Excel-like contract list, statuses from customer actions (2026-10-23)
+
+**Customer:**
+1. On the contracts page, flexibility to choose the column to filter, like a pivot table in Excel.
+2. Statuses are changed by hand today; they should follow the customer's actions: ENQ (no offer sent) | TEN (offer sent) | DEF (signed contract / offer) | CXL | LOS | PAID (fully paid).
+
+**Also asked (2026-10-22):** does Hostinger's PHP vulnerability notice affect us? No: the app is Node.js 22, PostgreSQL 16 and Caddy in Docker; no PHP in the repository; the VPS template has none; security updates install automatically.
+
+**Recommendations and questions:** [outputs/comment-8-contracts-pivot-statuses-proposal.md](02_2026-10-16_continue-development-local/outputs/comment-8-contracts-pivot-statuses-proposal.md):
+- AutoFilter-style filter on every column, a column chooser, saved views, and a pivot view (rows / columns / values with totals, click-through, export with the export right), using TanStack Table.
+- Statuses ENQ / TEN / DEF / PAID / CXL / LOS with automatic moves: proposal issued → TEN, signed copy uploaded → DEF, fully paid → PAID (and back), logged in history.
+- 6 questions: ACT, signed proposal = DEF?, manual changes, PAID rule, pivot fields, shared views.
+
+Not building until the user confirms (standing instruction).
+
+**Answers (2026-10-24):**
+- Item 1 (Excel-like list): **go ahead** with the recommendations; saved views are **personal only**.
+- Item 2 (statuses): keep **ACT (Actualised)** = some money received but not the full amount; **PAID** = money received ≥ contract value; **keep manual changes** as well as the automatic moves.
+- Resulting flow, to confirm before building: ENQ (no offer) → TEN (offer issued) → DEF (signed contract or offer uploaded) → ACT (partly paid) → PAID (fully paid), CXL / LOS by hand.
+
+**Also sent:** `EMPLOYEE_DB.xlsx` (employee register, attendance sheet, pick-lists) and `EMPLOYEE INFORMATION _ FORM.docx` (joining form). Personal data (civil IDs, passports, salaries): kept out of git. HR proposal: [outputs/employee-hr-module-proposal.md](02_2026-10-16_continue-development-local/outputs/employee-hr-module-proposal.md). Phase 1 covers employee records with every form field, document uploads, civil ID / passport expiry alerts, an HR right for pay and other sensitive fields, and a one-time import. Phase 2 adds attendance and leave. 5 questions; not building until confirmed.
+
+**Built (2026-10-24), item 1:** the contract list is now an Excel-like grid (TanStack Table):
+- **Filters:** a filter on every column (tick-list with search, or from / to; sort), shown as chips with Clear all.
+- **Columns:** a chooser for 29 columns; hidden contract fields never appear.
+- **Remembered per person:** the layout and personal saved views are kept in the person's preferences.
+- **Pivot:** rows / columns / values, with totals and click-through.
+- **Excel:** "Export this view" and "Export pivot" through `POST /reports/table.xlsx` (export right, logged). The full-year workbook stays.
+- **Loading:** the list loads up to 5,000 contracts of the chosen year.
+- **Code:** `components/ContractGrid.tsx`, `components/ContractPivot.tsx`, `pages/Bookings.tsx`.
+- **Checks:** tested in the browser; API tests 70/70.
+
+**Item 2:** the final status plan is in the proposal (section 5), waiting for go-ahead.
 
 ### Local test setup used
 

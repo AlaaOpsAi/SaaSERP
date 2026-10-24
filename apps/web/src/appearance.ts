@@ -8,6 +8,8 @@ export interface Preferences {
   accent?: string;
   density?: 'comfortable' | 'compact';
   fontScale?: number;
+  /** The contract list's layout and saved views (pages/Bookings.tsx). */
+  contract_list?: Record<string, unknown>;
 }
 
 /** Accent presets: all dark enough for white text on buttons. */
