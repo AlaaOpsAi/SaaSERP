@@ -1,6 +1,6 @@
 # SaaSERP — all discussions
 
-_Built 2026-10-24 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
+_Built 2026-10-25 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
 
 ## Index
 
@@ -2174,6 +2174,22 @@ Not building until confirmed (standing instruction).
 - **Login:** capitals and the new texts.
 - **History:** Date | Status | User code | days.
 - **Not yet:** stopping follow-up reminders after DEF / LOS / CXL.
+
+**Change (2026-10-25), from the user:** the **pivot** was removed from the contract list. The column filters, column chooser (show / hide / order) and personal saved views stay. The search box next to EXPORT is now a **free-text search**:
+- every word typed must appear somewhere in the contract, in any column, shown or hidden;
+- it filters instantly, the KPIs follow it, and it shows as a chip.
+
+**Change (2026-10-25), from the user:** saving a view is now an **admin task**.
+- **Company views:** admins save named views (columns, order, sorting, filters) for **everyone**, and mark one as the **standard view** everybody opens the list with (`tenants.contract_views`, migration 016).
+- **Everyone else:** other users don't see "Save view". They can pick a company view, and change columns or filters for the moment; their changes aren't saved.
+- **Personal saved views:** removed. Only "filters open / folded" is remembered per person.
+
+**Change (2026-10-25), from the user:** the web app font is now **Calibri Light**, as in the customer's Excel files.
+- **Where Calibri is missing** (phones, Macs without Office), the open look-alike **Carlito** loads from Google Fonts.
+- **Arabic:** Noto Sans Arabic.
+- **Size:** the base size went from 14 px to 15 px, because Calibri runs small.
+- **Fixed in passing:** the contract table's class name `grid` clashed with Tailwind's `grid` utility, which turned the table into a CSS grid. It is renamed `contract-grid`, so the frozen header and first column now really stay put.
+- **Not changed:** the phone app keeps the phone's own font.
 
 ### Local test setup used
 

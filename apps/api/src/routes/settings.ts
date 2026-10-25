@@ -24,6 +24,11 @@ const tenantPatch = z.object({
   field_visibility: z.partialRecord(z.enum(['manager', 'sales', 'marketing', 'finance', 'viewer']), z.array(z.enum(FIELD_KEYS as [ContractField, ...ContractField[]]))),
   /** Home-screen icon order (module keys). */
   home_order: z.array(z.string().regex(/^[a-z_]+$/)).max(40).nullable(),
+  /** Contract list views for everyone; only admins save them. */
+  contract_views: z.object({
+    standard: z.string().max(60).nullable(),
+    views: z.array(z.object({ name: z.string().trim().min(1).max(60) }).passthrough()).max(50),
+  }).refine((v) => JSON.stringify(v).length <= 200_000, 'Too many views'),
 }).partial();
 
 /** Yes / no per data right; a right left out keeps its default. */
@@ -148,11 +153,12 @@ export async function settingsRoutes(app: FastifyInstance) {
   // ---- tenant ------------------------------------------------------------
   app.patch('/tenant', admin, (req) =>
     tx(req, (db) => {
-      const { branding, field_visibility, ...rest } = tenantPatch.parse(req.body);
+      const { branding, field_visibility, contract_views, ...rest } = tenantPatch.parse(req.body);
       return updateRow(db, 'tenants', req.user.tid, {
         ...rest,
         branding: branding ? JSON.stringify(branding) : undefined,
         field_visibility: field_visibility ? JSON.stringify(field_visibility) : undefined,
+        contract_views: contract_views ? JSON.stringify(contract_views) : undefined,
       }, 'Tenant');
     }),
   );

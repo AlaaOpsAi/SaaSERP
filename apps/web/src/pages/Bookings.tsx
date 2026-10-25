@@ -1,8 +1,8 @@
-import { ChevronDown, Columns3, Save, Table2, Trash2, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { ChevronDown, Columns3, Save, Trash2, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, download, type Booking, type Conflict } from '../api';
+import { api, download, type Booking, type Conflict, type Me } from '../api';
 import { useAuth, useHidden } from '../auth';
 import { BookingForm, bookingPayload, clientPayload, type BookingFormValues } from '../components/BookingForm';
 import {
@@ -10,29 +10,31 @@ import {
   standardLayout, useContractTable,
 } from '../components/ContractGrid';
 import { ContractFilters } from '../components/ContractFilters';
-import { ContractPivot, PIVOT_DIMS, type PivotConfig, buildPivot, pivotSheet, pivotValues } from '../components/ContractPivot';
 import { confirmDiscard, ErrorNote, Modal, SkeletonRows } from '../components/ui';
 import { FormActions } from '../components/FormActions';
 import { money, num, statusLabel } from '../format';
 import { useLabel, useLookups, useSave, useUsers } from '../hooks';
 import { lookupLabel, t } from '../i18n';
 
-type Mode = 'list' | 'pivot';
-interface Layout extends Omit<GridState, 'filters'> { mode: Mode; pivot: PivotConfig }
-interface SavedView extends Layout { name: string; filters: GridState['filters'] }
-/** v: layout version; layouts saved before the daily-report columns (comment 9) are not reused. */
-interface Stored { v?: number; layout?: Partial<Layout>; views?: SavedView[]; filtersOpen?: boolean }
-const LAYOUT_VERSION = 2;
+interface SavedView extends Omit<GridState, 'search'> { name: string }
+/**
+ * Views are the company's (user request 2026-10-25): admins save them for everyone and pick the
+ * standard one everybody starts with. Others can pick a view and change columns or filters for
+ * the moment, but cannot save. Only "filters open or folded" is remembered per person.
+ */
+interface CompanyViews { standard: string | null; views: SavedView[] }
+interface Personal { filtersOpen?: boolean }
 
-const PIVOT_DEFAULT: PivotConfig = { rows: 'owner', cols: '', value: 'count' };
 /** Filters the server applies (links from the dashboard use them), shown as chips. */
-const SERVER_CHIPS = ['status', 'owner_id', 'source', 'month', 'lost_reason', 'event_type', 'business_unit_id', 'venue_id', 'from', 'to', 'followup_due', 'signed_missing'];
+const SERVER_CHIPS = ['status', 'owner_id', 'source', 'month', 'lost_reason', 'event_type', 'business_unit_id', 'venue_id', 'from', 'to', 'followup_due', 'signed_missing', 'q'];
 const PAGE = 300;
 /** In the order they were registered, like the Excel sheet; the list opens at the latest ones. */
 const REGISTERED = [{ id: 'inquiry_date', desc: false }, { id: 'booking_no', desc: false }];
 
 export function Bookings() {
   const { can, me } = useAuth();
+  const qc = useQueryClient();
+  const isAdmin = can('admin');
   const hidden = useHidden();
   const fin = !hidden('finance');
   const navigate = useNavigate();
@@ -67,55 +69,46 @@ export function Bookings() {
     queryFn: () => api<{ rows: Booking[]; totals: Record<string, number> }>(`/bookings?${serverQuery}`),
   });
 
-  const [search, setSearch] = useState(filter('q'));
-  useEffect(() => {
-    const id = setTimeout(() => search !== filter('q') && setFilter('q', search), 350);
-    return () => clearTimeout(id);
-  });
-
   // Columns the person may see (hidden contract fields never show, not even as an option).
   const columns = useMemo<GridColumn[]>(
     () => contractColumns({ eventLabel, sourceLabel, fin }).filter((c) => !c.field || !hidden(c.field)),
     [lookups, fin, me?.hidden_fields],
   );
-  const values = useMemo(() => pivotValues().filter((v) => !v.field || !hidden(v.field)), [me?.hidden_fields]);
-  const dims = PIVOT_DIMS.map((id) => columns.find((c) => c.id === id)).filter(Boolean) as GridColumn[];
 
-  // Layout and saved views: the person's own, kept with their preferences.
-  const stored = useRef<Stored>((() => {
-    const s = (me?.preferences?.contract_list as Stored | undefined) ?? {};
-    return s.v === LAYOUT_VERSION ? s : { views: [], filtersOpen: s.filtersOpen };
-  })());
-  const initial = (): Layout & { filters: GridState['filters'] } => {
-    const l = stored.current.layout ?? {};
+  // Views: the company's, saved by admins; everyone starts with the standard one.
+  const company: CompanyViews = (me?.tenant.contract_views as CompanyViews | undefined) ?? { standard: null, views: [] };
+  const views = company.views;
+  const builtIn = (): GridState => ({ ...standardLayout(columns), sorting: REGISTERED, filters: [], search: '' });
+  const fromView = (v: SavedView | undefined): GridState => (v
+    ? { ...standardLayout(columns), order: v.order, visible: v.visible, sorting: v.sorting, filters: v.filters ?? [], search: '' }
+    : builtIn());
+  const initial = (): GridState => {
     const sort = params.get('sort');
-    return {
-      ...standardLayout(columns), sorting: REGISTERED, mode: 'list', pivot: PIVOT_DEFAULT, ...l, filters: [],
-      ...(sort && { sorting: [{ id: sort.replace(/^-/, ''), desc: sort.startsWith('-') }] }),
-    };
+    const base = fromView(views.find((v) => v.name === company.standard));
+    return sort ? { ...base, sorting: [{ id: sort.replace(/^-/, ''), desc: sort.startsWith('-') }] } : base;
   };
   const [state, setState] = useState(initial);
-  const [views, setViews] = useState<SavedView[]>(stored.current.views ?? []);
-  const [viewName, setViewName] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(stored.current.filtersOpen ?? true);
+  const [viewName, setViewName] = useState(company.standard ?? '');
+  const personal = (me?.preferences?.contract_list as Personal | undefined) ?? {};
+  const [filtersOpen, setFiltersOpen] = useState(personal.filtersOpen ?? true);
   const set = (s: Partial<typeof state>) => setState((prev) => ({ ...prev, ...s }));
 
-  const persist = (layout: Layout, list: SavedView[], open = filtersOpen) => {
-    const value: Stored = { v: LAYOUT_VERSION, layout, views: list, filtersOpen: open };
-    stored.current = value;
-    if (me) me.preferences = { ...me.preferences, contract_list: value as Record<string, unknown> };
-    api('/me/preferences', { method: 'PATCH', body: { contract_list: value } }).catch(() => undefined);
-  };
-  const { order, visible, sorting, mode, pivot } = state;
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    const id = setTimeout(() => persist({ order, visible, sorting, mode, pivot }, views), 800);
-    return () => clearTimeout(id);
-  }, [order, visible, sorting, mode, pivot, filtersOpen]);
+    const value: Personal = { filtersOpen };
+    if (me) me.preferences = { ...me.preferences, contract_list: value as Record<string, unknown> };
+    api('/me/preferences', { method: 'PATCH', body: { contract_list: value } }).catch(() => undefined);
+  }, [filtersOpen]);
+
+  /** Admins only: store the company's views (the server refuses everyone else). */
+  const saveCompany = useSave((next: CompanyViews) => api('/tenant', { method: 'PATCH', body: { contract_views: next } }), []);
+  const storeViews = (next: CompanyViews) => saveCompany.mutate(next, {
+    onSuccess: () => qc.setQueryData<Me>(['me'], (m) => (m ? { ...m, tenant: { ...m.tenant, contract_views: next } } : m)),
+  });
 
   const table = useContractTable(data?.rows ?? [], columns, state, set);
-  useEffect(() => setShown(PAGE), [state.filters, serverQuery]);
+  useEffect(() => setShown(PAGE), [state.filters, state.search, serverQuery]);
   const filtered = table.getFilteredRowModel().rows.map((r) => r.original);
   const rows = table.getRowModel().rows;
   const leaf = table.getVisibleLeafColumns();
@@ -124,44 +117,30 @@ export function Bookings() {
   const visibleRows = rows.slice(start);
   useLayoutEffect(() => {
     const el = wrap.current;
-    if (mode !== 'list' || !el) return;
+    if (!el) return;
     el.scrollTop = el.scrollHeight;
     const id = requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
     return () => cancelAnimationFrame(id);
-  }, [data, state.filters, state.sorting, mode]);
+  }, [data, state.filters, state.search, state.sorting]);
 
   const applyView = (name: string) => {
     setViewName(name);
-    const v = views.find((x) => x.name === name);
-    if (!v) { setState({ ...standardLayout(columns), sorting: REGISTERED, mode: 'list', pivot: PIVOT_DEFAULT, filters: [] }); return; }
-    const { name: _n, ...rest } = v;
-    setState({ ...standardLayout(columns), ...rest });
+    setState(fromView(views.find((x) => x.name === name)));
   };
-  const saveView = (name: string) => {
-    const v: SavedView = { name, order, visible, sorting, mode, pivot, filters: state.filters };
+  const saveView = (name: string, standard: boolean) => {
+    const v: SavedView = { name, order: state.order, visible: state.visible, sorting: state.sorting, filters: state.filters };
     const list = [...views.filter((x) => x.name !== name), v].sort((a, b) => a.name.localeCompare(b.name));
-    setViews(list); setViewName(name); persist({ order, visible, sorting, mode, pivot }, list);
+    storeViews({ views: list, standard: standard ? name : company.standard === name ? null : company.standard });
+    setViewName(name);
   };
   const deleteView = () => {
-    if (!confirm(t('Delete the view “{name}”?', { name: viewName }))) return;
-    const list = views.filter((x) => x.name !== viewName);
-    setViews(list); setViewName(''); persist({ order, visible, sorting, mode, pivot }, list);
-  };
-
-  const rowDim = dims.find((d) => d.id === pivot.rows) ?? dims[0];
-  const colDim = dims.find((d) => d.id === pivot.cols && d.id !== rowDim?.id);
-  const value = values.find((v) => v.id === pivot.value) ?? values[0];
-  const openFromPivot = (f: Record<string, string>) => {
-    const keep = state.filters.filter((x) => !(x.id in f));
-    set({ mode: 'list', filters: [...keep, ...Object.entries(f).map(([id, v]) => ({ id, value: [v] }))] });
+    if (!confirm(t('Delete the view “{name}” for everyone?', { name: viewName }))) return;
+    storeViews({ views: views.filter((x) => x.name !== viewName), standard: company.standard === viewName ? null : company.standard });
+    setViewName('');
   };
 
   const exportView = () => {
     const title = t('CONTRACTS');
-    if (mode === 'pivot' && rowDim && value) {
-      const sheet = pivotSheet(buildPivot(filtered, rowDim, colDim, value), rowDim, value);
-      return download('/reports/table.xlsx', `${title} pivot.xlsx`, { title: t('Pivot'), ...sheet });
-    }
     const cols = leaf.map(metaOf);
     return download('/reports/table.xlsx', `${title}.xlsx`, {
       title,
@@ -198,11 +177,11 @@ export function Bookings() {
       return col ? [{ key: `c-${f.id}`, label: describeFilter(col, f.value), clear: () => set({ filters: state.filters.filter((x) => x.id !== f.id) }) }] : [];
     }),
   ];
+  if (state.search) chips.push({ key: 'search', label: `${t('Search')}: ${state.search}`, clear: () => set({ search: '' }) });
   const clearAll = () => {
-    set({ filters: [] });
+    set({ filters: [], search: '' });
     const next = new URLSearchParams(params);
-    for (const k of [...SERVER_CHIPS, 'q']) next.delete(k);
-    setSearch('');
+    for (const k of SERVER_CHIPS) next.delete(k);
     setParams(next, { replace: true });
   };
 
@@ -216,18 +195,17 @@ export function Bookings() {
           <Kpis rows={filtered} showMoney={!hidden('contract_value') && !hidden('money_received')} />
         </div>
         <div className="row">
-          <input type="search" className="contracts-search" placeholder={t("Search no., name, client, phone…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t('Search')} />
+          <input type="search" className="contracts-search" placeholder={t('Search anything in the list…')} value={state.search ?? ''}
+            onChange={(e) => set({ search: e.target.value })} aria-label={t('Search')} title={t('Every word must appear somewhere in the contract, in any column')} />
           {me?.rights.export && (
             <span className="export-group">
-              <button onClick={exportView} title={mode === 'pivot' ? t('Export the pivot to Excel') : t('Export this list to Excel')}>EXPORT</button>
-              {mode === 'list' && (
-                <details className="export-more">
+              <button onClick={exportView} title={t('Export this list to Excel')}>EXPORT</button>
+              <details className="export-more">
                   <summary aria-label={t('More export options')}><ChevronDown className="ico" aria-hidden /></summary>
                   <div className="export-menu">
                     <button className="sm ghost" onClick={() => { const y = new Date().getFullYear(); void download(`/reports/contracts.xlsx?year=${y}`, `contracts-${y}.xlsx`); }}>{t('Full year workbook')}</button>
                   </div>
-                </details>
-              )}
+              </details>
             </span>
           )}
           {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t("New contract")}</button>}
@@ -236,39 +214,16 @@ export function Bookings() {
 
       <ContractFilters table={table} open={filtersOpen} onToggle={() => setFiltersOpen((o) => !o)} active={chips.length}>
         <span className="grow" />
-        <div className="segmented" role="group" aria-label={t('Show as')}>
-          <button type="button" className={mode === 'list' ? 'on' : ''} aria-pressed={mode === 'list'} onClick={() => set({ mode: 'list' })}><Table2 className="ico" aria-hidden /> {t('List')}</button>
-          <button type="button" className={mode === 'pivot' ? 'on' : ''} aria-pressed={mode === 'pivot'} onClick={() => set({ mode: 'pivot' })}><Columns3 className="ico" aria-hidden /> {t('Pivot')}</button>
-        </div>
-        {mode === 'list' && <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>}
-        <select value={viewName} onChange={(e) => applyView(e.target.value)} aria-label={t('Saved views')}>
-          <option value="">{views.length ? t('My views…') : t('Standard view')}</option>
-          {views.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
-        </select>
-        <button type="button" className="sm" onClick={() => setNaming(true)} title={t('Save these filters and columns as a view')}><Save className="ico" aria-hidden /> {t('Save view')}</button>
-        {viewName && <button type="button" className="sm ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
+        <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>
+        {(views.length > 0 || isAdmin) && (
+          <select value={viewName} onChange={(e) => applyView(e.target.value)} aria-label={t('Views')}>
+            <option value="">{t('Basic columns')}</option>
+            {views.map((v) => <option key={v.name} value={v.name}>{v.name}{v.name === company.standard ? ` · ${t('standard')}` : ''}</option>)}
+          </select>
+        )}
+        {isAdmin && <button type="button" className="sm" onClick={() => setNaming(true)} title={t('Save these columns, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
+        {isAdmin && viewName && <button type="button" className="sm ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
       </ContractFilters>
-
-      {mode === 'pivot' && rowDim && value && (
-        <div className="filters pivot-setup">
-          <label>{t('Rows')}
-            <select value={rowDim.id} onChange={(e) => set({ pivot: { ...pivot, rows: e.target.value } })}>
-              {dims.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
-            </select>
-          </label>
-          <label>{t('Columns')}
-            <select value={colDim?.id ?? ''} onChange={(e) => set({ pivot: { ...pivot, cols: e.target.value } })}>
-              <option value="">{t('None')}</option>
-              {dims.filter((d) => d.id !== rowDim.id).map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
-            </select>
-          </label>
-          <label>{t('Values')}
-            <select value={value.id} onChange={(e) => set({ pivot: { ...pivot, value: e.target.value } })}>
-              {values.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-            </select>
-          </label>
-        </div>
-      )}
 
       {chips.length > 0 && (
         <div className="row" style={{ marginBottom: 12 }}>
@@ -281,12 +236,8 @@ export function Bookings() {
 
       <ErrorNote error={error} />
       <div className="card flush">
-        {mode === 'pivot' && rowDim && value
-          ? (isLoading ? <div className="table-wrap"><table><tbody><SkeletonRows cols={6} /></tbody></table></div>
-            : <ContractPivot rows={filtered} rowDim={rowDim} colDim={colDim} value={value} onOpen={openFromPivot} />)
-          : (
-          <div className="table-wrap grid-wrap" ref={wrap}>
-            <table className="grid">
+        <div className="table-wrap grid-wrap" ref={wrap}>
+            <table className="contract-grid">
               <thead>
                 {table.getHeaderGroups().map((hg) => (
                   <tr key={hg.id}>
@@ -337,17 +288,18 @@ export function Bookings() {
                 </tfoot>
               )}
             </table>
-          </div>
-        )}
+        </div>
       </div>
-      {data && data.rows.length >= 5000 && <p className="small muted">{t('Showing the first 5,000 contracts: use the search or the server filters to narrow them.')}</p>}
+      {data && data.rows.length >= 5000 && <p className="small muted">{t('Showing the first 5,000 contracts.')}</p>}
 
       {choosing && (
         <Modal title={t('Columns')} onClose={() => setChoosing(false)} footer={<button className="primary" onClick={() => setChoosing(false)}>{t('Done')}</button>}>
           <ColumnChooser columns={columns} state={state} set={set} onReset={() => set(standardLayout(columns))} />
         </Modal>
       )}
-      {naming && <NameView initial={viewName} taken={views.map((v) => v.name)} onClose={() => setNaming(false)} onSave={(n) => { saveView(n); setNaming(false); }} />}
+      <ErrorNote error={saveCompany.error} />
+      {naming && <NameView initial={viewName} standard={!viewName || viewName === company.standard} taken={views.map((v) => v.name)}
+        onClose={() => setNaming(false)} onSave={(n, std) => { saveView(n, std); setNaming(false); }} />}
       {creating && <NewBooking onClose={() => setCreating(false)} onCreated={(id) => navigate(`/bookings/${id}`)} />}
     </>
   );
@@ -379,16 +331,20 @@ function Kpis({ rows, showMoney }: { rows: Booking[]; showMoney: boolean }) {
   );
 }
 
-function NameView({ initial, taken, onClose, onSave }: { initial: string; taken: string[]; onClose: () => void; onSave: (name: string) => void }) {
+function NameView({ initial, standard: initialStandard, taken, onClose, onSave }: {
+  initial: string; standard: boolean; taken: string[]; onClose: () => void; onSave: (name: string, standard: boolean) => void;
+}) {
   const [name, setName] = useState(initial);
+  const [standard, setStandard] = useState(initialStandard);
   const clean = name.trim();
   return (
-    <Modal title={t('Save view')} onClose={onClose}
+    <Modal title={t('Save view for everyone')} onClose={onClose}
       footer={<><button onClick={onClose}>{t('Cancel')}</button><button className="primary" form="name-view" disabled={!clean}>{t('Save')}</button></>}>
-      <form id="name-view" className="stack" onSubmit={(e) => { e.preventDefault(); if (clean) onSave(clean.slice(0, 60)); }}>
-        <label>{t('Name')}<input value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={60} placeholder={t('e.g. My open enquiries')} /></label>
+      <form id="name-view" className="stack" onSubmit={(e) => { e.preventDefault(); if (clean) onSave(clean.slice(0, 60), standard); }}>
+        <label>{t('Name')}<input value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={60} placeholder={t('e.g. Sales standard')} /></label>
+        <label className="check"><input type="checkbox" checked={standard} onChange={(e) => setStandard(e.target.checked)} />{t('Standard view: everyone opens the contract list with it')}</label>
         <p className="small secondary">
-          {taken.includes(clean) ? t('This replaces your view with the same name.') : t('Keeps the filters, columns, sorting and pivot. Only you see your views.')}
+          {taken.includes(clean) ? t('This replaces the view with the same name, for everyone.') : t('Keeps the columns, their order, the sorting and the filters. Everyone can pick it; only admins save or delete views.')}
         </p>
       </form>
     </Modal>

@@ -130,4 +130,13 @@ describe('levels, departments and data rights', () => {
     expect((await sara.get('/auth/me')).body.preferences.contract_list).toEqual(views);
     expect((await owner.get('/auth/me')).body.preferences.contract_list).toBeUndefined();
   });
+
+  it('lets only admins save contract views, for everyone', async () => {
+    const owner = await newTenant(app);
+    const { c: sara } = await person(owner, 'Sara', 'sales');
+    const views = { standard: 'Sales', views: [{ name: 'Sales', order: ['booking_no'], visible: { booking_no: true }, sorting: [], filters: [] }] };
+    expect((await sara.patch('/tenant', { contract_views: views })).status).toBe(403);
+    expect((await owner.patch('/tenant', { contract_views: views })).status).toBe(200);
+    expect((await sara.get('/auth/me')).body.tenant.contract_views).toEqual(views);
+  });
 });

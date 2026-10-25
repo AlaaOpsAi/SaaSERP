@@ -237,7 +237,7 @@ export async function authRoutes(app: FastifyInstance) {
                                   'credit_facility_pct', t.credit_facility_pct,
                                   'default_locale', t.default_locale, 'branding', t.branding,
                                   'home_order', t.home_order, 'field_visibility', t.field_visibility,
-                                  'modules', t.modules) AS tenant,
+                                  'modules', t.modules, 'contract_views', t.contract_views) AS tenant,
                 (SELECT e.id FROM employees e WHERE e.user_id = u.id) AS employee_id
          FROM users u JOIN tenants t ON t.id = u.tenant_id
          LEFT JOIN business_units bu ON bu.id = u.business_unit_id

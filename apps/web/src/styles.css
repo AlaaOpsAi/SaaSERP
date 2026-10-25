@@ -30,8 +30,16 @@
   /* The accent as text: a darker / lighter shade when the company colour is too light / dark to read. */
   --accent-text: var(--accent-text-light, var(--accent));
   --font-scale: 1;
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Noto Sans Arabic', Tahoma, sans-serif;
-  font-size: calc(14px * var(--font-scale));
+  /*
+   * Calibri Light, as in the customer's Excel files (user request 2026-10-25). Calibri comes with
+   * Windows and Office; elsewhere (phones, Macs without Office) Carlito, its open look-alike with
+   * the same letter widths, is loaded from Google Fonts. Arabic falls back to Noto Sans Arabic.
+   */
+  --font-app: 'Calibri Light', Calibri, Carlito, 'Noto Sans Arabic', Tahoma, sans-serif;
+  font-family: var(--font-app);
+  font-weight: 300;
+  /* Calibri is small for its size: 15px reads like the 11pt of the Excel sheets. */
+  font-size: calc(15px * var(--font-scale));
   line-height: 1.45;
 }
 
@@ -684,7 +692,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 /* Admin → Permissions: one column per level, checkboxes centred. */
 .permissions-tab th:not(:first-child), .permissions-tab td:not(:first-child) { text-align: center; text-transform: none; min-width: 110px; }
 
-/* Contract list as a grid: a filter on every column, pivot (customer comment 8). */
+/* Contract list as a grid: a filter on every column (customer comment 8). */
 .grid-th { display: inline-flex; align-items: center; gap: 2px; }
 th.num .grid-th { flex-direction: row-reverse; }
 .th-sort { border: none; background: none; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
@@ -700,12 +708,6 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .facet-list { overflow: auto; flex: 1; min-height: 60px; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; }
 .facet-list .check, .facet-all { display: flex; align-items: center; gap: 8px; }
 .range-filter { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.pivot-setup label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
-.pivot-setup select { width: auto; }
-.pivot th[scope="row"] { text-align: start; font-weight: 500; font-size: 13px; color: var(--text); text-transform: none; letter-spacing: normal; white-space: nowrap; }
-.pivot tfoot th, .pivot tfoot td { border-top: 2px solid var(--border-strong); }
-.pivot-cell { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; font-variant-numeric: tabular-nums; }
-.pivot-cell:hover { color: var(--accent-text); text-decoration: underline; background: none; }
 .chooser-list { max-height: 55vh; overflow: auto; display: flex; flex-direction: column; }
 .chooser-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; border-bottom: 1px solid var(--border); }
 .chooser-row .check { display: flex; align-items: center; gap: 8px; }
@@ -780,7 +782,7 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 /* Login: what reads as capitals is written in capitals (customer comment 9). */
 .auth-card h1, .auth-card .field, .auth-card button, .auth-card .btn, .auth-card .new-company span, .auth-tagline { text-transform: uppercase; letter-spacing: 0.03em; }
 .auth-card input { text-transform: none; }
-.ymd select { width: 46px; flex: none; }
-.ymd select:first-child { width: 62px; }
+.fbox .ymd select { width: 46px; flex: none; }
+.fbox .ymd select:first-child { width: 62px; }
 .kpi-box { flex-wrap: wrap; max-width: 100%; }
 @media (max-width: 640px) { .contracts-search { width: 100%; } .fbox select { width: 96px; } }

@@ -157,9 +157,36 @@ export interface GridState {
   visible: VisibilityState;
   sorting: SortingState;
   filters: ColumnFiltersState;
+  /** Free-text search over every column, shown or not. */
+  search?: string;
+}
+
+/**
+ * Free-text search: each word typed must appear somewhere in the contract, in any column
+ * (shown or hidden), as the list displays it: "jou def radisson 2026-12" narrows step by step.
+ */
+function searchText(columns: GridColumn[]) {
+  const cache = new WeakMap<Booking, string>();
+  return (b: Booking) => {
+    let text = cache.get(b);
+    if (text === undefined) {
+      text = columns.filter((c) => c.kind !== 'dates').map((c) => {
+        const v = c.get(b);
+        return `${v ?? ''} ${showValue(c, v)}`;
+      }).join(' ').toLowerCase();
+      cache.set(b, text);
+    }
+    return text;
+  };
 }
 
 export function useContractTable(rows: Booking[], columns: GridColumn[], state: GridState, set: (s: Partial<GridState>) => void) {
+  const text = useMemo(() => searchText(columns), [columns]);
+  const globalFilterFn: FilterFn<Booking> = (row, _id, q: string) => {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const all = text(row.original);
+    return words.every((w) => all.includes(w));
+  };
   const defs = useMemo<ColumnDef<Booking, Value>[]>(() => columns.map((c) => ({
     id: c.id,
     accessorFn: c.get,
@@ -174,7 +201,9 @@ export function useContractTable(rows: Booking[], columns: GridColumn[], state: 
   return useReactTable({
     data: rows,
     columns: defs,
-    state: { columnOrder: state.order, columnVisibility: state.visible, sorting: state.sorting, columnFilters: state.filters },
+    state: { columnOrder: state.order, columnVisibility: state.visible, sorting: state.sorting, columnFilters: state.filters, globalFilter: state.search ?? '' },
+    globalFilterFn,
+    getColumnCanGlobalFilter: () => true,
     onColumnOrderChange: (u) => set({ order: typeof u === 'function' ? u(state.order) : u }),
     onColumnVisibilityChange: (u) => set({ visible: typeof u === 'function' ? u(state.visible) : u }),
     onSortingChange: (u) => set({ sorting: typeof u === 'function' ? u(state.sorting) : u }),

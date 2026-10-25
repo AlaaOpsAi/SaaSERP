@@ -1273,6 +1273,19 @@ const ar: Record<string, string> = {
   "Specify (optional)": "التحديد (اختياري)",
   "Summary of the filtered contracts": "ملخص العقود المصفّاة",
   "until {s}": "حتى {s}",
+  "Search anything in the list…": "ابحث عن أي شيء في القائمة…",
+  "Every word must appear somewhere in the contract, in any column": "يجب أن تظهر كل كلمة في مكان ما من العقد، في أي عمود",
+  "Showing the first 5,000 contracts.": "يُعرض أول 5,000 عقد.",
+  "Basic columns": "الأعمدة الأساسية",
+  "standard": "قياسي",
+  "Views": "العروض",
+  "Save view for everyone": "حفظ العرض للجميع",
+  "Save these columns, order, sorting and filters as a view for everyone": "حفظ هذه الأعمدة وترتيبها والفرز والتصفية كعرض للجميع",
+  "Delete the view “{name}” for everyone?": "حذف العرض «{name}» للجميع؟",
+  "e.g. Sales standard": "مثال: عرض المبيعات",
+  "Standard view: everyone opens the contract list with it": "العرض القياسي: يفتح الجميع قائمة العقود به",
+  "This replaces the view with the same name, for everyone.": "سيحل هذا محل العرض الذي يحمل الاسم نفسه، للجميع.",
+  "Keeps the columns, their order, the sorting and the filters. Everyone can pick it; only admins save or delete views.": "يحفظ الأعمدة وترتيبها والفرز والتصفية. يمكن للجميع اختياره؛ والمسؤولون فقط يحفظون العروض أو يحذفونها.",
 };
 
 export default ar;

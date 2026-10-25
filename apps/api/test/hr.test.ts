@@ -170,7 +170,10 @@ describe('HR records', () => {
 
     const soon = (await owner.get('/hr/expiring?days=60')).body;
     expect(soon.map((x: any) => x.what).sort()).toEqual(['Civil ID', 'Passport']);
-    expect((await owner.get('/hr/employees')).body.employees.find((x: any) => x.id === e.id).expiring_in).toBe(-2);
+    // Expired about two days ago (the server counts days in the workspace's time zone).
+    const left = (await owner.get('/hr/employees')).body.employees.find((x: any) => x.id === e.id).expiring_in;
+    expect(left).toBeLessThan(0);
+    expect(left).toBeGreaterThanOrEqual(-3);
 
     // A document with an expiry joins the alerts; it opens in the watermarked viewer.
     const pdf = Buffer.from('%PDF-1.4\n%test\n');

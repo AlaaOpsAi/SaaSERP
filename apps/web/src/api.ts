@@ -119,6 +119,8 @@ export interface Me {
     field_visibility: Partial<Record<Role, ContractField[]>>;
     /** Modules the workspace subscribes to: sales (always), hr, … */
     modules: string[];
+    /** Contract list views for everyone, saved by admins. */
+    contract_views?: { standard: string | null; views: { name: string }[] };
   };
   /** Contract fields hidden from this user's role. */
   hidden_fields: ContractField[];
