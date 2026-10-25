@@ -198,7 +198,8 @@ export function Bookings() {
       </div>
 
       <div className="contracts-toolbar">
-        <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>
+        {/* Choosing columns, like saving views, is for owners and admins (user request 2026-10-25). */}
+        {isAdmin && <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>}
         {(views.length > 0 || isAdmin) && (
           <select value={viewName} onChange={(e) => applyView(e.target.value)} aria-label={t('Views')}>
             <option value="">{t('Basic columns')}</option>

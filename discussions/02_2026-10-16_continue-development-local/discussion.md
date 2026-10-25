@@ -433,6 +433,7 @@ Not building until confirmed (standing instruction).
 - **Summary removed:** the KPI boxes next to CONTRACTS are gone.
 - **What remains:** the free-text search, the filter funnel in each column header (with chips and Clear all), Columns, the company views, and the totals row at the bottom of the table.
 - **"Save view":** it is shown only to owners and admins; other users never see it.
+- **"Columns" (2026-10-25):** the column chooser is now owners and admins only too. Other users get the columns of the company's standard view, or of the view they pick.
 
 ## Local test setup used
 
