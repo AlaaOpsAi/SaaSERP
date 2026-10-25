@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import type { Booking, ContractField } from '../api';
 import { money, num } from '../format';
 import { t } from '../i18n';
+import { YmdRange } from './DateRange';
 import { StatusBadge } from './ui';
 
 /**
@@ -325,8 +326,10 @@ function ValueList({ column, meta, search, setSearch }: { column: Column<Booking
 }
 
 function RangeFilter({ column, meta }: { column: Column<Booking, unknown>; meta: GridColumn }) {
+  // Dates: FROM / TO in Y | M | D cells, as in the customer's sketch.
+  if (meta.kind === 'date') return <YmdRange value={column.getFilterValue() as Range | undefined} onChange={(v) => column.setFilterValue(v)} />;
   const r = (column.getFilterValue() as Range | undefined) ?? {};
-  const type = meta.kind === 'date' ? 'date' : 'number';
+  const type = 'number';
   const set = (k: keyof Range, v: string) => column.setFilterValue({ ...r, [k]: v });
   return (
     <div className="range-filter">

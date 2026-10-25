@@ -1286,6 +1286,10 @@ const ar: Record<string, string> = {
   "Standard view: everyone opens the contract list with it": "العرض القياسي: يفتح الجميع قائمة العقود به",
   "This replaces the view with the same name, for everyone.": "سيحل هذا محل العرض الذي يحمل الاسم نفسه، للجميع.",
   "Keeps the columns, their order, the sorting and the filters. Everyone can pick it; only admins save or delete views.": "يحفظ الأعمدة وترتيبها والفرز والتصفية. يمكن للجميع اختياره؛ والمسؤولون فقط يحفظون العروض أو يحذفونها.",
+  "FROM": "من",
+  "TO": "إلى",
+  "Date to filter on": "التاريخ المراد التصفية به",
+  "Clear the dates": "مسح التواريخ",
 };
 
 export default ar;

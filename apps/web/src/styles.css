@@ -768,3 +768,15 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contracts-title { margin: 0; letter-spacing: 0.04em; }
 .contracts-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
 .contracts-toolbar select { width: auto; }
+
+/* FROM / TO date filter in Y | M | D cells (customer's sketch, comment 13). */
+.date-filter { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); background: var(--surface); padding: 4px 6px; }
+.date-filter.on { border: 2px solid var(--accent); }
+.date-filter > select { width: auto; font-weight: 600; font-size: 12px; }
+.ymd-range { display: flex; flex-direction: column; gap: 3px; }
+.ymd-row { display: flex; align-items: center; gap: 3px; }
+.ymd-label { width: 40px; font-weight: 700; font-size: 12px; letter-spacing: 0.03em; }
+.ymd-row select { width: 46px; flex: none; padding: 3px 2px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ymd-row select:first-of-type { width: 64px; }
+.ymd-cal { padding: 2px 4px; min-height: 0; }
+.ymd-picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

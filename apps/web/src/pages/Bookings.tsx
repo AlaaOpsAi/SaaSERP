@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, download, type Booking, type Conflict, type Me } from '../api';
 import { useAuth, useHidden } from '../auth';
+import { DateFilter } from '../components/DateRange';
 import { BookingForm, bookingPayload, clientPayload, type BookingFormValues } from '../components/BookingForm';
 import {
   ColumnChooser, ColumnFilter, contractColumns, describeFilter, flexRender, type GridColumn, type GridState, metaOf, showValue,
@@ -87,6 +88,9 @@ export function Bookings() {
   };
   const [state, setState] = useState(initial);
   const [viewName, setViewName] = useState(company.standard ?? '');
+  // The date the FROM / TO filter applies to: the event date unless a view filters another one.
+  const [dateField, setDateField] = useState(() =>
+    state.filters.find((f) => ['event_date', 'inquiry_date', 'last_followup', 'next_meeting'].includes(f.id))?.id ?? 'event_date');
   const set = (s: Partial<typeof state>) => setState((prev) => ({ ...prev, ...s }));
 
   /** Admins only: store the company's views (the server refuses everyone else). */
@@ -198,6 +202,8 @@ export function Bookings() {
       </div>
 
       <div className="contracts-toolbar">
+        <DateFilter table={table} field={dateField} onField={setDateField} />
+        <span className="grow" />
         {/* Choosing columns, like saving views, is for owners and admins (user request 2026-10-25). */}
         {isAdmin && <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>}
         {(views.length > 0 || isAdmin) && (

@@ -97,7 +97,7 @@ The source Excel these comments refer to is `SALES_Daily Report.xlsx`; its **SYS
 > - The "Month" column shows month names ("Mar 2026"), and the pivot does too: this changes to numbers (2026-03).
 > - The list opens on the current year, newest enquiries first.
 >
-> **Question:** the picture mentioned ("see attached picture") wasn't included; please send it.
+> **Question:** the picture mentioned ("see attached picture") wasn't included; please send it. *(Received 2026-10-25 and built: FROM / TO rows of Y | M | D drop-downs.)*
 
 **15. Remove the filters "Follow-up due" and "Signed contract missing".** 🆕
 > Two check boxes; quick to remove. The dashboard's "signed contract missing" tile and the contract's warning stay unless asked.

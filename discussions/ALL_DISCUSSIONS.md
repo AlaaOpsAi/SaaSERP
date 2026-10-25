@@ -2198,6 +2198,16 @@ Not building until confirmed (standing instruction).
 - **"Save view":** it is shown only to owners and admins; other users never see it.
 - **"Columns" (2026-10-25):** the column chooser is now owners and admins only too. Other users get the columns of the company's standard view, or of the view they pick.
 
+**Date filter from the sketch (2026-10-25):** the user sent the picture comment 13 referred to: FROM [Y][M][D] over TO [Y][M][D], with drop-downs.
+- **Where:** next to the toolbar, for everyone.
+- **Which date:** the first box picks the date to filter on (EVENT, ENQUIRY DATE, LAST FOLLOWUP, NEXT MEETING).
+- **How the cells work:**
+  - months and days are numbers;
+  - a year alone covers the whole year (FROM 2024 TO 2025 = 1 Jan 2024 – 31 Dec 2025), and a year + month the whole month;
+  - a calendar button picks an exact day.
+- **Active:** the box gets the highlight frame and a chip.
+- **Column filters:** the funnel on any date column uses the same FROM / TO cells.
+
 ### Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.
