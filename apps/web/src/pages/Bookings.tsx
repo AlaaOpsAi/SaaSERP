@@ -9,7 +9,6 @@ import {
   ColumnChooser, ColumnFilter, contractColumns, describeFilter, flexRender, type GridColumn, type GridState, metaOf, showValue,
   standardLayout, useContractTable,
 } from '../components/ContractGrid';
-import { ContractFilters } from '../components/ContractFilters';
 import { confirmDiscard, ErrorNote, Modal, SkeletonRows } from '../components/ui';
 import { FormActions } from '../components/FormActions';
 import { money, num, statusLabel } from '../format';
@@ -20,10 +19,9 @@ interface SavedView extends Omit<GridState, 'search'> { name: string }
 /**
  * Views are the company's (user request 2026-10-25): admins save them for everyone and pick the
  * standard one everybody starts with. Others can pick a view and change columns or filters for
- * the moment, but cannot save. Only "filters open or folded" is remembered per person.
+ * the moment, but cannot save.
  */
 interface CompanyViews { standard: string | null; views: SavedView[] }
-interface Personal { filtersOpen?: boolean }
 
 /** Filters the server applies (links from the dashboard use them), shown as chips. */
 const SERVER_CHIPS = ['status', 'owner_id', 'source', 'month', 'lost_reason', 'event_type', 'business_unit_id', 'venue_id', 'from', 'to', 'followup_due', 'signed_missing', 'q'];
@@ -89,17 +87,7 @@ export function Bookings() {
   };
   const [state, setState] = useState(initial);
   const [viewName, setViewName] = useState(company.standard ?? '');
-  const personal = (me?.preferences?.contract_list as Personal | undefined) ?? {};
-  const [filtersOpen, setFiltersOpen] = useState(personal.filtersOpen ?? true);
   const set = (s: Partial<typeof state>) => setState((prev) => ({ ...prev, ...s }));
-
-  const first = useRef(true);
-  useEffect(() => {
-    if (first.current) { first.current = false; return; }
-    const value: Personal = { filtersOpen };
-    if (me) me.preferences = { ...me.preferences, contract_list: value as Record<string, unknown> };
-    api('/me/preferences', { method: 'PATCH', body: { contract_list: value } }).catch(() => undefined);
-  }, [filtersOpen]);
 
   /** Admins only: store the company's views (the server refuses everyone else). */
   const saveCompany = useSave((next: CompanyViews) => api('/tenant', { method: 'PATCH', body: { contract_views: next } }), []);
@@ -190,10 +178,7 @@ export function Bookings() {
   return (
     <>
       <div className="page-head contracts-head">
-        <div className="contracts-title">
-          <h1>{t('CONTRACTS')}</h1>
-          <Kpis rows={filtered} showMoney={!hidden('contract_value') && !hidden('money_received')} />
-        </div>
+        <h1 className="contracts-title">{t('CONTRACTS')}</h1>
         <div className="row">
           <input type="search" className="contracts-search" placeholder={t('Search anything in the list…')} value={state.search ?? ''}
             onChange={(e) => set({ search: e.target.value })} aria-label={t('Search')} title={t('Every word must appear somewhere in the contract, in any column')} />
@@ -212,8 +197,7 @@ export function Bookings() {
         </div>
       </div>
 
-      <ContractFilters table={table} open={filtersOpen} onToggle={() => setFiltersOpen((o) => !o)} active={chips.length}>
-        <span className="grow" />
+      <div className="contracts-toolbar">
         <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>
         {(views.length > 0 || isAdmin) && (
           <select value={viewName} onChange={(e) => applyView(e.target.value)} aria-label={t('Views')}>
@@ -223,7 +207,7 @@ export function Bookings() {
         )}
         {isAdmin && <button type="button" className="sm" onClick={() => setNaming(true)} title={t('Save these columns, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
         {isAdmin && viewName && <button type="button" className="sm ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
-      </ContractFilters>
+      </div>
 
       {chips.length > 0 && (
         <div className="row" style={{ marginBottom: 12 }}>
@@ -302,32 +286,6 @@ export function Bookings() {
         onClose={() => setNaming(false)} onSave={(n, std) => { saveView(n, std); setNaming(false); }} />}
       {creating && <NewBooking onClose={() => setCreating(false)} onCreated={(id) => navigate(`/bookings/${id}`)} />}
     </>
-  );
-}
-
-/**
- * The summary next to CONTRACTS (customer comment 9), for whatever is filtered (CO, BRANCH, AM …),
- * as in the top row of the daily report: TOTAL, DEF with the conversion rate DEF ÷ TOTAL,
- * PAYMENT of the signed contracts (TOTAL | PAID | TO COLLECT), ENQ, TEN, LOS.
- */
-function Kpis({ rows, showMoney }: { rows: Booking[]; showMoney: boolean }) {
-  const count = (s: Booking['status']) => rows.filter((b) => b.status === s).length;
-  const def = rows.filter((b) => b.status === 'DEF');
-  const value = def.reduce((n, b) => n + Number(b.contract_value ?? b.revenue ?? 0), 0);
-  const paid = def.reduce((n, b) => n + Number(b.paid ?? 0), 0);
-  const conv = rows.length ? def.length / rows.length : 0;
-  const box = (name: string, ...cells: string[]) => (
-    <div className="kpi-box" key={name}><span className="kpi-name">{name}</span>{cells.map((c, i) => <span key={i} className="kpi-cell">{c}</span>)}</div>
-  );
-  return (
-    <div className="kpi-strip" aria-label={t('Summary of the filtered contracts')}>
-      {box('TOTAL', num(rows.length))}
-      {box('DEF', num(def.length), `${(conv * 100).toFixed(1)}%`)}
-      {showMoney && box('PAYMENT', `${t('TOTAL')} ${money(value, { compact: true })}`, `${t('PAID')} ${money(paid, { compact: true })}`, `${t('TO COLLECT')} ${money(Math.max(0, value - paid), { compact: true })}`)}
-      {box('ENQ', num(count('ENQ')))}
-      {box('TEN', num(count('TEN')))}
-      {box('LOS', num(count('LOS')))}
-    </div>
   );
 }
 

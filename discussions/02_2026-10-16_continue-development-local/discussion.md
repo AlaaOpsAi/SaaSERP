@@ -428,6 +428,12 @@ Not building until confirmed (standing instruction).
 - **Fixed in passing:** the contract table's class name `grid` clashed with Tailwind's `grid` utility, which turned the table into a CSS grid. It is renamed `contract-grid`, so the frozen header and first column now really stay put.
 - **Not changed:** the phone app keeps the phone's own font.
 
+**Change (2026-10-25), from the user:**
+- **Filters section removed:** the quick lines and the named boxes (CO … SOURCE, Y | M | D dates) are gone.
+- **Summary removed:** the KPI boxes next to CONTRACTS are gone.
+- **What remains:** the free-text search, the filter funnel in each column header (with chips and Clear all), Columns, the company views, and the totals row at the bottom of the table.
+- **"Save view":** it is shown only to owners and admins; other users never see it.
+
 ## Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

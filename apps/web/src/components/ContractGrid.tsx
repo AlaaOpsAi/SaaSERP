@@ -48,7 +48,6 @@ const localDay = (iso: string | null) => {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
-const today = () => localDay(new Date().toISOString())!;
 
 /** DETAILS: nationality - client name - phone, then the description (CLIENT when there is no name). */
 function details(b: Booking) {
@@ -107,10 +106,6 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     moneyCol('net_profit', 'NET PROFIT', 'finance', (b) => b.net_profit),
     moneyCol('outstanding', 'CLIENT OUTSTAND.', 'finance', (b) => b.outstanding),
     { id: 'aging_days', label: 'AGING DAYS', kind: 'number', field: 'finance', get: (b) => orUndef(b.aging_days) },
-    // For the quick filters only: future event dates, and every meeting / follow-up date.
-    { id: 'upcoming', label: 'UPCOMING EVENTS', kind: 'date', internal: true, get: (b) => (b.event_date && b.event_date >= today() ? b.event_date : undefined) },
-    { id: 'meetings', label: 'MEETINGS', kind: 'dates', internal: true, get: (b) => (b.meeting_dates ?? []).map((x) => localDay(x)!) },
-    { id: 'followups', label: 'FOLLOWUP', kind: 'dates', internal: true, get: (b) => (b.followup_dates ?? []).map((x) => localDay(x)!) },
   ];
 }
 
