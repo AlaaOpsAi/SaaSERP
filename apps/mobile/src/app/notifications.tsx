@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { dateTime } from '../lib/format';
 import { useColors } from '../lib/theme';
 
-interface Note { id: string; text: string; read_at: string | null; created_at: string }
+interface Note { id: string; module?: string; text: string; read_at: string | null; created_at: string }
 
 export default function Notifications() {
   const c = useColors();
@@ -22,7 +22,7 @@ export default function Notifications() {
       <FlatList data={q.data?.items ?? []} keyExtractor={(n) => n.id}
         renderItem={({ item }) => (
           <View style={{ padding: 14, gap: 4, borderBottomWidth: 1, borderColor: c.border, backgroundColor: item.read_at ? c.surface : c.accentSoft }}>
-            <T>{item.text}</T>
+            <T><T bold>{item.module ?? 'ADM'}</T> · {item.text}</T>
             <T small muted>{dateTime(item.created_at)}</T>
           </View>
         )}

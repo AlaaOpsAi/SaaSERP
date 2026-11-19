@@ -7,7 +7,10 @@ import { dateTime } from '../format';
 import { useSave } from '../hooks';
 import { t } from '../i18n';
 
-interface Note { id: string; text: string; link: string | null; read_at: string | null; created_at: string }
+interface Note { id: string; module: string; text: string; link: string | null; read_at: string | null; created_at: string }
+
+/** Module tags (customer comment 10): where each notification comes from. */
+const MODULE_NAMES: Record<string, string> = { CON: 'Contracts', HR: 'HR', ADM: 'Admin & IT', FIN: 'Finance', SYS: 'Workspace' };
 
 /** In-app notifications: cover arrangements, transfers… Polls every minute. */
 export function Bell() {
@@ -34,6 +37,7 @@ export function Bell() {
           {!data?.items.length && <div className="empty">{t("Nothing yet.")}</div>}
           {data?.items.map((n) => (
             <div key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`}>
+              <span className={`note-tag ${n.module}`} title={t(MODULE_NAMES[n.module] ?? n.module)}>{n.module}</span>{' '}
               {n.link ? <Link to={n.link} onClick={() => setOpen(false)}>{n.text}</Link> : n.text}
               <div className="small muted">{dateTime(n.created_at)}</div>
             </div>

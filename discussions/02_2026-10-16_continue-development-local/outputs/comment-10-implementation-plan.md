@@ -31,7 +31,7 @@ How to resume:
   - Logo box: one fixed frame (about 120 × 44 px) for every company. The logo is scaled up or down to fit (`object-fit: contain`); with no logo, the company code shows in the same frame. The logo previews in Admin & IT use the same frame.
   - Check: with a wide logo, a tall logo and no logo.
 
-- [ ] **Phase 3: notification module tags**
+- [x] **Phase 3: notification module tags**
   - Migration `017_notification_module.sql`: `notifications.module` (`CON` / `HR` / `ADM` / `FIN` / `SYS`). Existing rows get it from their link (`/bookings`, `/clients`, `/activities` → CON; `/hr` → HR; `/settings` → ADM).
   - `apps/api/src/lib/notify.ts`: a `module` argument. Every caller passes its module (13 calls: bookings, activities, delegations, HR, platform, auth, …).
   - Web bell (`components/Bell.tsx`): a short coloured tag before the text, with the full module name on hover.

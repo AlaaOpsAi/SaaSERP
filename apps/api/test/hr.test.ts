@@ -54,6 +54,8 @@ describe('modules', () => {
     expect((await owner.get('/hr/expiring')).status).toBe(200);
     const bell = (await owner.get('/notifications')).body;
     expect(JSON.stringify(bell)).toContain('Module now active: HR');
+    // Each notification names its module (customer comment 10).
+    expect(bell.items.find((n: any) => n.text.startsWith('Module now active'))).toMatchObject({ module: 'SYS' });
   });
 });
 
@@ -141,6 +143,7 @@ describe('HR records', () => {
     const req = await ali.post(`/hr/employees/${id}/requests`, { text: 'New phone: 55667788' });
     expect(req.status).toBe(200);
     expect(JSON.stringify((await hana.get('/notifications')).body)).toContain('New phone: 55667788');
+    expect((await hana.get('/notifications')).body.items[0]).toMatchObject({ module: 'HR' });
     expect((await omar.post(`/hr/employees/${id}/requests`, { text: 'hello there' })).status).toBe(404);
     expect((await hana.patch(`/hr/employees/${id}`, { phone_kw: '55667788' })).status).toBe(200);
     expect((await hana.patch(`/hr/requests/${req.body.id}`, { status: 'done' })).status).toBe(200);

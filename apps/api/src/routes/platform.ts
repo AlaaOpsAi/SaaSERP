@@ -102,7 +102,7 @@ export async function platformRoutes(app: FastifyInstance) {
       await withTenant(id, async (db) => {
         const owners = (await db.query(`SELECT id FROM users WHERE role = 'owner' AND is_active`)).rows;
         const names = added.map((m) => MODULES[m as keyof typeof MODULES]?.name ?? m).join(', ');
-        for (const o of owners) await notify(db, o.id, `Module now active: ${names}`, '/settings?tab=modules');
+        for (const o of owners) await notify(db, o.id, `Module now active: ${names}`, '/settings?tab=modules', 'SYS');
       });
     }
     return { modules: after };

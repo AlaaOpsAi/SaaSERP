@@ -104,7 +104,7 @@ async function collect(db: Db) {
 async function audit(db: Db, req: FastifyRequest, format: string) {
   const { rows } = await db.query(`SELECT id FROM users WHERE role = 'owner' AND is_active AND id <> $1`, [req.user.sub]);
   const who = (await db.query('SELECT name FROM users WHERE id = $1', [req.user.sub])).rows[0]?.name ?? 'An admin';
-  for (const r of rows) await notify(db, r.id, `${who} exported the full workspace data (${format}).`);
+  for (const r of rows) await notify(db, r.id, `${who} exported the full workspace data (${format}).`, undefined, 'ADM');
 }
 
 const cell = (v: unknown) => (v !== null && typeof v === 'object' && !(v instanceof Date) ? JSON.stringify(v) : v);

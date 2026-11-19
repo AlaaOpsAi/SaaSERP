@@ -128,7 +128,7 @@ export async function delegationRoutes(app: FastifyInstance) {
   app.get('/notifications', { preHandler: authed }, (req) =>
     tx(req, async (db) => {
       const { rows } = await db.query(
-        `SELECT id, text, link, read_at, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 30`,
+        `SELECT id, module, text, link, read_at, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 30`,
         [req.user.sub],
       );
       const unread = (await db.query('SELECT count(*) AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL', [req.user.sub])).rows[0].n;
