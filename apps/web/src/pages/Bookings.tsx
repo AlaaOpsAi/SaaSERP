@@ -140,7 +140,7 @@ export function Bookings() {
   };
 
   const exportView = () => {
-    const title = t('CONTRACTS');
+    const title = t('Contracts').toUpperCase();
     const cols = leaf.map(metaOf);
     return download('/reports/table.xlsx', `${title}.xlsx`, {
       title,
@@ -220,7 +220,10 @@ export function Bookings() {
     <>
       {/* One line, in the customer's order (comment 10): NEW CONTRACT, search, EXPORT, Columns, views, Save view. */}
       <div className="contracts-bar">
-        <h1 className="contracts-title">{t('CONTRACTS')}</h1>
+        {/* "Contracts" in capitals; Arabic: العقود (i18n/ar.ts). */}
+        <h1 className="contracts-title">{t('Contracts').toUpperCase()}</h1>
+        {/* The title at the start of the line, the buttons together at its end (user request 2026-11-19). */}
+        <div className="contracts-actions">
         {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t('NEW CONTRACT')}</button>}
         <input type="search" className="contracts-search" placeholder={t('Search anything in the list…')} value={state.search ?? ''}
           onChange={(e) => set({ search: e.target.value })} aria-label={t('Search')} title={t('Every word must appear somewhere in the contract, in any column')} />
@@ -245,6 +248,7 @@ export function Bookings() {
         )}
         {isAdmin && <button type="button" onClick={() => setNaming(true)} title={t('Save these columns, widths, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
         {isAdmin && viewName && <button type="button" className="ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
+        </div>
       </div>
 
       {chips.length > 0 && (

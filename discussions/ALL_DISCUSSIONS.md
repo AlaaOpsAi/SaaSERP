@@ -2263,6 +2263,11 @@ Not building until confirmed; a rollback point will be taken first.
 - **"Can't see the buttons":** the preview the user looked at was signed in as a sales user (Joumana), who by design has no EXPORT (no export right), no Columns and no Save view (admins only). Signed in as owner, all six show on one line (they wrap on a narrow screen).
 - **Date filter line removed:** every date column already has its own FROM / TO (Y | M | D) filter in its ▾ menu. Rollback point: `rollback/2026-11-19-before-date-line-removal`.
 - **Fixed:** a body row could show through between the totals row and the column names while scrolling. The header block now stays in place as one piece.
+- **Toolbar layout (2026-11-19):** CONTRACTS sits at the start of the line and the buttons are grouped at its end, in order: NEW CONTRACT, search, EXPORT, Columns, views, Save view (Save view last, at the edge). In Arabic the line mirrors.
+- **Arabic title (2026-11-19):** the heading reads **العقود** in Arabic. The "CONTRACTS" key stays English for the Excel sheet name on the import screen, so the heading uses "Contracts" → العقود, shown in capitals in English.
+- **Changing words without a code update:**
+  - *Pick-list values* (sources, event types, lost reasons …) have their Arabic edited in Admin & IT → Pick-lists.
+  - *Screen words* (headings, buttons) live in the app's translation file `apps/web/src/i18n/ar.ts` and change with an update. There's no admin screen for them yet; a "Wording" screen in Admin & IT could be added later.
 
 ### Local test setup used
 

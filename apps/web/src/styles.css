@@ -812,7 +812,9 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 /* One toolbar line: CONTRACTS, NEW CONTRACT, search, EXPORT, Columns, views, Save view. */
 .contracts-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
 .contracts-bar .contracts-title { margin-inline-end: 6px; }
-.contracts-bar .contracts-search { width: 260px; }
+/* Buttons pushed to the end of the line, in order; in Arabic the whole line mirrors. */
+.contracts-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-inline-start: auto; }
+.contracts-bar .contracts-search { width: 220px; }
 .contracts-bar select { width: auto; }
 /* Clear columns: a line between them, zebra rows. */
 .contract-grid th, .contract-grid td { border-inline-end: 1px solid var(--border); }
