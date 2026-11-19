@@ -1,6 +1,6 @@
 # SaaSERP — all discussions
 
-_Built 2026-10-25 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
+_Built 2026-11-19 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
 
 ## Index
 
@@ -2207,6 +2207,45 @@ Not building until confirmed (standing instruction).
   - a calendar button picks an exact day.
 - **Active:** the box gets the highlight frame and a chip.
 - **Column filters:** the funnel on any date column uses the same FROM / TO cells.
+
+### Customer comment 10: contracts list, contract page, top bar, notifications (2026-11-19)
+
+**Customer (13 points):**
+1. The edit contract page has a lot of empty space (one field name and value per line).
+2. The contract list columns have no clear separation.
+3. The columns can't be resized.
+4. Notifications should start with their module.
+5. The top bar should read name "." company.
+6. Headers should take at most 2 lines, with column width following the values.
+7. Totals should sit on top of the columns, with the sums of amounts.
+8. Every column should have a flexible width, with long text wrapping.
+9. The scrollbar should be thinner.
+10. Page and row margins should be smaller.
+11. The filter icon should be an Excel-like arrow.
+12. Logos should sit in a fixed frame, zoomed to fit.
+13. One toolbar line, in this order: New contract, search, Export, Columns, view list, Save view.
+
+**Recommendations:** [outputs/comment-10-recommendations.md](02_2026-10-16_continue-development-local/outputs/comment-10-recommendations.md).
+
+**6 questions:** who resizes columns, totals content, date filter placement, "·" or ".", compact density by default, short or full module tags.
+
+Not building until confirmed; a rollback point will be taken first.
+
+**Answers (2026-11-19):**
+1. **Column widths:** everyone resizes columns, remembered on their device; the admin's saved view sets the starting widths.
+2. **Totals row on top:** count, amount sums and PAX, all following the search and filters.
+3. **Date filter:** not at the end of the toolbar line. Planned: its own line under the toolbar, above the totals, to confirm.
+4. **Separator:** "yes" taken as the recommended middle dot: "Melinda · CONF-X".
+5. **Compact by default:** yes.
+6. **Module tags:** short tags CON, HR, ADM.
+7. **Button (added 2026-11-19):** "NEW CONTRACT" in full capitals.
+
+**Implementation plan, resumable phase by phase:** [outputs/comment-10-implementation-plan.md](02_2026-10-16_continue-development-local/outputs/comment-10-implementation-plan.md).
+- **Phase 0:** a rollback tag.
+- **Phases 1–9:** each phase is committed and ticked on its own: spacing, top bar / logo, notification tags, contract page, toolbar, table, resizing, totals, filter button.
+- **Phase 10:** finish.
+
+Waiting for "build it".
 
 ### Local test setup used
 
