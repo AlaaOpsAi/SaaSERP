@@ -75,7 +75,8 @@ export function applyAppearance(p: Preferences, companyAccent?: string | null) {
     root.style.removeProperty('--accent-text-dark');
     delete root.dataset.accent;
   }
-  if (p.density === 'compact') root.dataset.density = 'compact';
+  // Compact unless the person chose comfortable (customer comment 10).
+  if (p.density !== 'comfortable') root.dataset.density = 'compact';
   else delete root.dataset.density;
   root.style.setProperty('--font-scale', String(p.fontScale ?? 1));
   try {

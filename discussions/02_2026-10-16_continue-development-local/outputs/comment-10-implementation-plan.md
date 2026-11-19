@@ -1,6 +1,6 @@
 # Comment 10: implementation plan (resumable)
 
-Date: 2026-11-19 · Status: **waiting for "build it"**
+Date: 2026-11-19 · Status: **in progress** (go-ahead 2026-11-19)
 
 How to resume:
 - Each phase is built, checked and **committed on its own**, then ticked here (`[x]`) in the same commit.
@@ -18,10 +18,10 @@ How to resume:
 
 ---
 
-- [ ] **Phase 0: rollback point**
+- [x] **Phase 0: rollback point**
   - Tag `rollback/2026-11-19-before-comment-10` on the current commit (`7311713` or later) and push the tag.
 
-- [ ] **Phase 1: spacing, scrollbar, compact by default** (whole app)
+- [x] **Phase 1: spacing, scrollbar, compact by default** (whole app)
   - `apps/web/src/styles.css`: page edges 12 px left / right, 16 px bottom; cards 10 px; table cells 5 px / 8 px; thin scrollbars (6 px, `scrollbar-width: thin` + `::-webkit-scrollbar`).
   - `apps/web/src/appearance.ts`: compact is the default when a person hasn't chosen; "comfortable" stays in Preferences.
   - Check: Home, Contracts, contract page, HR in the browser.

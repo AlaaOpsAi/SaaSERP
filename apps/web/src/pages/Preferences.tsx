@@ -94,8 +94,8 @@ export function Preferences() {
           <h2>{t('Density and text size')}</h2>
           <div className="segmented" role="radiogroup" aria-label={t('Density')}>
             {(['comfortable', 'compact'] as const).map((d) => (
-              <button key={d} role="radio" aria-checked={(prefs.density ?? 'comfortable') === d} className={(prefs.density ?? 'comfortable') === d ? 'on' : ''}
-                onClick={() => save({ density: d === 'comfortable' ? null : d })}>{t(d === 'compact' ? 'Compact' : 'Comfortable')}</button>
+              <button key={d} role="radio" aria-checked={(prefs.density ?? 'compact') === d} className={(prefs.density ?? 'compact') === d ? 'on' : ''}
+                onClick={() => save({ density: d === 'compact' ? null : d })}>{t(d === 'compact' ? 'Compact' : 'Comfortable')}</button>
             ))}
           </div>
           <label className="row">

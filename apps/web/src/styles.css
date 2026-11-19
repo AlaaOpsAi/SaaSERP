@@ -423,10 +423,12 @@ fieldset.choice .check { align-items: flex-start; }
 :root[data-accent] { --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--surface)); --brand: var(--accent); }
 button.primary, .btn.primary, .segmented button.on.primary { color: var(--on-accent); }
 .pill-step.current, .chip.on { color: var(--on-accent); }
-:root[data-density='compact'] td, :root[data-density='compact'] th { padding: 6px 10px; }
-:root[data-density='compact'] .card { padding: 12px; }
-:root[data-density='compact'] .kpi { padding: 10px 12px; }
-:root[data-density='compact'] .main { padding: 16px 20px 32px; }
+/* Compact is the default (customer comment 10): small page edges, cards and rows. */
+:root[data-density='compact'] td, :root[data-density='compact'] th { padding: 5px 8px; }
+:root[data-density='compact'] .card { padding: 10px; }
+:root[data-density='compact'] .kpi { padding: 8px 10px; }
+:root[data-density='compact'] .main { padding: 10px 12px 16px; }
+:root[data-density='compact'] .page-head { margin-bottom: 10px; }
 :root[data-density='compact'] .nav-link { padding: 6px 10px; }
 :root[data-density='compact'] input, :root[data-density='compact'] select, :root[data-density='compact'] button { padding-top: 5px; padding-bottom: 5px; }
 /* Time runs left to right in charts in every language. */
@@ -780,3 +782,10 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .ymd-row select:first-of-type { width: 64px; }
 .ymd-cal { padding: 2px 4px; min-height: 0; }
 .ymd-picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Thin scrollbars everywhere (customer comment 10). */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
