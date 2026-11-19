@@ -1,6 +1,6 @@
 # Comment 10: implementation plan (resumable)
 
-Date: 2026-11-19 · Status: **in progress** (go-ahead 2026-11-19)
+Date: 2026-11-19 · Status: **done** (2026-11-19)
 
 How to resume:
 - Each phase is built, checked and **committed on its own**, then ticked here (`[x]`) in the same commit.
@@ -64,7 +64,7 @@ How to resume:
   - `components/ContractGrid.tsx`: the header funnel becomes a small square ▾ button; when a filter is on, it shows the "filtered" sign, highlighted.
   - The menu (sort, tick-list, FROM / TO) stays as it is.
 
-- [ ] **Phase 10: finish**
+- [x] **Phase 10: finish**
   - Arabic labels for new texts; docs (`docs/ARCHITECTURE.md` if needed, `docs/DATABASE.md` via `npm run docs:db`).
   - Discussion record + `npm run discussions`.
   - Full API tests; web and API build; browser check as owner and as a sales user.

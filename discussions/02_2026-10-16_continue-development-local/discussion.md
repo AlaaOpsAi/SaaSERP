@@ -482,7 +482,19 @@ Not building until confirmed; a rollback point will be taken first.
 - **Phases 1–9:** each phase is committed and ticked on its own: spacing, top bar / logo, notification tags, contract page, toolbar, table, resizing, totals, filter button.
 - **Phase 10:** finish.
 
-Waiting for "build it".
+**Built (2026-11-19) after "build it"**, rollback point `rollback/2026-11-19-before-comment-10`:
+- **Spacing:** compact by default with smaller page, card and row spacing; thin scrollbars.
+- **Top bar:** "Name · company", and the logo sits in a fixed 120 × 44 frame, scaled to fit.
+- **Notifications:** tagged CON / HR / ADM / SYS (migration 017; old ones tagged from their link), on the web and the phone app.
+- **Contract page:** fields side by side, up to 3 pairs per row.
+- **Contracts toolbar:** one line (CONTRACTS, NEW CONTRACT, search, EXPORT, Columns, views, Save view), with the date filter on its own line.
+- **Table:**
+  - lines between columns and zebra rows;
+  - headers wrap onto 2 lines and columns are as wide as their values;
+  - drag a header edge to resize (remembered per device and saved with company views); double-click to fit;
+  - totals above the column names, following the filters;
+  - square ▾ filter buttons.
+- **Checks:** API tests 77/77; checked in the browser as owner and as a sales user.
 
 ## Local test setup used
 
