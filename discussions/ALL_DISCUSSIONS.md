@@ -2268,6 +2268,7 @@ Not building until confirmed; a rollback point will be taken first.
 - **Changing words without a code update:**
   - *Pick-list values* (sources, event types, lost reasons …) have their Arabic edited in Admin & IT → Pick-lists.
   - *Screen words* (headings, buttons) live in the app's translation file `apps/web/src/i18n/ar.ts` and change with an update. There's no admin screen for them yet; a "Wording" screen in Admin & IT could be added later.
+- **Top bar spacing (2026-11-19):** edges cut to 3 / 6 px, so the logo starts at the page edge with no extra space under it or under the Home button. The boxes are 36 px and the logo frame 40 px, so the bar is 47 px tall.
 
 ### Local test setup used
 

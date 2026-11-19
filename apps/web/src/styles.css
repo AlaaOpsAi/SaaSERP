@@ -566,7 +566,8 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 /* ---- Top bar on every page: Home · ☰ Menu · EN | AR ----------------------- */
 .topbar {
   position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 20px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px);
+  /* Tight edges (user request 2026-11-19): the logo starts at the page edge, no space under it. */
+  padding: 3px 6px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
 .topbar-brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; min-width: 0; }
@@ -659,7 +660,7 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 @keyframes slide-in { from { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { .menu-layer, .menu-panel { animation: none; } }
 @media (max-width: 640px) {
-  .topbar { padding: 8px 12px; }
+  .topbar { padding: 3px 6px; }
   .topbar-name { max-width: 46vw; font-size: 14px; }
   .topbar-sub { display: none; } /* a phone shows just the greeting */
   .logo-box { width: 96px; height: 40px; }
@@ -847,3 +848,8 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); }
 .contract-grid .col-filter .ico { width: 12px; height: 12px; }
 .contract-grid .col-filter.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* Top bar boxes a little smaller, so the bar is only as tall as the logo frame. */
+.top-btn, .lang-one { width: 36px; height: 36px; min-width: 36px; }
+.lang-one { width: auto; padding: 0 8px; }
+.topbar .logo-box { height: 40px; }
