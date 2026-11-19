@@ -1290,6 +1290,10 @@ const ar: Record<string, string> = {
   "TO": "إلى",
   "Date to filter on": "التاريخ المراد التصفية به",
   "Clear the dates": "مسح التواريخ",
+  "NEW CONTRACT": "عقد جديد",
+  "Resize {col}": "تغيير عرض {col}",
+  "Drag to resize; double-click to fit": "اسحب لتغيير العرض؛ انقر مرتين للملاءمة",
+  "Save these columns, widths, order, sorting and filters as a view for everyone": "حفظ هذه الأعمدة وعرضها وترتيبها والفرز والتصفية كعرض للجميع",
 };
 
 export default ar;

@@ -2,7 +2,7 @@ import {
   type Column, type ColumnDef, type ColumnFiltersState, type FilterFn, type SortingState, type VisibilityState,
   flexRender, getCoreRowModel, getFacetedRowModel, getFacetedUniqueValues, getFilteredRowModel, getSortedRowModel, useReactTable,
 } from '@tanstack/react-table';
-import { AlertTriangle, ArrowDown, ArrowDownAZ, ArrowUp, ArrowUpAZ, Filter, X } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowDownAZ, ArrowUp, ArrowUpAZ, ChevronDown, Filter, X } from 'lucide-react';
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Booking, ContractField } from '../api';
@@ -155,6 +155,8 @@ export interface GridState {
   filters: ColumnFiltersState;
   /** Free-text search over every column, shown or not. */
   search?: string;
+  /** Column widths the person dragged (px); columns not listed size to their values. */
+  sizing?: Record<string, number>;
 }
 
 /**
@@ -197,7 +199,11 @@ export function useContractTable(rows: Booking[], columns: GridColumn[], state: 
   return useReactTable({
     data: rows,
     columns: defs,
-    state: { columnOrder: state.order, columnVisibility: state.visible, sorting: state.sorting, columnFilters: state.filters, globalFilter: state.search ?? '' },
+    state: {
+      columnOrder: state.order, columnVisibility: state.visible, sorting: state.sorting, columnFilters: state.filters,
+      globalFilter: state.search ?? '',
+    },
+
     globalFilterFn,
     getColumnCanGlobalFilter: () => true,
     onColumnOrderChange: (u) => set({ order: typeof u === 'function' ? u(state.order) : u }),
@@ -259,7 +265,8 @@ export function ColumnFilter({ column }: { column: Column<Booking, unknown> }) {
     <>
       <button ref={btn} type="button" className={`sm ghost col-filter ${active ? 'on' : ''}`} aria-label={t('Filter {col}', { col: meta.label })}
         aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}>
-        <Filter className="ico" aria-hidden />
+        {/* Like Excel: a ▾ button; once filtered it shows the filter sign. */}
+        {active ? <Filter className="ico" aria-hidden /> : <ChevronDown className="ico" aria-hidden />}
       </button>
       {open && createPortal(
         <div ref={pop} className="filter-pop" role="dialog" aria-label={t('Filter {col}', { col: meta.label })} style={at}>

@@ -41,26 +41,26 @@ How to resume:
   - `pages/BookingDetail.tsx` + styles: the field lists (`.kv`) become a grid of 3–4 fields per row (2 on a tablet, 1 on a phone), each with the label above its value. The sections Contract & payment / Follow-up / Client sit side by side on wide screens.
   - The edit form (`components/BookingForm.tsx`) gets the same tighter spacing.
 
-- [ ] **Phase 5: contracts toolbar on one line**
+- [x] **Phase 5: contracts toolbar on one line**
   - `pages/Bookings.tsx`: the line reads **CONTRACTS** · **NEW CONTRACT** (capitals) · free search · **EXPORT** · **Columns** (admins) · view list · **Save view** (admins).
   - The FROM / TO date filter moves to its own line under it.
   - Phones: the line wraps.
 
-- [ ] **Phase 6: table readability**
+- [x] **Phase 6: table readability**
   - Separators: a thin vertical line between columns, a stronger line under the header, zebra rows.
   - Headers wrap onto at most 2 lines (cut with "…", full name on hover).
   - Columns start as wide as their values need; cells wrap long text (DETAILS and FEEDBACK start wider; numbers and codes on one line).
 
-- [ ] **Phase 7: resizable columns**
+- [x] **Phase 7: resizable columns**
   - TanStack column sizing: a drag handle on each header's right edge; double-clicking it fits the column to its longest value.
   - Widths are remembered per person on their device (`localStorage`, keyed by workspace). They are saved into company views when an admin saves one, and those widths are everyone's starting widths.
   - The frozen first column and header still work.
 
-- [ ] **Phase 8: totals row on top**
+- [x] **Phase 8: totals row on top**
   - A sticky row above the column names: number of contracts under the first column, a sum under every amount column (contract value, received, cash to collect, REV / COST / margin / profit / outstanding when shown), and total PAX.
   - It follows the search, date and column filters. The bottom totals row goes.
 
-- [ ] **Phase 9: Excel-like filter button**
+- [x] **Phase 9: Excel-like filter button**
   - `components/ContractGrid.tsx`: the header funnel becomes a small square ▾ button; when a filter is on, it shows the "filtered" sign, highlighted.
   - The menu (sort, tick-list, FROM / TO) stays as it is.
 

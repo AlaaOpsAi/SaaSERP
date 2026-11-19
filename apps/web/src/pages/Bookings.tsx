@@ -78,9 +78,18 @@ export function Bookings() {
   const company: CompanyViews = (me?.tenant.contract_views as CompanyViews | undefined) ?? { standard: null, views: [] };
   const views = company.views;
   const builtIn = (): GridState => ({ ...standardLayout(columns), sorting: REGISTERED, filters: [], search: '' });
-  const fromView = (v: SavedView | undefined): GridState => (v
-    ? { ...standardLayout(columns), order: v.order, visible: v.visible, sorting: v.sorting, filters: v.filters ?? [], search: '' }
-    : builtIn());
+  // Widths a person dragged are remembered on their own device (customer comment 10).
+  const widthsKey = `saaserp.contract-widths.${me?.tenant.id ?? ''}`;
+  const myWidths = (): Record<string, number> | undefined => {
+    try { return JSON.parse(localStorage.getItem(widthsKey) ?? 'null') ?? undefined; } catch { return undefined; }
+  };
+  const fromView = (v: SavedView | undefined): GridState => ({
+    ...(v
+      ? { ...standardLayout(columns), order: v.order, visible: v.visible, sorting: v.sorting, filters: v.filters ?? [], search: '' }
+      : builtIn()),
+    // The admin's widths in the view are everyone's starting point; the person's own drags win.
+    sizing: { ...(v?.sizing ?? {}), ...(myWidths() ?? {}) },
+  });
   const initial = (): GridState => {
     const sort = params.get('sort');
     const base = fromView(views.find((v) => v.name === company.standard));
@@ -100,6 +109,9 @@ export function Bookings() {
   });
 
   const table = useContractTable(data?.rows ?? [], columns, state, set);
+  useEffect(() => {
+    try { if (state.sizing && Object.keys(state.sizing).length) localStorage.setItem(widthsKey, JSON.stringify(state.sizing)); } catch { /* private mode */ }
+  }, [state.sizing]);
   useEffect(() => setShown(PAGE), [state.filters, state.search, serverQuery]);
   const filtered = table.getFilteredRowModel().rows.map((r) => r.original);
   const rows = table.getRowModel().rows;
@@ -120,7 +132,7 @@ export function Bookings() {
     setState(fromView(views.find((x) => x.name === name)));
   };
   const saveView = (name: string, standard: boolean) => {
-    const v: SavedView = { name, order: state.order, visible: state.visible, sorting: state.sorting, filters: state.filters };
+    const v: SavedView = { name, order: state.order, visible: state.visible, sorting: state.sorting, filters: state.filters, sizing: state.sizing };
     const list = [...views.filter((x) => x.name !== name), v].sort((a, b) => a.name.localeCompare(b.name));
     storeViews({ views: list, standard: standard ? name : company.standard === name ? null : company.standard });
     setViewName(name);
@@ -178,42 +190,70 @@ export function Bookings() {
   };
 
   const sum = (c: GridColumn) => filtered.reduce((n, b) => n + Number(c.get(b) ?? 0), 0);
+  /** Drag a header's edge: the column follows the pointer from its current width (customer comment 10). */
+  const startResize = (e: React.PointerEvent<HTMLElement>, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.currentTarget.closest('th');
+    if (!th) return;
+    const startX = e.clientX;
+    const startWidth = th.getBoundingClientRect().width;
+    const rtl = document.dir === 'rtl';
+    const move = (ev: PointerEvent) => {
+      const width = Math.max(48, Math.round(startWidth + (rtl ? startX - ev.clientX : ev.clientX - startX)));
+      setState((prev) => ({ ...prev, sizing: { ...(prev.sizing ?? {}), [id]: width } }));
+    };
+    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+  };
+  /** Double-click the edge: back to the width the values need. */
+  const fitColumn = (id: string) => {
+    const next = { ...(state.sizing ?? {}) };
+    delete next[id];
+    set({ sizing: next });
+    try { localStorage.setItem(widthsKey, JSON.stringify(next)); } catch { /* private mode */ }
+  };
+  /** A dragged width applies to the whole column; others take the width their values need. */
+  const widthOf = (id: string) => {
+    const w = state.sizing?.[id];
+    return w ? { width: w, minWidth: w, maxWidth: w } : undefined;
+  };
 
   return (
     <>
-      <div className="page-head contracts-head">
+      {/* One line, in the customer's order (comment 10): NEW CONTRACT, search, EXPORT, Columns, views, Save view. */}
+      <div className="contracts-bar">
         <h1 className="contracts-title">{t('CONTRACTS')}</h1>
-        <div className="row">
-          <input type="search" className="contracts-search" placeholder={t('Search anything in the list…')} value={state.search ?? ''}
-            onChange={(e) => set({ search: e.target.value })} aria-label={t('Search')} title={t('Every word must appear somewhere in the contract, in any column')} />
-          {me?.rights.export && (
-            <span className="export-group">
-              <button onClick={exportView} title={t('Export this list to Excel')}>EXPORT</button>
-              <details className="export-more">
-                  <summary aria-label={t('More export options')}><ChevronDown className="ico" aria-hidden /></summary>
-                  <div className="export-menu">
-                    <button className="sm ghost" onClick={() => { const y = new Date().getFullYear(); void download(`/reports/contracts.xlsx?year=${y}`, `contracts-${y}.xlsx`); }}>{t('Full year workbook')}</button>
-                  </div>
-              </details>
-            </span>
-          )}
-          {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t("New contract")}</button>}
-        </div>
-      </div>
-
-      <div className="contracts-toolbar">
-        <DateFilter table={table} field={dateField} onField={setDateField} />
-        <span className="grow" />
+        {can('sell') && <button className="primary" onClick={() => setCreating(true)}>{t('NEW CONTRACT')}</button>}
+        <input type="search" className="contracts-search" placeholder={t('Search anything in the list…')} value={state.search ?? ''}
+          onChange={(e) => set({ search: e.target.value })} aria-label={t('Search')} title={t('Every word must appear somewhere in the contract, in any column')} />
+        {me?.rights.export && (
+          <span className="export-group">
+            <button onClick={exportView} title={t('Export this list to Excel')}>EXPORT</button>
+            <details className="export-more">
+              <summary aria-label={t('More export options')}><ChevronDown className="ico" aria-hidden /></summary>
+              <div className="export-menu">
+                <button className="sm ghost" onClick={() => { const y = new Date().getFullYear(); void download(`/reports/contracts.xlsx?year=${y}`, `contracts-${y}.xlsx`); }}>{t('Full year workbook')}</button>
+              </div>
+            </details>
+          </span>
+        )}
         {/* Choosing columns, like saving views, is for owners and admins (user request 2026-10-25). */}
-        {isAdmin && <button type="button" className="sm" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>}
+        {isAdmin && <button type="button" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>}
         {(views.length > 0 || isAdmin) && (
           <select value={viewName} onChange={(e) => applyView(e.target.value)} aria-label={t('Views')}>
             <option value="">{t('Basic columns')}</option>
             {views.map((v) => <option key={v.name} value={v.name}>{v.name}{v.name === company.standard ? ` · ${t('standard')}` : ''}</option>)}
           </select>
         )}
-        {isAdmin && <button type="button" className="sm" onClick={() => setNaming(true)} title={t('Save these columns, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
-        {isAdmin && viewName && <button type="button" className="sm ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
+        {isAdmin && <button type="button" onClick={() => setNaming(true)} title={t('Save these columns, widths, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
+        {isAdmin && viewName && <button type="button" className="ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
+      </div>
+
+      {/* The FROM / TO date filter on its own line (customer comment 10). */}
+      <div className="contracts-dates">
+        <DateFilter table={table} field={dateField} onField={setDateField} />
       </div>
 
       {chips.length > 0 && (
@@ -230,20 +270,36 @@ export function Bookings() {
         <div className="table-wrap grid-wrap" ref={wrap}>
             <table className="contract-grid">
               <thead>
+                {/* Totals on top of the column names (customer comment 10), following the search and filters. */}
+                {data && (
+                  <tr className="totals-row">
+                    {leaf.map((c, i) => {
+                      const m = metaOf(c);
+                      const style = widthOf(c.id);
+                      if (i === 0) return <th key={c.id} style={style}>{t('{n} of {total}', { n: num(rows.length), total: num(data.rows.length) })}</th>;
+                      return <th key={c.id} className="num" style={style}>{m.kind === 'money' ? money(sum(m)) : m.id === 'pax' ? num(sum(m)) : ''}</th>;
+                    })}
+                  </tr>
+                )}
                 {table.getHeaderGroups().map((hg) => (
-                  <tr key={hg.id}>
+                  <tr key={hg.id} className="names-row">
                     {hg.headers.map((h) => {
                       const m = metaOf(h.column);
                       const sorted = h.column.getIsSorted();
                       return (
-                        <th key={h.id} className={m.kind === 'money' || m.kind === 'number' ? 'num' : ''}
+                        <th key={h.id} className={m.kind === 'money' || m.kind === 'number' ? 'num' : ''} style={widthOf(h.column.id)}
                           aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined}>
                           <span className="grid-th">
-                            <button type="button" className="th-sort" onClick={h.column.getToggleSortingHandler()}>
-                              {flexRender(h.column.columnDef.header, h.getContext())}{sorted ? (sorted === 'asc' ? ' ↑' : ' ↓') : ''}
+                            <button type="button" className="th-sort" onClick={h.column.getToggleSortingHandler()} title={m.label}>
+                              <span className="th-label">{flexRender(h.column.columnDef.header, h.getContext())}</span>{sorted ? (sorted === 'asc' ? ' ↑' : ' ↓') : ''}
                             </button>
                             <ColumnFilter column={h.column} />
                           </span>
+                          {/* Drag to resize; double-click to size the column to its values again. */}
+                          <span className="col-resize" role="separator" aria-orientation="vertical"
+                            aria-label={t('Resize {col}', { col: m.label })} title={t('Drag to resize; double-click to fit')}
+                            onPointerDown={(e) => startResize(e, h.column.id)} onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={() => fitColumn(h.column.id)} />
                         </th>
                       );
                     })}
@@ -262,22 +318,11 @@ export function Bookings() {
                   <tr key={r.id} className="clickable" onClick={() => navigate(`/bookings/${r.original.id}`)}>
                     {r.getVisibleCells().map((cell) => {
                       const k = metaOf(cell.column).kind;
-                      return <td key={cell.id} className={k === 'money' || k === 'number' ? 'num' : ''}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+                      return <td key={cell.id} className={k === 'money' || k === 'number' ? 'num' : k === 'text' ? 'wrap' : ''} style={widthOf(cell.column.id)}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
                     })}
                   </tr>
                 ))}
               </tbody>
-              {data && rows.length > 0 && (
-                <tfoot>
-                  <tr>
-                    {leaf.map((c, i) => {
-                      const m = metaOf(c);
-                      if (i === 0) return <td key={c.id}>{t('{n} of {total}', { n: num(rows.length), total: num(data.rows.length) })}</td>;
-                      return <td key={c.id} className="num">{m.kind === 'money' ? money(sum(m)) : m.id === 'pax' ? num(sum(m)) : ''}</td>;
-                    })}
-                  </tr>
-                </tfoot>
-              )}
             </table>
         </div>
       </div>
