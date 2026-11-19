@@ -274,7 +274,7 @@ function ContractGroups({ b, onEdit }: { b: BookingDetail; onEdit: () => void })
 
       <section id="group-contract" className="detail-group">
         <h3><span className="group-no">1</span>{t('Contract & payment details')}</h3>
-        <dl className="kv">
+        <dl className="kv kv-wide">
           <dt>{t('Contract ID')}</dt><dd><strong>{b.booking_no}</strong> <StatusBadge status={b.status} /></dd>
           {show('business_unit', <><dt>{t('Company')}</dt><dd>{b.business_unit_code}</dd></>)}
           {show('branch', <><dt>{t('Branch')}</dt><dd>{label.branch(b.branch)}</dd></>)}
@@ -303,7 +303,7 @@ function ContractGroups({ b, onEdit }: { b: BookingDetail; onEdit: () => void })
 
       <section id="group-followup" className="detail-group">
         <h3><span className="group-no">2</span>{t('Follow-up details')}</h3>
-        <dl className="kv">
+        <dl className="kv kv-wide">
           <dt>{t('Enquiry date')}</dt><dd>{date(b.inquiry_date)}</dd>
           <dt>{t('Decision due')}</dt><dd>{date(b.decision_due_date)}</dd>
           <dt>{t('Last follow-up')}</dt><dd>{date(b.last_followup_date)}</dd>
@@ -320,7 +320,7 @@ function ContractGroups({ b, onEdit }: { b: BookingDetail; onEdit: () => void })
       <section id="group-client" className="detail-group">
         <h3><span className="group-no">3</span>{t('Client details')}</h3>
         {!b.contact_id ? <Empty>{t('No client yet. Add one with Edit.')}</Empty> : (
-          <dl className="kv">
+          <dl className="kv kv-wide">
             <dt>{t('First name / contact')}</dt><dd>{client.first_name ?? '—'}</dd>
             <dt>{t('Family name')}</dt><dd>{client.family_name ?? '—'}</dd>
             <dt>{t('Phone')}</dt><dd>{client.phone ? <a href={`tel:${client.phone}`}>{client.phone}</a> : '—'}</dd>

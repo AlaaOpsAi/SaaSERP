@@ -793,3 +793,20 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Notification module tags (customer comment 10). */
+.note-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; padding: 0 5px; margin-inline-end: 2px; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong); }
+.note-tag.CON { color: var(--accent-text); border-color: var(--accent); }
+.note-tag.HR { color: #0369a1; border-color: #38bdf8; }
+.note-tag.SYS { color: var(--good-text); border-color: var(--status-good); }
+
+/*
+ * Contract page (customer comment 10): fields side by side across the width instead of one per
+ * line: 2 label / value pairs per row on a medium width, 3 on a wide one, 1 on a phone.
+ */
+.detail-group:has(.kv-wide) { container-type: inline-size; }
+.kv-wide { grid-template-columns: minmax(110px, max-content) 1fr; gap: 4px 10px; }
+.kv-wide dt { font-size: 12px; align-self: baseline; }
+.kv-wide dd { align-self: baseline; }
+@container (min-width: 620px) { .kv-wide { grid-template-columns: repeat(2, minmax(100px, max-content) minmax(0, 1fr)); column-gap: 14px; } }
+@container (min-width: 960px) { .kv-wide { grid-template-columns: repeat(3, minmax(100px, max-content) minmax(0, 1fr)); } }

@@ -37,7 +37,7 @@ How to resume:
   - Web bell (`components/Bell.tsx`): a short coloured tag before the text, with the full module name on hover.
   - API test: a new notification carries its module.
 
-- [ ] **Phase 4: contract page with less empty space**
+- [x] **Phase 4: contract page with less empty space**
   - `pages/BookingDetail.tsx` + styles: the field lists (`.kv`) become a grid of 3–4 fields per row (2 on a tablet, 1 on a phone), each with the label above its value. The sections Contract & payment / Follow-up / Client sit side by side on wide screens.
   - The edit form (`components/BookingForm.tsx`) gets the same tighter spacing.
 
