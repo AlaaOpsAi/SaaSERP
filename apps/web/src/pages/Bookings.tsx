@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, download, type Booking, type Conflict, type Me } from '../api';
 import { useAuth, useHidden } from '../auth';
-import { DateFilter } from '../components/DateRange';
 import { BookingForm, bookingPayload, clientPayload, type BookingFormValues } from '../components/BookingForm';
 import {
   ColumnChooser, ColumnFilter, contractColumns, describeFilter, flexRender, type GridColumn, type GridState, metaOf, showValue,
@@ -97,9 +96,6 @@ export function Bookings() {
   };
   const [state, setState] = useState(initial);
   const [viewName, setViewName] = useState(company.standard ?? '');
-  // The date the FROM / TO filter applies to: the event date unless a view filters another one.
-  const [dateField, setDateField] = useState(() =>
-    state.filters.find((f) => ['event_date', 'inquiry_date', 'last_followup', 'next_meeting'].includes(f.id))?.id ?? 'event_date');
   const set = (s: Partial<typeof state>) => setState((prev) => ({ ...prev, ...s }));
 
   /** Admins only: store the company's views (the server refuses everyone else). */
@@ -249,11 +245,6 @@ export function Bookings() {
         )}
         {isAdmin && <button type="button" onClick={() => setNaming(true)} title={t('Save these columns, widths, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
         {isAdmin && viewName && <button type="button" className="ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
-      </div>
-
-      {/* The FROM / TO date filter on its own line (customer comment 10). */}
-      <div className="contracts-dates">
-        <DateFilter table={table} field={dateField} onField={setDateField} />
       </div>
 
       {chips.length > 0 && (

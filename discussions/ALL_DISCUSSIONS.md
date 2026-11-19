@@ -2259,6 +2259,11 @@ Not building until confirmed; a rollback point will be taken first.
   - square ▾ filter buttons.
 - **Checks:** API tests 77/77; checked in the browser as owner and as a sales user.
 
+**Follow-up (2026-11-19), from the user:**
+- **"Can't see the buttons":** the preview the user looked at was signed in as a sales user (Joumana), who by design has no EXPORT (no export right), no Columns and no Save view (admins only). Signed in as owner, all six show on one line (they wrap on a narrow screen).
+- **Date filter line removed:** every date column already has its own FROM / TO (Y | M | D) filter in its ▾ menu. Rollback point: `rollback/2026-11-19-before-date-line-removal`.
+- **Fixed:** a body row could show through between the totals row and the column names while scrolling. The header block now stays in place as one piece.
+
 ### Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

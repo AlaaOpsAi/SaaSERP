@@ -775,10 +775,7 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contracts-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
 .contracts-toolbar select { width: auto; }
 
-/* FROM / TO date filter in Y | M | D cells (customer's sketch, comment 13). */
-.date-filter { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); background: var(--surface); padding: 4px 6px; }
-.date-filter.on { border: 2px solid var(--accent); }
-.date-filter > select { width: auto; font-weight: 600; font-size: 12px; }
+/* FROM / TO date cells in the date columns' filter (customer's sketch, comment 13). */
 .ymd-range { display: flex; flex-direction: column; gap: 3px; }
 .ymd-row { display: flex; align-items: center; gap: 3px; }
 .ymd-label { width: 40px; font-weight: 700; font-size: 12px; letter-spacing: 0.03em; }
@@ -817,7 +814,6 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contracts-bar .contracts-title { margin-inline-end: 6px; }
 .contracts-bar .contracts-search { width: 260px; }
 .contracts-bar select { width: auto; }
-.contracts-dates { display: flex; margin-bottom: 8px; }
 /* Clear columns: a line between them, zebra rows. */
 .contract-grid th, .contract-grid td { border-inline-end: 1px solid var(--border); }
 .contract-grid tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
@@ -836,8 +832,10 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contract-grid td { white-space: nowrap; }
 .contract-grid td.wrap { white-space: normal; overflow-wrap: break-word; min-width: 60px; max-width: 280px; }
 /* Totals on top of the column names; both rows stay in place while scrolling. */
-.grid-wrap .contract-grid thead .totals-row th { top: 0; height: 30px; padding-block: 4px; font-size: 12px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; background: var(--accent-soft); }
-.grid-wrap .contract-grid thead .names-row th { top: 30px; }
+.grid-wrap .contract-grid thead .totals-row th { top: auto; height: 30px; padding-block: 4px; font-size: 12px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; background: var(--accent-soft); }
+/* The whole header block (totals + names) stays in place as one piece; cells only stick sideways. */
+.grid-wrap .contract-grid thead { position: sticky; top: 0; z-index: 3; }
+.grid-wrap .contract-grid thead th { top: auto; }
 /* Resize handle on each header's right edge. */
 .contract-grid thead .names-row th { position: sticky; }
 .col-resize { position: absolute; top: 0; bottom: 0; inset-inline-end: -3px; width: 7px; cursor: col-resize; z-index: 5; touch-action: none; }
