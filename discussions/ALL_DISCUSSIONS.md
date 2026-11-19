@@ -1,6 +1,6 @@
 # SaaSERP — all discussions
 
-_Built 2026-10-25 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
+_Built 2026-11-19 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
 
 ## Index
 
@@ -8,6 +8,7 @@ _Built 2026-10-25 by `npm run discussions` from the discussion folders. Don't ed
 |---|---|---|---|
 | [01](#discussion-01) | 2026-09-30 | Platform build through the CRM database (transcript sections 1–36) | Done |
 | [02](#discussion-02) | 2026-10-16 | Continue development locally: UI, WEDX templates, company identity, permissions & viewer (comment 7), Excel-like contracts & customer statuses (comment 8), modules & HR | Open |
+| [03](#discussion-03) | 2026-11-19 | Property management system | Open |
 
 ---
 
@@ -2223,6 +2224,41 @@ Not building until confirmed (standing instruction).
 - [x] Replace text-character icons with lucide-react icons (2026-10-17).
 - [ ] Mobile: 16px body text and 44px touch targets; focus rings on links and chips.
 - [x] Code-split pages to win back the bundle size (2026-10-17).
+
+### Where things go
+
+Deliverables in `outputs/`, any scripts in `scripts/`, and this file updated as the discussion goes.
+
+---
+
+<a id="discussion-03"></a>
+
+## Discussion 03 — Property management system
+
+2026-11-19 · Open · folder [03_2026-11-19_property-management-system](03_2026-11-19_property-management-system/)
+
+- **Started:** 2026-11-19 · **Status:** Open
+- **Session:** cloud session, branch `claude/quirky-newton-iokm3b`
+
+### Request
+
+Start a new discussion on a property management system (PMS) for SaaSERP.
+
+### Decisions
+
+- None yet.
+
+### Findings
+
+- None yet.
+
+### Open items
+
+- [ ] Agree the scope of the property management system (what it covers and how it fits the existing modules).
+
+### Sources
+
+- Discussion 02 for the current state of the platform: [02_2026-10-16_continue-development-local](02_2026-10-16_continue-development-local/discussion.md).
 
 ### Where things go
 
