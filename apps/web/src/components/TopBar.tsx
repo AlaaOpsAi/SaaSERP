@@ -28,9 +28,9 @@ export function TopBar() {
       <header className="topbar" dir="ltr">
         <Link to="/" className="topbar-brand" aria-label={t('Home')}>
           <LogoBox me={me} />
-          {/* First name - company, then employee ID and today's date as numbers (customer comment 9). */}
+          {/* First name · company, then employee ID and today's date as numbers (customer comments 9 and 10). */}
           <span className="topbar-greeting">
-            <span className="topbar-name" dir="auto">{me.name.split(' ')[0]} - {me.company?.name ?? me.tenant.name}</span>
+            <span className="topbar-name" dir="auto">{me.name.split(' ')[0]} · {me.company?.name ?? me.tenant.name}</span>
             <span className="topbar-sub" dir="ltr">{[me.employee_no, numericToday()].filter(Boolean).join(' · ')}</span>
           </span>
         </Link>

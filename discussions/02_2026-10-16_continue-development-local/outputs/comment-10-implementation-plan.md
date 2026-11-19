@@ -26,7 +26,7 @@ How to resume:
   - `apps/web/src/appearance.ts`: compact is the default when a person hasn't chosen; "comfortable" stays in Preferences.
   - Check: Home, Contracts, contract page, HR in the browser.
 
-- [ ] **Phase 2: top bar and logo frame**
+- [x] **Phase 2: top bar and logo frame**
   - `components/TopBar.tsx`: "First name · company".
   - Logo box: one fixed frame (about 120 × 44 px) for every company. The logo is scaled up or down to fit (`object-fit: contain`); with no logo, the company code shows in the same frame. The logo previews in Admin & IT use the same frame.
   - Check: with a wide logo, a tall logo and no logo.

@@ -574,13 +574,16 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 .topbar-greeting { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .topbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .topbar-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; color: var(--text-2); }
-/* Company logo in a box framed by a thin line in the logo's colour (black on light, white on dark). */
+/*
+ * Company logo in one fixed frame for every company (customer comment 10): a wide, tall or
+ * missing logo takes the same space; the logo is scaled up or down to fit without stretching.
+ */
 .logo-box {
-  display: inline-flex; align-items: center; justify-content: center; flex: none;
-  height: 48px; min-width: 48px; max-width: 160px; padding: 3px 6px;
-  border: 1px solid var(--border-strong); border-radius: 8px; color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center; flex: none; overflow: hidden;
+  width: 120px; height: 44px; padding: 3px; box-sizing: border-box;
+  border: 1px solid var(--border-strong); color: var(--text);
 }
-.logo-box img { display: block; height: 40px; width: auto; max-width: 146px; object-fit: contain; }
+.logo-box img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .logo-box .logo-dark { display: none; }
 .logo-box.text { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-color-scheme: dark) {
@@ -616,7 +619,9 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 .logo-slot-preview { height: 72px; border-radius: 10px; display: grid; place-items: center; padding: 8px; border: 1px solid var(--border-strong); }
 .logo-slot.light .logo-slot-preview { background: #ffffff; color: #52514e; }
 .logo-slot.dark .logo-slot-preview { background: #0d0d0d; color: #c3c2b7; }
-.logo-slot-preview img { max-height: 56px; max-width: 100%; object-fit: contain; }
+/* The preview uses the top bar's frame, twice the size, so admins see how the logo will fit. */
+.logo-slot-preview { width: 240px; height: 88px; padding: 6px; box-sizing: border-box; }
+.logo-slot-preview img { width: 100%; height: 100%; object-fit: contain; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .top-btn {
   position: relative; width: 38px; height: 38px; padding: 0; border-radius: 10px; display: grid; place-items: center;
@@ -657,8 +662,7 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
   .topbar { padding: 8px 12px; }
   .topbar-name { max-width: 46vw; font-size: 14px; }
   .topbar-sub { display: none; } /* a phone shows just the greeting */
-  .logo-box { height: 42px; min-width: 42px; max-width: 120px; }
-  .logo-box img { height: 34px; max-width: 106px; }
+  .logo-box { width: 96px; height: 40px; }
   .main { padding: 16px; }
 }
 @media print {
