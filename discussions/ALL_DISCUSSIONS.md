@@ -2270,6 +2270,11 @@ Not building until confirmed; a rollback point will be taken first.
   - *Screen words* (headings, buttons) live in the app's translation file `apps/web/src/i18n/ar.ts` and change with an update. There's no admin screen for them yet; a "Wording" screen in Admin & IT could be added later.
 - **Top bar spacing (2026-11-19):** edges cut to 3 / 6 px, so the logo starts at the page edge with no extra space under it or under the Home button. The boxes are 36 px and the logo frame 40 px, so the bar is 47 px tall.
 - **Empty space under the contracts (2026-11-19):** the table's height was a fixed "screen minus 230 px", set for the old, taller header, so about 110 px stayed empty at the bottom. The table now fills down to the bottom of the screen, whatever sits above it (recomputed on resize and when filters change), and the page itself doesn't scroll.
+- **One-line rows (2026-11-19):** every contract row is one line high (about 34 px), which replaces comment 10's "long text wraps".
+  - Long text is cut with "…" (text columns at most 280 px unless widened) and shows in full on hover, or the column can be dragged wider.
+  - "No signed copy" is a ⚠ icon beside the status.
+  - DETAILS reads "nationality - name - phone · description" on one line.
+  - Rollback point: `rollback/2026-11-19-before-one-line-rows`.
 
 ### Local test setup used
 

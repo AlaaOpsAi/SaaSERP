@@ -328,7 +328,9 @@ export function Bookings() {
                   <tr key={r.id} className="clickable" onClick={() => navigate(`/bookings/${r.original.id}`)}>
                     {r.getVisibleCells().map((cell) => {
                       const k = metaOf(cell.column).kind;
-                      return <td key={cell.id} className={k === 'money' || k === 'number' ? 'num' : k === 'text' ? 'wrap' : ''} style={widthOf(cell.column.id)}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+                      // One line per row: long text is cut with "…" and shows in full on hover (or widen the column).
+                      const full = showValue(metaOf(cell.column), cell.getValue() as never);
+                      return <td key={cell.id} className={k === 'money' || k === 'number' ? 'num' : 'clip'} style={widthOf(cell.column.id)} title={full || undefined}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
                     })}
                   </tr>
                 ))}

@@ -67,7 +67,8 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     { id: 'branch', label: 'BRANCH', kind: 'text', field: 'branch', get: (b) => orUndef(b.branch), standard: true },
     {
       id: 'status', label: 'STATUS', kind: 'text', get: (b) => b.status, standard: true,
-      cell: (b) => <><StatusBadge status={b.status} />{b.signed_missing && <div><span className="flag" title={t('Signed contract missing')}><AlertTriangle className="ico" aria-hidden /> {t('No signed copy')}</span></div>}</>,
+      // One line (user request 2026-11-19): the "no signed copy" warning is an icon beside the status.
+      cell: (b) => <><StatusBadge status={b.status} />{b.signed_missing && <span className="flag icon-only" title={t('Signed contract missing')} aria-label={t('Signed contract missing')}><AlertTriangle className="ico" aria-hidden /></span>}</>,
     },
     dateCol('event_date', 'EVENT Y | M | D', (b) => b.event_date, true),
     { id: 'year', label: 'Y', kind: 'text', get: (b) => monthKey(b)?.slice(0, 4) },
@@ -86,7 +87,7 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     {
       id: 'details', label: 'DETAILS', kind: 'text', standard: true,
       get: (b) => { const d = details(b); return `${d.line} ${d.text}`.trim(); },
-      cell: (b) => { const d = details(b); return <div className="details-cell">{d.line}{d.text && <div className="small secondary">{d.text}</div>}</div>; },
+      cell: (b) => { const d = details(b); return <>{d.line}{d.text && <span className="secondary"> · {d.text}</span>}</>; },
     },
     dateCol('inquiry_date', 'ENQUIRY DATE', (b) => b.inquiry_date, true),
     dateCol('last_followup', 'LAST FOLLOWUP', (b) => localDay(b.last_followup_at) ?? b.last_followup_date, true),

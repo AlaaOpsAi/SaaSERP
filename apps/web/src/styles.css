@@ -754,7 +754,6 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .export-more summary { list-style: none; cursor: pointer; height: 100%; display: inline-flex; align-items: center; padding: 0 6px; border: 1px solid var(--border-strong); border-inline-start: none; background: var(--surface); }
 .export-more summary::-webkit-details-marker { display: none; }
 .export-menu { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 30; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow); padding: 4px; white-space: nowrap; }
-.details-cell { min-width: 220px; max-width: 360px; white-space: normal; }
 /* Freeze the header row and the CONTRACT ID column, like the Excel sheet. */
 .grid-wrap { max-height: calc(100vh - 230px); overflow: auto; }
 .grid-wrap thead th { position: sticky; top: 0; z-index: 3; background: var(--surface-2); }
@@ -832,8 +831,11 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 /* Long text wraps; numbers and codes stay on one line. */
 /* Columns take the width their values need (the table scrolls sideways when wider than the page). */
 .contract-grid { width: max-content; min-width: 100%; }
-.contract-grid td { white-space: nowrap; }
-.contract-grid td.wrap { white-space: normal; overflow-wrap: break-word; min-width: 60px; max-width: 280px; }
+/* Every row one line high (user request 2026-11-19): text is cut with "…", full text on hover. */
+.contract-grid td { white-space: nowrap; vertical-align: middle; }
+.contract-grid td.clip { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.contract-grid td .badge { vertical-align: middle; }
+.flag.icon-only { padding: 1px 4px; margin-inline-start: 4px; vertical-align: middle; }
 /* Totals on top of the column names; both rows stay in place while scrolling. */
 .grid-wrap .contract-grid thead .totals-row th { top: auto; height: 30px; padding-block: 4px; font-size: 12px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; background: var(--accent-soft); }
 /* The whole header block (totals + names) stays in place as one piece; cells only stick sideways. */
