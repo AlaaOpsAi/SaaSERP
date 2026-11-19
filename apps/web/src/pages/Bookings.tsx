@@ -115,6 +115,21 @@ export function Bookings() {
   // The latest rows are at the bottom: show the last ones, and open the list scrolled down to them.
   const start = Math.max(0, rows.length - shown);
   const visibleRows = rows.slice(start);
+  // The table fills the screen down to its bottom edge, whatever sits above it (no empty space under it).
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      // Leave room for the card's and the page's bottom padding, so the page itself doesn't scroll.
+      const below = (el.parentElement ? parseFloat(getComputedStyle(el.parentElement).paddingBottom) : 0)
+        + parseFloat(getComputedStyle(document.querySelector('.main') ?? document.body).paddingBottom) + 2;
+      el.style.maxHeight = `${Math.max(240, window.innerHeight - top - below)}px`;
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [state.filters.length, state.search, params, isLoading]);
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
