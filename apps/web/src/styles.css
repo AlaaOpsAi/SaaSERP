@@ -584,7 +584,9 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
   width: 120px; height: 44px; padding: 3px; box-sizing: border-box;
   border: 1px solid var(--border-strong); color: var(--text);
 }
-.logo-box img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* The logo is laid over the frame's inner area, so a large file can never spill out of it. */
+.logo-box { position: relative; }
+.logo-box img { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); max-width: none; object-fit: contain; }
 .logo-box .logo-dark { display: none; }
 .logo-box.text { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-color-scheme: dark) {
@@ -621,8 +623,9 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 .logo-slot.light .logo-slot-preview { background: #ffffff; color: #52514e; }
 .logo-slot.dark .logo-slot-preview { background: #0d0d0d; color: #c3c2b7; }
 /* The preview uses the top bar's frame, twice the size, so admins see how the logo will fit. */
-.logo-slot-preview { width: 320px; height: 104px; padding: 6px; box-sizing: border-box; }
-.logo-slot-preview img { width: 100%; height: 100%; object-fit: contain; }
+.logo-slot-preview { width: 320px; max-width: 100%; height: auto; aspect-ratio: 160 / 52; padding: 6px; box-sizing: border-box; }
+.logo-slot-preview { position: relative; overflow: hidden; }
+.logo-slot-preview img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); max-width: none; object-fit: contain; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .top-btn {
   position: relative; width: 38px; height: 38px; padding: 0; border-radius: 10px; display: grid; place-items: center;
@@ -867,3 +870,12 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 
 .chooser-all { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border-strong); }
 .chooser-views { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+/* "Fit logo": the logo in the exact shape of the frame (160 x 52), on its theme's background. */
+.crop-stage { display: grid; place-items: center; padding: 16px; background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px; }
+.crop-stage.light .crop-canvas { background: #ffffff; }
+.crop-stage.dark .crop-canvas { background: #0d0d0d; }
+.crop-canvas { width: 480px; max-width: 100%; aspect-ratio: 480 / 156; border: 2px solid var(--accent); cursor: grab; touch-action: none; }
+.crop-canvas:active { cursor: grabbing; }
+.crop-zoom { display: flex; align-items: center; gap: 8px; }
+.crop-zoom input { flex: 1; }

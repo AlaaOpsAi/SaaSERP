@@ -562,6 +562,15 @@ Not building until confirmed; a rollback point will be taken first.
   - **Headers:** some, like HALL / AREA, were still at the left, because the header button laid out its text from the start. Every header is now centred.
   - **Top bar order:** Home · language · menu.
 
+**Logos spilling out of their frame (2026-11-23):** the user's screenshot showed the logos in Admin & IT spilling far outside their preview, and the top-bar logo cut off.
+- **Cause:** the image's height didn't follow the frame.
+- **Fix:** logos are now laid over the frame's inner area, so a large file always fits inside, scaled down without stretching. The previews also shrink on narrow screens.
+- **Crop / resize tool, built after "build it":**
+  - Choosing a logo file (group or business unit, light or dark) opens **Fit logo**: the logo in the exact frame shape (160 × 52), on its theme's background.
+  - Drag to move; zoom with the slider or the mouse wheel; Fit / Fill / Centre buttons.
+  - **Save logo** keeps only what is inside the frame, as a 480 × 156 PNG, so it stays sharp. The original file isn't kept, and SVG files become PNG.
+  - Rollback point: `rollback/2026-11-23-before-logo-crop`.
+
 ## Local test setup used
 
 - Docker Desktop started; `docker compose up -d db` (Postgres on port 5433), migrations 008–009 applied and demo data seeded.

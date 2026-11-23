@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, download, LEVEL_NAMES, type ContractField, type DataRight, type Department, type Role, type User } from '../api';
 import { useAuth } from '../auth';
+import { LogoCropper } from '../components/LogoCropper';
 import { TemplatesAdmin } from '../components/TemplatesAdmin';
 import { ErrorNote, Field, Modal, Tabs, useForm } from '../components/ui';
 import { date, dateTime } from '../format';
@@ -101,7 +102,8 @@ function Company() {
 
 /**
  * The two versions of a logo: the black one for the light theme, the white one for the dark
- * theme, each previewed on its own background. PNG, JPEG, WebP or SVG, up to 300 kB.
+ * theme, each previewed on its own background. PNG, JPEG, WebP or SVG; the admin fits it to the
+ * frame first (LogoCropper) and the result is saved as a PNG.
  */
 function LogoSlots({ owner }: { owner: string }) {
   const { can } = useAuth();
@@ -114,6 +116,8 @@ function LogoSlots({ owner }: { owner: string }) {
     return api(`/logos/${owner}/${v.variant}`, { method: 'PUT', form });
   }, inv);
   const remove = useSave((variant: 'light' | 'dark') => api(`/logos/${owner}/${variant}`, { method: 'DELETE' }), inv);
+  // A chosen file first goes through "Fit logo" (crop / resize to the frame), then is uploaded.
+  const [cropping, setCropping] = useState<{ variant: 'light' | 'dark'; file: File } | null>(null);
   const slot = (variant: 'light' | 'dark', label: string) => (
     <div className={`logo-slot ${variant}`}>
       <div className="logo-slot-preview">{urls?.[variant] ? <img src={urls[variant]!} alt={label} /> : <span className="small">{t('No logo')}</span>}</div>
@@ -122,7 +126,7 @@ function LogoSlots({ owner }: { owner: string }) {
         <div className="row">
           <label className="btn sm">{urls?.[variant] ? t('Replace') : t('Upload')}
             <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden
-              onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) upload.mutate({ variant, file }); }} />
+              onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) setCropping({ variant, file }); }} />
           </label>
           {urls?.[variant] && <button type="button" className="sm ghost danger" onClick={() => remove.mutate(variant)}>{t('Remove')}</button>}
         </div>
@@ -136,6 +140,10 @@ function LogoSlots({ owner }: { owner: string }) {
         {slot('light', t('Light theme (black logo)'))}
         {slot('dark', t('Dark theme (white logo)'))}
       </div>
+      {cropping && (
+        <LogoCropper file={cropping.file} variant={cropping.variant} onCancel={() => setCropping(null)}
+          onDone={(file) => { upload.mutate({ variant: cropping.variant, file }); setCropping(null); }} />
+      )}
     </div>
   );
 }

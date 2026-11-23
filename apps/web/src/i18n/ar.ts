@@ -1297,6 +1297,16 @@ const ar: Record<string, string> = {
   "OK": "موافق",
   "Default columns": "الأعمدة الافتراضية",
   "Tick the columns to show; the arrows change their order.": "حدد الأعمدة المراد عرضها؛ والأسهم تغيّر ترتيبها.",
+  "Fit logo": "ملاءمة الشعار",
+  "Save logo": "حفظ الشعار",
+  "Zoom": "تكبير",
+  "Fit": "ملاءمة",
+  "Fill": "ملء",
+  "Centre": "توسيط",
+  "Drag the logo to move it, and zoom with the slider or the mouse wheel. Only what is inside the frame is kept.": "اسحب الشعار لتحريكه، وكبّره بالشريط أو بعجلة الفأرة. يُحفظ فقط ما داخل الإطار.",
+  "Logo in its frame": "الشعار داخل إطاره",
+  "This file could not be read as an image.": "تعذرت قراءة هذا الملف كصورة.",
+  "The logo could not be prepared.": "تعذر تجهيز الشعار.",
 };
 
 export default ar;
