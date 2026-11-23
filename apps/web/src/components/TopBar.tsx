@@ -38,11 +38,12 @@ export function TopBar() {
           <button className={`top-btn ${location.pathname === '/' ? 'on' : ''}`} onClick={() => navigate('/')} aria-label={t('Home')} title={t('Home')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>
           </button>
+          {/* Home · language · menu (user request 2026-11-23). */}
+          <LanguageToggle />
           <button className="top-btn" onClick={() => setOpen(true)} aria-label={unread ? t('Menu, {n} new notifications', { n: unread }) : t('Menu')} aria-expanded={open} title={t('Menu')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
             {unread > 0 && <span className="top-dot" />}
           </button>
-          <LanguageToggle />
         </div>
       </header>
       {open && <MenuPanel onClose={() => setOpen(false)} />}

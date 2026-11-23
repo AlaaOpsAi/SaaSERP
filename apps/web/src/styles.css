@@ -825,7 +825,7 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contract-grid thead th { white-space: normal; vertical-align: bottom; }
 .contract-grid .grid-th { display: flex; align-items: center; gap: 4px; width: 100%; }
 .contract-grid thead .names-row th { text-align: center; vertical-align: middle; }
-.contract-grid .th-sort { text-align: center; flex: 1; min-width: 0; }
+.contract-grid .th-sort { text-align: center; justify-content: center; flex: 1; min-width: 0; }
 /* Headers break into lines exactly as in the Excel SYSTEM sheet (customer comment 11), centred over the column. */
 .contract-grid .th-label { display: inline-block; white-space: pre; line-height: 1.25; text-align: center; }
 .contract-grid thead .names-row th { border-bottom: 2px solid var(--border-strong); }

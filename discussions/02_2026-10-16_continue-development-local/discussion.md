@@ -558,6 +558,9 @@ Not building until confirmed; a rollback point will be taken first.
   - every filter's "Done" became **OK ✓**;
   - years are listed oldest first (2017 → next year + 2).
 - **Checks:** in the browser as owner.
+- **Follow-up (2026-11-23):**
+  - **Headers:** some, like HALL / AREA, were still at the left, because the header button laid out its text from the start. Every header is now centred.
+  - **Top bar order:** Home · language · menu.
 
 ## Local test setup used
 
