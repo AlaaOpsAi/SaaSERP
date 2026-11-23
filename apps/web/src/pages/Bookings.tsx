@@ -1,4 +1,4 @@
-import { ChevronDown, Columns3, Save, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Columns3, Save, Trash2, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -255,12 +255,6 @@ export function Bookings() {
         )}
         {/* Choosing columns, like saving views, is for owners and admins (user request 2026-10-25). */}
         {isAdmin && <button type="button" onClick={() => setChoosing(true)}><Columns3 className="ico" aria-hidden /> {t('Columns')}</button>}
-        {(views.length > 0 || isAdmin) && (
-          <select value={viewName} onChange={(e) => applyView(e.target.value)} aria-label={t('Views')}>
-            <option value="">{t('Basic columns')}</option>
-            {views.map((v) => <option key={v.name} value={v.name}>{v.name}{v.name === company.standard ? ` · ${t('standard')}` : ''}</option>)}
-          </select>
-        )}
         {isAdmin && <button type="button" onClick={() => setNaming(true)} title={t('Save these columns, widths, order, sorting and filters as a view for everyone')}><Save className="ico" aria-hidden /> {t('Save view')}</button>}
         {isAdmin && viewName && <button type="button" className="ghost" onClick={deleteView} aria-label={t('Delete this view')}><Trash2 className="ico" aria-hidden /></button>}
         </div>
@@ -301,7 +295,7 @@ export function Bookings() {
                           aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined}>
                           <span className="grid-th">
                             <button type="button" className="th-sort" onClick={h.column.getToggleSortingHandler()} title={m.label}>
-                              <span className="th-label">{flexRender(h.column.columnDef.header, h.getContext())}</span>{sorted ? (sorted === 'asc' ? ' ↑' : ' ↓') : ''}
+                              <span className="th-label">{m.head ?? m.label}</span>{sorted ? (sorted === 'asc' ? ' ↑' : ' ↓') : ''}
                             </button>
                             <ColumnFilter column={h.column} />
                           </span>
@@ -341,8 +335,22 @@ export function Bookings() {
       {data && data.rows.length >= 5000 && <p className="small muted">{t('Showing the first 5,000 contracts.')}</p>}
 
       {choosing && (
-        <Modal title={t('Columns')} onClose={() => setChoosing(false)} footer={<button className="primary" onClick={() => setChoosing(false)}>{t('Done')}</button>}>
-          <ColumnChooser columns={columns} state={state} set={set} onReset={() => set(standardLayout(columns))} />
+        <Modal title={t('Columns')} onClose={() => setChoosing(false)} footer={<button className="primary" onClick={() => setChoosing(false)}><Check className="ico" aria-hidden /> {t('OK')}</button>}>
+          {/* The company's saved views are picked here (customer comment 11). */}
+          {views.length > 0 && (
+            <div className="chooser-views">
+              <strong className="small">{t('Views')}</strong>
+              <div className="row">
+                {views.map((v) => (
+                  <button key={v.name} type="button" className={`sm ${viewName === v.name ? 'chip on' : ''}`} aria-pressed={viewName === v.name} onClick={() => applyView(v.name)}>
+                    {v.name}{v.name === company.standard ? ` · ${t('standard')}` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Default columns: the company's standard view, or the basic columns when there is none. */}
+          <ColumnChooser columns={columns} state={state} set={set} onReset={() => applyView(company.standard ?? '')} />
         </Modal>
       )}
       <ErrorNote error={saveCompany.error} />

@@ -621,7 +621,7 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
 .logo-slot.light .logo-slot-preview { background: #ffffff; color: #52514e; }
 .logo-slot.dark .logo-slot-preview { background: #0d0d0d; color: #c3c2b7; }
 /* The preview uses the top bar's frame, twice the size, so admins see how the logo will fit. */
-.logo-slot-preview { width: 240px; height: 88px; padding: 6px; box-sizing: border-box; }
+.logo-slot-preview { width: 320px; height: 104px; padding: 6px; box-sizing: border-box; }
 .logo-slot-preview img { width: 100%; height: 100%; object-fit: contain; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .top-btn {
@@ -663,7 +663,7 @@ details.schedule summary { cursor: pointer; color: var(--accent-text); font-weig
   .topbar { padding: 3px 6px; }
   .topbar-name { max-width: 46vw; font-size: 14px; }
   .topbar-sub { display: none; } /* a phone shows just the greeting */
-  .logo-box { width: 96px; height: 40px; }
+  .logo-box, .topbar .logo-box { width: 120px; height: 44px; }
   .main { padding: 16px; }
 }
 @media print {
@@ -823,10 +823,11 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contract-grid tbody tr.clickable:hover td { background: var(--surface-2); }
 /* Headers wrap onto at most 2 lines, so columns are as wide as their values need. */
 .contract-grid thead th { white-space: normal; vertical-align: bottom; }
-.contract-grid .grid-th { display: flex; align-items: flex-end; gap: 4px; width: 100%; }
-.contract-grid th.num .grid-th { flex-direction: row-reverse; }
-.contract-grid .th-sort { white-space: normal; text-align: inherit; flex: 1; min-width: 0; max-width: 104px; }
-.contract-grid .th-label { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
+.contract-grid .grid-th { display: flex; align-items: center; gap: 4px; width: 100%; }
+.contract-grid thead .names-row th { text-align: center; vertical-align: middle; }
+.contract-grid .th-sort { text-align: center; flex: 1; min-width: 0; }
+/* Headers break into lines exactly as in the Excel SYSTEM sheet (customer comment 11), centred over the column. */
+.contract-grid .th-label { display: inline-block; white-space: pre; line-height: 1.25; text-align: center; }
 .contract-grid thead .names-row th { border-bottom: 2px solid var(--border-strong); }
 /* Long text wraps; numbers and codes stay on one line. */
 /* Columns take the width their values need (the table scrolls sideways when wider than the page). */
@@ -837,7 +838,7 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 .contract-grid td .badge { vertical-align: middle; }
 .flag.icon-only { padding: 1px 4px; margin-inline-start: 4px; vertical-align: middle; }
 /* Totals on top of the column names; both rows stay in place while scrolling. */
-.grid-wrap .contract-grid thead .totals-row th { top: auto; height: 30px; padding-block: 4px; font-size: 12px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; background: var(--accent-soft); }
+.grid-wrap .contract-grid thead .totals-row th { top: auto; height: 34px; padding-block: 5px; font-size: 14px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; background: var(--accent-soft); }
 /* The whole header block (totals + names) stays in place as one piece; cells only stick sideways. */
 .grid-wrap .contract-grid thead { position: sticky; top: 0; z-index: 3; }
 .grid-wrap .contract-grid thead th { top: auto; }
@@ -854,4 +855,15 @@ th:hover .col-filter, .col-filter:focus-visible, .col-filter[aria-expanded="true
 /* Top bar boxes a little smaller, so the bar is only as tall as the logo frame. */
 .top-btn, .lang-one { width: 36px; height: 36px; min-width: 36px; }
 .lang-one { width: auto; padding: 0 8px; }
-.topbar .logo-box { height: 40px; }
+.topbar .logo-box { width: 160px; height: 52px; }
+
+/* Customer comment 11: Home icon titles and menu entries in capitals. */
+.app-label, .menu-item { text-transform: uppercase; letter-spacing: 0.02em; }
+@media (max-width: 640px) { .topbar .logo-box { width: 120px; height: 44px; } }
+
+/* The table reaches the very bottom of the screen; its scrollbar is the last thing on the page (comment 11). */
+.main:has(.grid-wrap), :root[data-density] .main:has(.grid-wrap) { padding-bottom: 0; }
+.card.flush:has(> .grid-wrap) { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+
+.chooser-all { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border-strong); }
+.chooser-views { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }

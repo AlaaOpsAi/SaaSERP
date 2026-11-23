@@ -35,7 +35,8 @@ function YmdRow({ label, value, onChange }: { label: string; value: string[] | u
       <span className="ymd-label">{label}</span>
       <select value={y} onChange={(e) => set(0, e.target.value)} aria-label={`${label} Y`}>
         <option value="">Y</option>
-        {Array.from({ length: 12 }, (_, i) => year + 2 - i).map((n) => <option key={n} value={n}>{n}</option>)}
+        {/* Oldest first (customer comment 11): the chosen year sits between the one before and the one after. */}
+        {Array.from({ length: year + 3 - 2017 }, (_, i) => 2017 + i).map((n) => <option key={n} value={n}>{n}</option>)}
       </select>
       <select value={m} onChange={(e) => set(1, e.target.value)} aria-label={`${label} M`} disabled={!y}>
         <option value="">M</option>

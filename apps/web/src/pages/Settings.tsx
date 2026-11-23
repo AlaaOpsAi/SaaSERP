@@ -183,7 +183,8 @@ function Team() {
   const [transferring, setTransferring] = useState<User | null>(null);
   // Managers can hand over the work of people in their team; admins anyone's (but never their own).
   const canTransfer = (u: User) => can('manage') && u.id !== me?.id && (me?.sees_all || me?.team_ids.includes(u.id));
-  const [view, setView] = useState<'chart' | 'list'>('chart');
+  // Opens on the list; the org chart is one click away (customer comment 11).
+  const [view, setView] = useState<'chart' | 'list'>('list');
   const kids = byManager(users ?? []);
   const nameOf = (id: string | null) => users?.find((u) => u.id === id)?.name ?? '—';
 

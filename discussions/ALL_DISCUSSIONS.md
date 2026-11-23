@@ -1,6 +1,6 @@
 # SaaSERP — all discussions
 
-_Built 2026-11-19 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
+_Built 2026-11-23 by `npm run discussions` from the discussion folders. Don't edit this file by hand: edit the folder's `discussion.md` and run the script again._
 
 ## Index
 
@@ -2275,6 +2275,52 @@ Not building until confirmed; a rollback point will be taken first.
   - "No signed copy" is a ⚠ icon beside the status.
   - DETAILS reads "nationality - name - phone · description" on one line.
   - Rollback point: `rollback/2026-11-19-before-one-line-rows`.
+
+### Customer comment 11: home icons, contract table, date filter, Admin & IT (2026-11-23)
+
+**Customer (12 points):**
+1. Home icon titles should be in capitals.
+2. Column headers should be centred.
+3. "Basic columns" should become "Default columns" inside the Columns window, which also needs Select all.
+4. The scrollbar should be the last thing on the page, with no margin below.
+5. The totals font should be bigger.
+6. Admin & IT → Team should open as a list.
+7. "All icons inside must be fixed".
+8. The date filter should wait for TO before applying.
+9. "Done" should become OK or an icon.
+10. PAX UNITS should always take 2 lines.
+11. Headers should break into lines exactly as in the Excel.
+12. The date-filter years should be in ascending order.
+
+**Recommendations:** [outputs/comment-11-recommendations.md](02_2026-10-16_continue-development-local/outputs/comment-11-recommendations.md).
+
+**3 questions:** company views inside the Columns window, the meaning of "icons fixed", and whether TERM DAYS RN takes 3 lines as in the Excel.
+
+Not building until confirmed; a rollback point will be taken first.
+
+**Answers (2026-11-23):**
+1. **Views:** company views are picked inside the Columns window (no view list on the toolbar).
+2. **Item 7, corrected:** it isn't about icons; **company logos should be bigger** on every page that shows them. Plan: the top-bar logo frame grows from 120 × 40 to **160 × 52 px**, still one fixed frame with the logo scaled to fit, so the bar grows to about 58 px. The previews in Admin & IT keep the same proportions.
+3. **TERM DAYS RN:** fixed on 2 lines: "TERM DAYS / RN".
+
+**Built (2026-11-23) after "build it"**, rollback point `rollback/2026-11-23-before-comment-11`:
+- **Home and menu:** labels in capitals.
+- **Admin & IT → Team:** opens on the list.
+- **Logos:** the logo frame is 160 × 52 px (120 × 44 on phones), and the Admin & IT previews are 320 × 104.
+- **Contract table:**
+  - headers centred, with the Excel SYSTEM line breaks (CONTRACT / ID, HOTEL / LOC, HALL / AREA, PAX / UNITS, RATE / PP | PU, TERM DAYS / RN, MONEY RECEIVED / DP, …); one-line Excel headers stay one line;
+  - totals at 14 px bold;
+  - the table reaches the bottom of the screen, with no page margin below it.
+- **Columns window:**
+  - Select all / none (CONTRACT ID always stays);
+  - the company views are picked there, and the view list left the toolbar;
+  - "Default columns" goes back to the standard view;
+  - the button reads OK.
+- **Column filters:**
+  - dates are applied only with **OK** (FROM and TO can both be chosen first);
+  - every filter's "Done" became **OK ✓**;
+  - years are listed oldest first (2017 → next year + 2).
+- **Checks:** in the browser as owner.
 
 ### Local test setup used
 

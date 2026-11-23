@@ -1294,6 +1294,9 @@ const ar: Record<string, string> = {
   "Resize {col}": "تغيير عرض {col}",
   "Drag to resize; double-click to fit": "اسحب لتغيير العرض؛ انقر مرتين للملاءمة",
   "Save these columns, widths, order, sorting and filters as a view for everyone": "حفظ هذه الأعمدة وعرضها وترتيبها والفرز والتصفية كعرض للجميع",
+  "OK": "موافق",
+  "Default columns": "الأعمدة الافتراضية",
+  "Tick the columns to show; the arrows change their order.": "حدد الأعمدة المراد عرضها؛ والأسهم تغيّر ترتيبها.",
 };
 
 export default ar;

@@ -2,7 +2,7 @@ import {
   type Column, type ColumnDef, type ColumnFiltersState, type FilterFn, type SortingState, type VisibilityState,
   flexRender, getCoreRowModel, getFacetedRowModel, getFacetedUniqueValues, getFilteredRowModel, getSortedRowModel, useReactTable,
 } from '@tanstack/react-table';
-import { AlertTriangle, ArrowDown, ArrowDownAZ, ArrowUp, ArrowUpAZ, ChevronDown, Filter, X } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowDownAZ, ArrowUp, ArrowUpAZ, Check, ChevronDown, Filter, X } from 'lucide-react';
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Booking, ContractField } from '../api';
@@ -35,6 +35,8 @@ export interface GridColumn {
   standard?: boolean;
   /** Used only by the filter boxes, never shown as a column. */
   internal?: boolean;
+  /** The header with the Excel SYSTEM sheet's line break ("\n"), when it is on 2 lines there (customer comment 11). */
+  head?: string;
 }
 
 const blank = (v: Value) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
@@ -62,7 +64,7 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
   const dateCol = (id: string, label: string, get: (b: Booking) => string | null | undefined, standard = false): GridColumn =>
     ({ id, label, kind: 'date', get: (b) => orUndef(ymd(get(b))), cell: (b) => ymd(get(b)) || '—', standard });
   return [
-    { id: 'booking_no', label: 'CONTRACT ID', kind: 'text', get: (b) => b.booking_no, cell: (b) => <strong>{b.booking_no}</strong>, standard: true },
+    { id: 'booking_no', label: 'CONTRACT ID', head: 'CONTRACT\nID', kind: 'text', get: (b) => b.booking_no, cell: (b) => <strong>{b.booking_no}</strong>, standard: true },
     { id: 'co', label: 'CO', kind: 'text', field: 'business_unit', get: (b) => orUndef(b.business_unit_code), standard: true },
     { id: 'branch', label: 'BRANCH', kind: 'text', field: 'branch', get: (b) => orUndef(b.branch), standard: true },
     {
@@ -73,13 +75,13 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     dateCol('event_date', 'EVENT Y | M | D', (b) => b.event_date, true),
     { id: 'year', label: 'Y', kind: 'text', get: (b) => monthKey(b)?.slice(0, 4) },
     { id: 'month', label: 'Y | M', kind: 'text', get: (b) => monthKey(b) },
-    { id: 'venue', label: 'HOTEL LOC', kind: 'text', get: (b) => orUndef(b.venue_name), standard: true },
-    { id: 'space', label: 'HALL AREA', kind: 'text', get: (b) => orUndef(b.space_name ?? b.hall_text), standard: true },
-    { id: 'pax', label: 'PAX UNITS', kind: 'number', field: 'pax', get: (b) => orUndef(b.pax), standard: true },
-    { id: 'rate', label: 'RATE PP | PU', kind: 'money', field: 'rate', get: (b) => orUndef(b.rate), standard: true },
-    { id: 'term_days', label: 'TERM DAYS RN', kind: 'number', field: 'rate', get: (b) => orUndef(b.term_days), standard: true },
+    { id: 'venue', label: 'HOTEL LOC', head: 'HOTEL\nLOC', kind: 'text', get: (b) => orUndef(b.venue_name), standard: true },
+    { id: 'space', label: 'HALL AREA', head: 'HALL\nAREA', kind: 'text', get: (b) => orUndef(b.space_name ?? b.hall_text), standard: true },
+    { id: 'pax', label: 'PAX UNITS', head: 'PAX\nUNITS', kind: 'number', field: 'pax', get: (b) => orUndef(b.pax), standard: true },
+    { id: 'rate', label: 'RATE PP | PU', head: 'RATE\nPP | PU', kind: 'money', field: 'rate', get: (b) => orUndef(b.rate), standard: true },
+    { id: 'term_days', label: 'TERM DAYS RN', head: 'TERM DAYS\nRN', kind: 'number', field: 'rate', get: (b) => orUndef(b.term_days), standard: true },
     moneyCol('contract_value', 'TOTAL CONTRACT VALUE', 'contract_value', (b) => b.contract_value, true),
-    moneyCol('paid', 'MONEY RECEIVED DP', 'money_received', (b) => b.paid, true),
+    { ...moneyCol('paid', 'MONEY RECEIVED DP', 'money_received', (b) => b.paid, true), head: 'MONEY RECEIVED\nDP' },
     moneyCol('to_collect', 'CASH TO COLLECT', 'contract_value', (b) => b.diff_ctrl, true),
     { id: 'payment', label: 'PAYMENT', kind: 'text', field: 'money_received', get: (b) => orUndef(b.payment), standard: true },
     { id: 'source', label: 'SOURCE', kind: 'text', field: 'source', get: (b) => orUndef(b.source), standard: true },
@@ -91,10 +93,10 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     },
     dateCol('inquiry_date', 'ENQUIRY DATE', (b) => b.inquiry_date, true),
     dateCol('last_followup', 'LAST FOLLOWUP', (b) => localDay(b.last_followup_at) ?? b.last_followup_date, true),
-    { id: 'followup_text', label: 'FOLLOWUP CLIENT FEEDBACK', kind: 'text', get: (b) => orUndef(b.last_followup_text), standard: true },
+    { id: 'followup_text', label: 'FOLLOWUP CLIENT FEEDBACK', head: 'FOLLOWUP\nCLIENT FEEDBACK', kind: 'text', get: (b) => orUndef(b.last_followup_text), standard: true },
     dateCol('next_meeting', 'NEXT MEETING', (b) => localDay(b.next_meeting_at), true),
     { id: 'event_type', label: 'CONTRACT TYPE', kind: 'text', field: 'event_type', get: (b) => orUndef(b.event_type), fmt: (v) => (blank(v) ? '' : o.eventLabel(String(v))) },
-    { id: 'nationality', label: 'COUNTRY NATIONALITY', kind: 'text', get: (b) => orUndef(b.contact_nationality ?? null) },
+    { id: 'nationality', label: 'COUNTRY NATIONALITY', head: 'COUNTRY\nNATIONALITY', kind: 'text', get: (b) => orUndef(b.contact_nationality ?? null) },
     { id: 'client', label: 'CLIENT', kind: 'text', get: (b) => orUndef(b.contact_name ?? b.account_name) },
     { id: 'phone', label: 'CLIENT PHONE', kind: 'text', get: (b) => orUndef(b.contact_phone) },
     { id: 'email', label: 'CLIENT EMAIL', kind: 'text', get: (b) => orUndef(b.contact_email) },
@@ -104,10 +106,10 @@ export function contractColumns(o: { eventLabel: (c: string | null) => string; s
     dateCol('fully_paid_date', 'FULLY PAID', (b) => b.fully_paid_date),
     moneyCol('revenue', 'REV', 'finance', (b) => b.revenue),
     moneyCol('cost', 'COST', 'finance', (b) => b.cost),
-    moneyCol('gross_margin', 'GROSS MARGIN', 'finance', (b) => b.gross_margin),
-    moneyCol('net_profit', 'NET PROFIT', 'finance', (b) => b.net_profit),
+    { ...moneyCol('gross_margin', 'GROSS MARGIN', 'finance', (b) => b.gross_margin), head: 'GROSS\nMARGIN' },
+    { ...moneyCol('net_profit', 'NET PROFIT', 'finance', (b) => b.net_profit), head: 'NET\nPROFIT' },
     moneyCol('outstanding', 'CLIENT OUTSTAND.', 'finance', (b) => b.outstanding),
-    { id: 'aging_days', label: 'AGING DAYS', kind: 'number', field: 'finance', get: (b) => orUndef(b.aging_days) },
+    { id: 'aging_days', label: 'AGING DAYS', head: 'AGING\nDAYS', kind: 'number', field: 'finance', get: (b) => orUndef(b.aging_days) },
   ];
 }
 
@@ -243,6 +245,11 @@ export function ColumnFilter({ column }: { column: Column<Booking, unknown> }) {
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const active = column.getIsFiltered();
+  // Dates are applied with OK only, so FROM and TO can both be chosen first (customer comment 11).
+  const isDate = meta.kind === 'date';
+  const [draft, setDraft] = useState<Range | undefined>();
+  const toggle = () => setOpen((v) => { if (!v) setDraft(column.getFilterValue() as Range | undefined); return !v; });
+  const ok = () => { if (isDate) column.setFilterValue(draft); setOpen(false); };
 
   useLayoutEffect(() => {
     if (!open || !btn.current) return;
@@ -265,7 +272,7 @@ export function ColumnFilter({ column }: { column: Column<Booking, unknown> }) {
   return (
     <>
       <button ref={btn} type="button" className={`sm ghost col-filter ${active ? 'on' : ''}`} aria-label={t('Filter {col}', { col: meta.label })}
-        aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}>
+        aria-expanded={open} onClick={(e) => { e.stopPropagation(); toggle(); }}>
         {/* Like Excel: a ▾ button; once filtered it shows the filter sign. */}
         {active ? <Filter className="ico" aria-hidden /> : <ChevronDown className="ico" aria-hidden />}
       </button>
@@ -281,10 +288,11 @@ export function ColumnFilter({ column }: { column: Column<Booking, unknown> }) {
           </div>
           {meta.kind === 'text'
             ? <ValueList column={column} meta={meta} search={search} setSearch={setSearch} />
-            : <RangeFilter column={column} meta={meta} />}
+            : isDate ? <YmdRange value={draft} onChange={setDraft} />
+              : <RangeFilter column={column} meta={meta} />}
           <div className="spread">
-            <button type="button" className="sm ghost" disabled={!active} onClick={() => column.setFilterValue(undefined)}>{t('Clear filter')}</button>
-            <button type="button" className="sm" onClick={() => setOpen(false)}>{t('Done')}</button>
+            <button type="button" className="sm ghost" disabled={!active && !draft} onClick={() => { setDraft(undefined); column.setFilterValue(undefined); }}>{t('Clear filter')}</button>
+            <button type="button" className="sm primary" onClick={ok}><Check className="ico" aria-hidden /> {t('OK')}</button>
           </div>
         </div>,
         document.body,
@@ -334,8 +342,6 @@ function ValueList({ column, meta, search, setSearch }: { column: Column<Booking
 }
 
 function RangeFilter({ column, meta }: { column: Column<Booking, unknown>; meta: GridColumn }) {
-  // Dates: FROM / TO in Y | M | D cells, as in the customer's sketch.
-  if (meta.kind === 'date') return <YmdRange value={column.getFilterValue() as Range | undefined} onChange={(v) => column.setFilterValue(v)} />;
   const r = (column.getFilterValue() as Range | undefined) ?? {};
   const type = 'number';
   const set = (k: keyof Range, v: string) => column.setFilterValue({ ...r, [k]: v });
@@ -359,7 +365,14 @@ export function ColumnChooser({ columns, state, set, onReset }: { columns: GridC
   };
   return (
     <div className="stack">
-      <p className="small secondary">{t('Tick the columns to show; the arrows change their order. Your layout is kept for next time.')}</p>
+      <p className="small secondary">{t('Tick the columns to show; the arrows change their order.')}</p>
+      {/* Select all / none (customer comment 11); CONTRACT ID always stays. */}
+      <label className="check chooser-all">
+        <input type="checkbox" checked={order.every((id) => state.visible[id] !== false)}
+          ref={(el) => { if (el) el.indeterminate = order.some((id) => state.visible[id] !== false) && !order.every((id) => state.visible[id] !== false); }}
+          onChange={(e) => set({ visible: Object.fromEntries(order.map((id) => [id, e.target.checked || id === 'booking_no'])) })} />
+        <strong>{t('Select all')}</strong>
+      </label>
       <div className="chooser-list">
         {order.map((id, i) => (
           <div key={id} className="chooser-row">
@@ -372,7 +385,7 @@ export function ColumnChooser({ columns, state, set, onReset }: { columns: GridC
           </div>
         ))}
       </div>
-      <div><button type="button" className="sm ghost" onClick={onReset}><X className="ico" aria-hidden /> {t('Back to the standard columns')}</button></div>
+      <div><button type="button" className="sm" onClick={onReset}><X className="ico" aria-hidden /> {t('Default columns')}</button></div>
     </div>
   );
 }
